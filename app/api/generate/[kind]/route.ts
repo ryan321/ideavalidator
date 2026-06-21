@@ -14,12 +14,12 @@ export async function POST(
   if (!(kind in GENERATORS)) {
     return NextResponse.json({ error: `Unknown kind: ${kind}` }, { status: 400 });
   }
-  const { ideaId } = await req.json();
-  if (!ideaId) {
-    return NextResponse.json({ error: "ideaId is required" }, { status: 400 });
+  const { versionId } = await req.json();
+  if (!versionId) {
+    return NextResponse.json({ error: "versionId is required" }, { status: 400 });
   }
   try {
-    const artifact = await runGenerator(ideaId, kind as ArtifactKind);
+    const artifact = await runGenerator(versionId, kind as ArtifactKind);
     return NextResponse.json(artifact);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Generation failed";

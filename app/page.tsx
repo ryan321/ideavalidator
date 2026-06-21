@@ -35,9 +35,28 @@ export default function Home() {
                 href={`/idea/${idea.id}`}
                 className="block rounded-xl border border-border bg-panel p-4 transition hover:border-accent/50 hover:bg-panel2"
               >
-                <div className="font-medium">{idea.title}</div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="font-medium">{idea.title}</div>
+                  {idea.best_score != null && (
+                    <span
+                      className="shrink-0 rounded-md px-2 py-0.5 font-mono text-sm font-bold"
+                      style={{
+                        color:
+                          idea.best_score >= 70
+                            ? "var(--color-good)"
+                            : idea.best_score >= 45
+                              ? "var(--color-warn)"
+                              : "var(--color-bad)",
+                        background: "color-mix(in srgb, currentColor 14%, transparent)",
+                      }}
+                    >
+                      {idea.best_score}
+                    </span>
+                  )}
+                </div>
                 <div className="mt-1 text-xs text-muted">
                   {new Date(idea.created_at).toLocaleString()}
+                  {idea.version_count > 1 ? ` · ${idea.version_count} versions` : ""}
                 </div>
               </Link>
             </li>

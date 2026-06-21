@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteIdea, getArtifacts, getIdea } from "@/lib/db";
+import { deleteIdea, getArtifactsByVersion, getIdea, listVersions } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -10,7 +10,11 @@ export async function GET(
   const { id } = await params;
   const idea = getIdea(id);
   if (!idea) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ idea, artifacts: getArtifacts(id) });
+  return NextResponse.json({
+    idea,
+    versions: listVersions(id),
+    artifactsByVersion: getArtifactsByVersion(id),
+  });
 }
 
 export async function DELETE(

@@ -4,7 +4,9 @@ import {
   ArtifactKind,
   getArtifacts,
   getIdea,
+  getVersion,
   saveArtifact,
+  setVersionScore,
 } from "../db";
 import { Generator, GenContext } from "./shared";
 import { validationGenerator } from "./validation";
@@ -60,22 +62,24 @@ export function generatorMeta(): GeneratorMeta[] {
   });
 }
 
-/** Run one generator for an idea, persist the artifact, and return it. */
+/** Run one generator for a version, persist the artifact, and return it. */
 export async function runGenerator(
-  ideaId: string,
+  versionId: string,
   kind: ArtifactKind
 ): Promise<Artifact> {
-  const idea = getIdea(ideaId);
+  const version = getVersion(versionId);
+  if (!version) throw new Error("Version not found");
+  const idea = getIdea(version.idea_id);
   if (!idea) throw new Error("Idea not found");
 
   const def = GENERATORS[kind];
   if (!def) throw new Error(`Unknown generator: ${kind}`);
 
   const prior: GenContext["prior"] = {};
-  for (const a of getArtifacts(ideaId)) prior[a.kind] = a.data;
+  for (const a of getArtifacts(versionId)) prior[a.kind] = a.data;
 
   const ctx: GenContext = {
-    idea: { title: idea.title, prompt: idea.prompt },
+    idea: { title: idea.title, prompt: version.statement },
     prior,
   };
 
@@ -87,5 +91,11 @@ export async function runGenerator(
     prompt: def.buildPrompt(ctx),
   });
 
-  return saveArtifact(ideaId, kind, data, sources, model);
+  // Cache the headline validation score onto the version for the switcher / iteration.
+  if (kind === "validation") {
+    const score = (data as { score?: number })?.score;
+    if (typeof score === "number") setVersionScore(versionId, score);
+  }
+
+  return saveArtifact(versionId, kind, data, sources, model);
 }

@@ -17,6 +17,6 @@ export async function POST(req: Request) {
   }
   const clean = prompt.trim();
   const title = clean.split("\n")[0].slice(0, 80) + (clean.length > 80 ? "…" : "");
-  const idea = createIdea(title, clean);
-  return NextResponse.json(idea, { status: 201 });
+  const { idea, version } = createIdea(title, clean);
+  return NextResponse.json({ ...idea, version }, { status: 201 });
 }

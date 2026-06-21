@@ -42,17 +42,32 @@ MODEL_IMAGE=google/gemini-2.5-flash-image-preview
 npm run dev      # http://localhost:3000
 ```
 
-1. Describe an idea on the home page → creates an idea and opens its workspace.
+1. Describe an idea on the home page → creates an idea (version 1) and opens its workspace.
 2. Click **Generate** on any tab, or **Generate all** to run the full suite (validation → market →
-   plan → brand → logo → marketing → pitch). Later stages reuse earlier results for coherence.
-3. **Print / PDF** exports the full stacked report. `/calculators` has the 9 calculators.
+   financials → plan → brand → logo → marketing → pitch). Later stages reuse earlier results.
+3. **Print / PDF** exports the active version's full report. `/calculators` has the 9 calculators.
+
+## Versions & iteration
+
+An idea is a container for **versions** (v1, v2, …), each with its own statement, artifacts, and
+cached score. The version bar lets you switch between them; the best score is starred.
+
+- **✎ Refine manually** — edit the statement → saves a new version to analyze.
+- **✨ Suggest improvement** — the AI reads the current version's low scores + top risks and proposes
+  a sharper statement (with rationale); accept it to create a version and validate.
+- **⟳ Auto-iterate** — a hill-climb loop: validate + market-scan each candidate, refine to attack the
+  weakest scores, repeat until it hits a target score or a max-round cap (defaults 80 / 5, editable).
+  Runs client-side with a live log; the best version is highlighted at the end.
 
 ## How it works
 
 - `lib/ai/` — OpenRouter client, per-stage model routing, structured-output + web-grounding helper.
-- `lib/generators/` — one module per artifact (prompt + Zod schema + runner) and a registry.
-- `lib/db.ts` — SQLite storage for ideas and their generated artifacts.
-- `app/api/generate/[kind]` — runs a generator and persists the artifact.
+- `lib/generators/` — one module per artifact (prompt + Zod schema + runner), plus `refine.ts`.
+- `lib/db.ts` — SQLite: ideas → versions → artifacts (artifacts keyed by version), with a migration.
+- `app/api/generate/[kind]` runs a generator for a version; `app/api/versions` + `.../refine` handle
+  versioning and AI refinement proposals.
+- `components/report/` — the visualization components (radar, charts, signal cards, risk matrix, …).
+- Persisted artifacts are validated against the current schema on render; stale ones prompt a regen.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and
 [docs/IDEAPROOF_FEATURES.md](docs/IDEAPROOF_FEATURES.md) for the feature reference this clones.
