@@ -6,6 +6,7 @@ import type { Artifact, ArtifactKind, Idea } from "@/lib/db";
 import type { GeneratorMeta } from "@/lib/generators";
 import {
   BrandView,
+  FinancialsView,
   LogoView,
   MarketingView,
   MarketView,
@@ -18,6 +19,7 @@ import {
 const VIEWS: Record<ArtifactKind, React.ComponentType<{ d: never }>> = {
   validation: ValidationView as never,
   market: MarketView as never,
+  financials: FinancialsView as never,
   plan: PlanView as never,
   brand: BrandView as never,
   logo: LogoView as never,

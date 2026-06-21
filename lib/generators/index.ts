@@ -9,6 +9,7 @@ import {
 import { Generator, GenContext } from "./shared";
 import { validationGenerator } from "./validation";
 import { marketGenerator } from "./market";
+import { financialsGenerator } from "./financials";
 import { planGenerator } from "./plan";
 import { brandGenerator } from "./brand";
 import { logoGenerator } from "./logo";
@@ -18,6 +19,7 @@ import { pitchGenerator } from "./pitch";
 export const GENERATORS: Record<ArtifactKind, Generator> = {
   validation: validationGenerator,
   market: marketGenerator,
+  financials: financialsGenerator,
   plan: planGenerator,
   brand: brandGenerator,
   logo: logoGenerator,
@@ -29,6 +31,7 @@ export const GENERATORS: Record<ArtifactKind, Generator> = {
 export const KIND_ORDER: ArtifactKind[] = [
   "validation",
   "market",
+  "financials",
   "plan",
   "brand",
   "logo",

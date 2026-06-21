@@ -40,6 +40,7 @@ if (process.env.NODE_ENV !== "production") globalForDb._db = db;
 export type ArtifactKind =
   | "validation"
   | "market"
+  | "financials"
   | "plan"
   | "brand"
   | "logo"

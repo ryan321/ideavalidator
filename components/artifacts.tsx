@@ -1,5 +1,5 @@
 import React from "react";
-import { Badge, Bullets, Card, Field, Prose, Section } from "./ui";
+import { Bullets, Card, Field, Prose, Section } from "./ui";
 import type { Source } from "@/lib/ai/client";
 import type { Validation } from "@/lib/generators/validation";
 import type { Market } from "@/lib/generators/market";
@@ -8,6 +8,24 @@ import type { Brand } from "@/lib/generators/brand";
 import type { Logo } from "@/lib/generators/logo";
 import type { Marketing } from "@/lib/generators/marketing";
 import type { Pitch } from "@/lib/generators/pitch";
+
+// Report subcomponents (built as standalone files).
+import { CriteriaRadar } from "./report/CriteriaRadar";
+import { FactorBars } from "./report/FactorBars";
+import { ValidationSummary } from "./report/ValidationSummary";
+import { ValidationScorecard } from "./report/ValidationScorecard";
+import { ActionPlan } from "./report/ActionPlan";
+import { RiskMatrix } from "./report/RiskMatrix";
+import { MarketHeader } from "./report/MarketHeader";
+import { MarketSizing } from "./report/MarketSizing";
+import { MarketTrajectory } from "./report/MarketTrajectory";
+import { MarketStage } from "./report/MarketStage";
+import { DemandSignals } from "./report/DemandSignals";
+import { CompetitiveLandscape } from "./report/CompetitiveLandscape";
+import { TargetDiscovery } from "./report/TargetDiscovery";
+import { FinancialsView } from "./report/FinancialsView";
+
+export { FinancialsView };
 
 function scoreColor(n: number): string {
   if (n >= 70) return "var(--color-good)";
@@ -22,14 +40,7 @@ export function ScoreGauge({ score, size = 120 }: { score: number; size?: number
   const color = scoreColor(score);
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke="var(--color-border)"
-        strokeWidth={8}
-      />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-border)" strokeWidth={8} />
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -41,24 +52,10 @@ export function ScoreGauge({ score, size = 120 }: { score: number; size?: number
         strokeDasharray={`${dash} ${c}`}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
       />
-      <text
-        x="50%"
-        y="48%"
-        textAnchor="middle"
-        fontSize={size * 0.28}
-        fontWeight={700}
-        fill={color}
-        fontFamily="var(--font-mono)"
-      >
+      <text x="50%" y="48%" textAnchor="middle" fontSize={size * 0.28} fontWeight={700} fill={color} fontFamily="var(--font-mono)">
         {Math.round(score)}
       </text>
-      <text
-        x="50%"
-        y="66%"
-        textAnchor="middle"
-        fontSize={size * 0.1}
-        fill="var(--color-muted)"
-      >
+      <text x="50%" y="66%" textAnchor="middle" fontSize={size * 0.1} fill="var(--color-muted)">
         / 100
       </text>
     </svg>
@@ -72,12 +69,7 @@ export function SourcesList({ sources }: { sources: Source[] }) {
       <ul className="space-y-1">
         {sources.map((s, i) => (
           <li key={i} className="truncate text-sm">
-            <a
-              href={s.url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent2 hover:underline"
-            >
+            <a href={s.url} target="_blank" rel="noreferrer" className="text-accent2 hover:underline">
               {s.title}
             </a>
           </li>
@@ -87,7 +79,6 @@ export function SourcesList({ sources }: { sources: Source[] }) {
   );
 }
 
-// Strip scripts and inline event handlers from model-generated SVG before rendering.
 function sanitizeSvg(svg: string): string {
   return svg
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -104,14 +95,12 @@ export function SvgLogo({ svg }: { svg: string }) {
   );
 }
 
-// ---- per-kind views ----------------------------------------------------------
+// ---- Validation (composed) ---------------------------------------------------
 
 export function ValidationView({ d }: { d: Validation }) {
-  const verdictTone =
-    d.verdict === "GO" ? "low" : d.verdict === "NO-GO" ? "high" : "medium";
   return (
-    <div>
-      <Card className="mb-6 flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+    <div className="space-y-8">
+      <Card className="flex flex-col items-center gap-5 sm:flex-row">
         <ScoreGauge score={d.score} />
         <div className="flex-1">
           <div className="mb-2 flex items-center gap-3">
@@ -124,159 +113,53 @@ export function ValidationView({ d }: { d: Validation }) {
             >
               {d.verdict}
             </span>
-            <span className="text-sm text-muted">
-              {d.confidence}% confidence
-            </span>
+            <span className="text-sm text-muted">{d.confidence}% confidence</span>
           </div>
           <Prose>{d.summary}</Prose>
         </div>
       </Card>
 
-      <Section title="Scorecard">
-        <div className="grid gap-3 sm:grid-cols-2">
-          {d.dimensions.map((dim, i) => (
-            <Card key={i} className="p-4">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-sm font-medium">{dim.name}</span>
-                <span
-                  className="font-mono text-sm font-bold"
-                  style={{ color: scoreColor(dim.score) }}
-                >
-                  {dim.score}
-                </span>
-              </div>
-              <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-border">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${dim.score}%`, background: scoreColor(dim.score) }}
-                />
-              </div>
-              <p className="text-xs leading-relaxed text-muted">{dim.rationale}</p>
-            </Card>
-          ))}
+      <Section title="Visual Overview">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <Card>
+            <CriteriaRadar criteria={d.criteria} />
+          </Card>
+          <FactorBars criteria={d.criteria} />
         </div>
       </Section>
 
-      <div className="grid gap-6 sm:grid-cols-2">
-        <Section title="Strengths">
-          <Bullets items={d.strengths} />
-        </Section>
-        <Section title="Weaknesses">
-          <Bullets items={d.weaknesses} />
-        </Section>
-      </div>
-
-      <Section title="Risks">
-        <div className="space-y-3">
-          {d.risks.map((r, i) => (
-            <Card key={i} className="p-4">
-              <div className="mb-1 flex items-center gap-2">
-                <Badge tone={r.severity}>{r.severity}</Badge>
-                <span className="text-sm font-medium">{r.risk}</span>
-              </div>
-              <p className="text-sm text-muted">
-                <span className="text-fg/70">Mitigation:</span> {r.mitigation}
-              </p>
-            </Card>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Suggestions">
-        <Bullets items={d.suggestions} />
-      </Section>
-
-      {d.similar_failures.length > 0 && (
-        <Section title="Comparable failures">
-          <div className="space-y-3">
-            {d.similar_failures.map((f, i) => (
-              <Card key={i} className="p-4">
-                <div className="text-sm font-semibold">{f.company}</div>
-                <p className="mt-1 text-sm text-muted">{f.why_failed}</p>
-                <p className="mt-1 text-sm">
-                  <span className="text-accent">Lesson:</span> {f.lesson}
-                </p>
-              </Card>
-            ))}
-          </div>
-        </Section>
-      )}
+      <ValidationSummary go={d.go_signals} stop={d.stop_signals} />
+      <ValidationScorecard validations={d.validations} criteria={d.criteria} />
+      <ActionPlan steps={d.action_plan} />
+      <RiskMatrix risks={d.risk_matrix} />
     </div>
   );
 }
+
+// ---- Market (composed) -------------------------------------------------------
 
 export function MarketView({ d }: { d: Market }) {
-  const sizes = [
-    { label: "TAM", ...d.tam },
-    { label: "SAM", ...d.sam },
-    { label: "SOM", ...d.som },
-  ];
   return (
-    <div>
+    <div className="space-y-8">
       <Prose>{d.summary}</Prose>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        {sizes.map((s) => (
-          <Card key={s.label} className="p-4">
-            <div className="text-xs uppercase tracking-wide text-muted">{s.label}</div>
-            <div className="font-mono text-2xl font-bold text-accent2">{s.value}</div>
-            <p className="mt-1 text-xs text-muted">{s.basis}</p>
-          </Card>
-        ))}
-      </div>
-
-      <div className="mt-6 grid gap-6 sm:grid-cols-2">
-        <Field label="Growth rate" value={d.growth_rate} />
-        <Field label="Pricing recommendation" value={d.pricing_recommendation} />
-      </div>
-
-      <Section title="Trends" right={undefined}>
-        <div className="mt-3">
-          <Bullets items={d.trends} />
-        </div>
-      </Section>
-
-      <Section title="Ideal customer profiles">
-        <div className="grid gap-3 sm:grid-cols-2">
-          {d.icp.map((p, i) => (
-            <Card key={i} className="p-4">
-              <div className="text-sm font-semibold">{p.segment}</div>
-              <p className="mt-1 text-sm text-muted">{p.description}</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {p.pains.map((pain, j) => (
-                  <Badge key={j}>{pain}</Badge>
-                ))}
-              </div>
-            </Card>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Competitors">
-        <div className="space-y-3">
-          {d.competitors.map((c, i) => (
-            <Card key={i} className="p-4">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="text-sm font-semibold">{c.name}</span>
-                <span className="font-mono text-xs text-muted">{c.pricing}</span>
-              </div>
-              <p className="mt-1 text-sm text-muted">{c.positioning}</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <div className="text-xs font-medium text-good">Strengths</div>
-                  <Bullets items={c.strengths} />
-                </div>
-                <div>
-                  <div className="text-xs font-medium text-bad">Weaknesses</div>
-                  <Bullets items={c.weaknesses} />
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </Section>
+      <MarketHeader cagrLabel={d.cagr_label} maturity={d.maturity} competitorCount={d.competitors.length} />
+      <MarketSizing sizing={d.sizing} cagrPct={d.cagr_pct} />
+      <MarketTrajectory baseYear={d.trajectory.base_year} endYear={d.trajectory.end_year} cagrPct={d.cagr_pct} />
+      <MarketStage
+        maturity={d.maturity}
+        maturityRationale={d.maturity_rationale}
+        seasonality={d.seasonality}
+        regions={d.regions}
+      />
+      <DemandSignals reddit={d.demand_signals.reddit} search={d.demand_signals.search_trends} />
+      <CompetitiveLandscape competitors={d.competitors} />
+      <TargetDiscovery persona={d.persona} discovery={d.discovery} />
+      <Field label="Pricing recommendation" value={d.pricing_recommendation} />
     </div>
   );
 }
+
+// ---- Plan / Brand / Logo / Marketing / Pitch (unchanged schemas) -------------
 
 export function PlanView({ d }: { d: Plan }) {
   const sections: [string, string][] = [
@@ -340,7 +223,9 @@ export function BrandView({ d }: { d: Brand }) {
       <Section title="Name ideas">
         <div className="mt-3 flex flex-wrap gap-2">
           {d.name_ideas.map((n, i) => (
-            <Badge key={i}>{n}</Badge>
+            <span key={i} className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-xs text-accent">
+              {n}
+            </span>
           ))}
         </div>
       </Section>
@@ -373,10 +258,7 @@ export function LogoView({ d }: { d: Logo }) {
         <div className="mt-3 flex flex-wrap gap-3">
           {d.palette.map((c, i) => (
             <div key={i} className="w-32">
-              <div
-                className="h-16 rounded-lg border border-border"
-                style={{ background: c.hex }}
-              />
+              <div className="h-16 rounded-lg border border-border" style={{ background: c.hex }} />
               <div className="mt-1 text-sm font-medium">{c.name}</div>
               <div className="font-mono text-xs text-muted">{c.hex}</div>
               <div className="text-xs text-muted">{c.usage}</div>
@@ -412,7 +294,9 @@ export function MarketingView({ d }: { d: Marketing }) {
         <div className="grid gap-3 sm:grid-cols-2">
           {d.ads.map((a, i) => (
             <Card key={i} className="p-4">
-              <Badge>{a.platform}</Badge>
+              <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-xs text-accent">
+                {a.platform}
+              </span>
               <div className="mt-2 text-sm font-semibold">{a.headline}</div>
               <p className="mt-1 text-sm text-muted">{a.primary_text}</p>
               <div className="mt-2 text-xs">
@@ -423,7 +307,6 @@ export function MarketingView({ d }: { d: Marketing }) {
           ))}
         </div>
       </Section>
-
       <Section title="Landing page copy">
         <Card className="p-5">
           <div className="text-xl font-bold">{d.landing_copy.hero_headline}</div>
@@ -436,13 +319,14 @@ export function MarketingView({ d }: { d: Marketing }) {
           </div>
         </Card>
       </Section>
-
       <Section title="Email sequence">
         <div className="space-y-3">
           {d.email_sequence.map((e, i) => (
             <Card key={i} className="p-4">
               <div className="flex items-center gap-2">
-                <Badge>{e.stage}</Badge>
+                <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-xs text-accent">
+                  {e.stage}
+                </span>
                 <span className="text-sm font-semibold">{e.subject}</span>
               </div>
               <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{e.body}</p>
@@ -450,12 +334,13 @@ export function MarketingView({ d }: { d: Marketing }) {
           ))}
         </div>
       </Section>
-
       <Section title="UGC scripts">
         <div className="space-y-3">
           {d.ugc_scripts.map((u, i) => (
             <Card key={i} className="p-4">
-              <Badge>{u.platform}</Badge>
+              <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-xs text-accent">
+                {u.platform}
+              </span>
               <div className="mt-2 text-sm font-semibold">Hook: {u.hook}</div>
               <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{u.script}</p>
               <div className="mt-1 text-xs">
@@ -480,9 +365,7 @@ export function PitchView({ d }: { d: Pitch }) {
           <div className="mt-3 flex-1">
             <Bullets items={s.bullets} />
           </div>
-          <p className="mt-3 border-t border-border pt-2 text-xs italic text-muted">
-            {s.speaker_notes}
-          </p>
+          <p className="mt-3 border-t border-border pt-2 text-xs italic text-muted">{s.speaker_notes}</p>
         </Card>
       ))}
     </div>
