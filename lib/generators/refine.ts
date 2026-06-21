@@ -16,14 +16,17 @@ export type Refinement = z.infer<typeof RefinementSchema>;
 
 type ValidationLike = {
   score?: number;
-  criteria?: { name: string; score: number }[];
+  criteria?: { name: string; score: number; group?: string; explanation?: string }[];
   stop_signals?: {
     critical_risks?: { text: string }[];
     areas_of_concern?: { text: string }[];
   };
   risk_matrix?: { title: string; probability: number; impact: number }[];
-  suggestions?: string[];
+  action_plan?: { title: string; first_step?: string }[];
 };
+
+// Criteria whose scale is inverted (high score = LESS competition / EASIER entry).
+const INVERTED = new Set(["Competition Level", "Market Entry Barriers"]);
 
 /**
  * Propose a refined idea statement for a version, attacking its lowest-scoring
@@ -39,12 +42,18 @@ export async function proposeRefinement(versionId: string): Promise<Refinement> 
 
   const evidence = validation
     ? `Current overall score: ${validation.score ?? "?"}/100.
-Lowest criteria: ${(validation.criteria ?? [])
+Lowest-scoring criteria to attack (each: score — why it's low):
+${(validation.criteria ?? [])
         .slice()
         .sort((a, b) => a.score - b.score)
         .slice(0, 4)
-        .map((c) => `${c.name} (${c.score})`)
-        .join(", ")}
+        .map(
+          (c) =>
+            `  - ${c.name} (${c.score})${
+              INVERTED.has(c.name) ? " [inverted: low score = crowded market / high barriers]" : ""
+            }: ${c.explanation ?? ""}`
+        )
+        .join("\n")}
 Critical risks: ${(validation.stop_signals?.critical_risks ?? []).map((r) => r.text).join("; ")}
 Concerns: ${(validation.stop_signals?.areas_of_concern ?? []).map((r) => r.text).join("; ")}
 Top risk-matrix items: ${(validation.risk_matrix ?? [])
@@ -53,7 +62,9 @@ Top risk-matrix items: ${(validation.risk_matrix ?? [])
         .slice(0, 3)
         .map((r) => r.title)
         .join("; ")}
-Suggestions already raised: ${(validation.suggestions ?? []).join("; ")}`
+Already-recommended actions (build on these, don't just repeat them): ${(validation.action_plan ?? [])
+        .map((a) => a.title)
+        .join("; ")}`
     : "No validation has been run yet; refine for clarity, focus, and defensibility.";
 
   const marketCtx = market
@@ -66,9 +77,19 @@ Suggestions already raised: ${(validation.suggestions ?? []).join("; ")}`
     maxTokens: 2500,
     system:
       "You are a startup strategist who sharpens ideas to score higher and carry less risk. " +
-      "Keep the SAME core idea — do not pivot to an unrelated concept. Make it more specific, more " +
-      "defensible, and better targeted. The refined 'statement' must be a crisp 1-3 sentence idea " +
-      "statement in the same format as the input (no preamble).",
+      "Keep the SAME core idea — do not pivot to an unrelated concept (no jumping from a consumer app to " +
+      "a B2B workflow tool). Improve the idea's SUBSTANCE — a sharper target segment, a clearer wedge, " +
+      "concrete defensibility — not just its wording.\n" +
+      "Your refined statement will be RE-SCORED by a grounded analyst with live web search, so do NOT add " +
+      "unverifiable superlatives ('AI-powered', 'first-ever', 'massive market') to inflate perception — " +
+      "they get fact-checked and penalized. For the inverted criteria (Competition Level, Market Entry " +
+      "Barriers) a low score means a crowded/contested market: the fix is sharper differentiation and a " +
+      "defensible wedge (a niche, proprietary data, a hard-to-copy workflow) — NOT adding competitors or " +
+      "barriers. Make the SMALLEST change set that lifts the lowest criteria; if a prior refinement hurt a " +
+      "criterion, prefer reverting that specific aspect. The refined 'statement' must be a crisp 1-3 " +
+      "sentence idea statement in the same format as the input (no preamble), and STRICTLY more specific " +
+      "than the current one — name the exact target segment (a real 'who', not 'businesses'), the concrete " +
+      "wedge, and at least one quantified or named detail. Never restate the idea in vaguer or broader terms.",
     prompt: `Idea title: ${idea?.title ?? ""}
 Current statement (v${version.n}): ${version.statement}
 

@@ -23,7 +23,7 @@ export const ValidationSchema = z.object({
         explanation: z.string(),
       })
     )
-    .min(8),
+    .length(9), // exactly the 9 named criteria the radar expects
 
   // Evidence-base scorecard.
   validations: z.object({
@@ -81,23 +81,35 @@ export const validationGenerator: Generator<Validation> = {
   maxTokens: 9000,
   system:
     "You are a brutally honest startup analyst. Validate ideas against real market evidence from web " +
-    "search, not hype. Score conservatively; most ideas should not score above 75. Cite concrete " +
-    "demand signals, competitors, and comparable outcomes. Be specific and quantitative, never generic.",
+    "search, not hype. Be specific and quantitative, never generic.\n" +
+    "Score conservatively against this rubric and default to the LOWER end when evidence is thin: " +
+    "0-39 = NO-GO (no validated demand or a fatal flaw), 40-59 = weak/unproven, 60-74 = MAYBE (real but " +
+    "unproven signal), 75-89 = GO (multiple independent demand signals + a viable path), 90-100 = " +
+    "exceptional (reserve for proven paying demand). Most ideas land 45-70. Penalize, do not reward, any " +
+    "criterion where you found no concrete evidence. The overall 'score' MUST fall in the band matching " +
+    "the 'verdict' (NO-GO<60, MAYBE 60-74, GO>=75).",
   buildPrompt: (ctx) => `${ideaHeader(ctx)}
 
-Validate this idea. Use live web search to ground every claim in real evidence (demand on
-Reddit/forums/Product Hunt, competitors, search trends, pricing, market size).
+Validate this idea. You MUST issue web searches before answering and base every figure (market size,
+CAGR, competitor funding, pricing, thread/upvote counts) on a result you actually retrieved. Name the
+source domain or publication inline in the relevant rationale/explanation/text (e.g. "(grandviewresearch.com, 2024)").
+If search returns no figure, write "no reliable source found" and LOWER that criterion's score and the
+overall confidence — do NOT invent a number, a competitor, or a Reddit thread. Name at least 2 real,
+currently-operating competitors by name in the explanations.
 
-Score these 9 criteria 0-100. Use EXACTLY these names and groups (for a radar chart):
+Score these 9 criteria 0-100. Output ALL 9 — never fewer, never renamed, never merged (the radar maps
+these exact names). Use EXACTLY these names and groups:
 - group "demand": Target Market Clarity, Market Timing, Market Entry Barriers, Competition Level, Problem-Solution Fit
 - group "build": MVP Viability, Value Proposition, Initial Feasibility, Resource Requirements
-For each, set "category" to a short tag like MARKET, DEMAND, EXECUTION, or DEFENSIBILITY.
-(For "Competition Level" and "Market Entry Barriers", higher score = MORE favorable / less crowded.)
+For each: set "category" to one of MARKET, DEMAND, EXECUTION, DEFENSIBILITY; write a 2-3 sentence
+"explanation" that cites a specific named competitor, number, or source (no generic phrasing). REMEMBER
+THE INVERTED SCALE: for "Competition Level" and "Market Entry Barriers", a HIGH score means LESS
+competition / EASIER entry — a crowded market or high barriers must score LOW.
 
 Also produce:
-- An overall weighted "score" (0-100), "confidence" %, and "verdict" (GO/MAYBE/NO-GO) with a 2-3 sentence "summary".
+- An overall "score" (0-100) that is roughly the average of the 9 criteria (weight the demand group slightly higher); it must not exceed the highest single criterion by more than 10 points and must sit in the verdict's band. "confidence" (0-100) = how much corroborating web evidence you actually found (lower it when you relied on assumption). "verdict" must match the score band. Add a 2-3 sentence evidence-based "summary".
 - "validations": problem, solution, and market validation each with a 0-100 score and an evidence-based rationale.
-- "go_signals": positive_signals (why it has momentum) and key_strengths; "stop_signals": critical_risks and areas_of_concern. Each item is { text, category }.
+- "go_signals": positive_signals (why it has momentum) and key_strengths; "stop_signals": critical_risks and areas_of_concern. Each item is { text, category } where category is ONE of MARKET, DEMAND, DEFENSIBILITY, REVENUE, EXECUTION, TECH and "text" references something specific to THIS idea (a named competitor, a real number, or a cited signal) — no statement that could apply to any startup.
 - "action_plan": 4-6 prioritized next steps ordered by impact x ease, each with type (VALIDATE/BUILD/DISTRIBUTE/DE-RISK), effort (Low/Medium/High), horizon (This week/This month/This quarter), a measurable success_metric, and a concrete first_step.
 - "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation.
 

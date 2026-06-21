@@ -31,7 +31,9 @@ export function priorContext(ctx: GenContext, kinds: ArtifactKind[]): string {
       parts.push(`### ${k} (already generated)\n${JSON.stringify(ctx.prior[k])}`);
     }
   }
-  return parts.length ? `\n\nUse this existing context for coherence:\n${parts.join("\n\n")}` : "";
+  return parts.length
+    ? `\n\nGround your answer in these already-generated artifacts. REUSE their concrete values verbatim where relevant — the same TAM/SAM/SOM figures, the same CAC/LTV, the same named competitors, persona, and pricing. Do NOT contradict or re-estimate any number that already appears below:\n${parts.join("\n\n")}`
+    : "";
 }
 
 export function ideaHeader(ctx: GenContext): string {

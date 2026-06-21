@@ -31,11 +31,20 @@ export const brandGenerator: Generator<Brand> = {
     "fits, and build a coherent identity around it. Distinct and ownable, never generic.",
   buildPrompt: (ctx) => `${ideaHeader(ctx)}${priorContext(ctx, ["validation", "market"])}
 
-Create a brand strategy. Return JSON:
+Create a brand strategy SPECIFIC to this idea and its persona/competitors above — it must read as ownable
+by this product alone, not transplantable to any startup. Ground it in the context: name the target persona
+from the market analysis, and choose an archetype + positioning that deliberately CONTRAST with the named
+competitors' positioning (call out the contrast in archetype.why and positioning_statement).
+Ban generic filler: do NOT use the words empowering, seamless, innovative, cutting-edge, revolutionize,
+world-class, next-generation, or game-changing. Every name, tagline, and value-prop must reference a
+concrete attribute, audience, or outcome of this idea. Return JSON:
 {
-  "name_ideas": [string], "archetype": {"name": string, "why": string},
-  "mission": string, "vision": string, "value_proposition": string,
-  "tone": string, "voice_dos": [string], "voice_donts": [string],
-  "tagline_options": [string], "positioning_statement": string
+  "name_ideas": [string] (4-6 real, pronounceable, .com-plausible brand names — not the literal product description),
+  "archetype": {"name": one of the 12 listed archetypes, "why": 2-3 sentences justifying it from this idea's persona and promise, and naming one archetype you rejected and why it fit worse},
+  "mission": string, "vision": string,
+  "value_proposition": string (a one-line outcome promise — what the user gets — distinct from positioning),
+  "tone": string, "voice_dos": [string] (3-5), "voice_donts": [string] (3-5),
+  "tagline_options": [string] (4-6, each under 7 words),
+  "positioning_statement": "For [specific persona] who [need], [brand] is the [category] that [single differentiated benefit], unlike [a named competitor from the market analysis]."
 }`,
 };

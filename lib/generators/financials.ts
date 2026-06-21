@@ -8,7 +8,7 @@ export const FinancialsSchema = z.object({
   unit_economics: z.object({
     cac: z.string(),
     ltv: z.string(),
-    ltv_cac_ratio: z.string(), // "12:1"
+    ltv_cac_ratio: z.string(), // "3.5:1"
     payback_period: z.string(),
   }),
   revenue_model: z.object({
@@ -26,7 +26,11 @@ export const FinancialsSchema = z.object({
           first_step: z.string(),
         })
       )
-      .min(2),
+      .min(2)
+      .refine(
+        (s) => Math.abs(s.reduce((a, x) => a + x.revenue_share, 0) - 100) <= 2,
+        "revenue_share across streams must sum to ~100"
+      ),
   }),
   projections: z
     .array(
@@ -52,12 +56,22 @@ export const financialsGenerator: Generator<Financials> = {
   schema: FinancialsSchema,
   maxTokens: 5000,
   system:
-    "You are a startup CFO. Build realistic financials grounded in the market context provided. Use " +
-    "concrete numbers with units. Revenue shares across streams should sum to ~100%. Benchmark CAC/LTV " +
-    "against typical norms for this category.",
+    "You are a startup CFO. Build realistic, conservative financials grounded in the market context. Use " +
+    "concrete numbers with units. Be conservative, not promotional: a healthy LTV:CAC is ~3:1 to 5:1 — flag " +
+    "anything above 5:1 as likely under-invested in growth. Ground CAC, LTV and payback in published " +
+    "benchmarks for this exact category and name the benchmark basis in the summary.",
   buildPrompt: (ctx) => `${ideaHeader(ctx)}${priorContext(ctx, ["validation", "market"])}
 
-Produce financials & unit economics. Return JSON:
+Produce financials & unit economics. Anchor every number to the prior artifacts: your final-year
+projected revenue must be a credible FRACTION of market.sizing.som (state what share of SOM it implies
+in that year's note); stream prices must be consistent with market.pricing_recommendation; CAC/payback
+must fit the persona and segments named in the market analysis. If a market figure is missing, say so in
+the note rather than inventing one.
+Constraints: revenue_share values are percentages of total revenue and MUST sum to 100 across all streams
+(e.g. 70 + 20 + 10); provide at least 2 streams. Projections must be EXACTLY 3 rows (Year 1, Year 2,
+Year 3) and internally consistent: each year's revenue should ≈ customers × the blended annual revenue
+per customer implied by your stream prices — state that assumption in the note (e.g. "4,000 × ~$1,200 ARPU").
+Return JSON:
 {
   "summary": string,
   "startup_cost": string, "break_even": string,

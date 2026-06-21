@@ -323,8 +323,8 @@ export default function IdeaWorkspace({
     setIterLog([]);
     const scoreOf = (a: Artifact) => Math.round((a.data as { score?: number })?.score ?? 0);
     try {
-      let curId = activeVersionId;
-      let curN = activeVersion.n;
+      const curId = activeVersionId;
+      const curN = activeVersion.n;
       let curScore = activeVersion.score ?? 0;
 
       if (!artifacts[curId]?.validation) {
@@ -340,16 +340,18 @@ export default function IdeaWorkspace({
       let best = curScore;
       log(`Baseline v${curN}: ${curScore}/100.`);
 
+      // Greedy hill-climb: always refine from the BEST version so far, so a
+      // regression in one round doesn't trap the search at a worse statement.
       for (let r = 1; r <= maxRounds; r++) {
-        if (curScore >= target) {
-          log(`✓ Target ${target} reached at v${curN} (${curScore}).`);
+        if (best >= target) {
+          log(`✓ Target ${target} reached at v${bestN} (${best}).`);
           break;
         }
-        log(`Round ${r}/${maxRounds}: refining v${curN}…`);
-        const pRes = await fetch(`/api/versions/${curId}/refine`, { method: "POST" });
+        log(`Round ${r}/${maxRounds}: refining best so far (v${bestN}, ${best})…`);
+        const pRes = await fetch(`/api/versions/${bestId}/refine`, { method: "POST" });
         const prop = await pRes.json();
         if (!pRes.ok) throw new Error(prop.error ?? "Refinement failed");
-        const v = await createVersionFrom(prop.statement, "ai", curId, prop.label, prop.rationale);
+        const v = await createVersionFrom(prop.statement, "ai", bestId, prop.label, prop.rationale);
         setActiveVersionId(v.id);
         setActiveTab("validation");
         log(`→ v${v.n} "${prop.label}". Validating…`);
@@ -357,15 +359,12 @@ export default function IdeaWorkspace({
         const newScore = scoreOf(val);
         log(`Market scan for v${v.n}…`);
         await generate("market", v.id);
-        log(`v${v.n} scored ${newScore}/100.`);
+        log(`v${v.n} scored ${newScore}/100${newScore > best ? " (new best)" : ""}.`);
         if (newScore > best) {
           best = newScore;
           bestId = v.id;
           bestN = v.n;
         }
-        curId = v.id;
-        curN = v.n;
-        curScore = newScore;
       }
       log(`Done. Best version: v${bestN} at ${best}/100.`);
       switchVersion(bestId);

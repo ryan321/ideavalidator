@@ -8,7 +8,7 @@ const DEFAULTS: Record<ModelRole, string> = {
   reasoning: "anthropic/claude-opus-4.8",
   research: "anthropic/claude-sonnet-4.6",
   fast: "google/gemini-2.5-flash",
-  image: "google/gemini-2.5-flash-image-preview",
+  image: "google/gemini-2.5-flash-image",
 };
 
 const ENV_KEYS: Record<ModelRole, string> = {
