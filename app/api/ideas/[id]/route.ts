@@ -5,6 +5,7 @@ import {
   getIdea,
   listVersions,
   setIdeaGoal,
+  setIdeaJourney,
 } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -15,12 +16,20 @@ export async function PATCH(
 ) {
   const { id } = await params;
   if (!getIdea(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const { goal, goalDetail } = await req.json();
-  setIdeaGoal(
-    id,
-    typeof goal === "string" && goal ? goal : null,
-    typeof goalDetail === "string" && goalDetail.trim() ? goalDetail.trim() : null
-  );
+  const body = await req.json();
+  if ("goal" in body || "goalDetail" in body) {
+    setIdeaGoal(
+      id,
+      typeof body.goal === "string" && body.goal ? body.goal : null,
+      typeof body.goalDetail === "string" && body.goalDetail.trim() ? body.goalDetail.trim() : null
+    );
+  }
+  if ("stage" in body || "chosenVersionId" in body) {
+    setIdeaJourney(id, {
+      stage: typeof body.stage === "string" ? body.stage : undefined,
+      chosenVersionId: "chosenVersionId" in body ? body.chosenVersionId : undefined,
+    });
+  }
   return NextResponse.json({ ok: true });
 }
 

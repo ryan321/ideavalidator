@@ -36,12 +36,14 @@ function init(): Database.Database {
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS ideas (
-      id          TEXT PRIMARY KEY,
-      title       TEXT NOT NULL,
-      prompt      TEXT,
-      goal        TEXT,
-      goal_detail TEXT,
-      created_at  TEXT NOT NULL
+      id                TEXT PRIMARY KEY,
+      title             TEXT NOT NULL,
+      prompt            TEXT,
+      goal              TEXT,
+      goal_detail       TEXT,
+      stage             TEXT,
+      chosen_version_id TEXT,
+      created_at        TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS versions (
       id         TEXT PRIMARY KEY,
@@ -83,6 +85,8 @@ function init(): Database.Database {
   addColumn(db, "versions", "revenue", "TEXT");
   addColumn(db, "ideas", "goal", "TEXT");
   addColumn(db, "ideas", "goal_detail", "TEXT");
+  addColumn(db, "ideas", "stage", "TEXT");
+  addColumn(db, "ideas", "chosen_version_id", "TEXT");
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
   addColumn(db, "artifacts", "cost", "REAL");
@@ -166,6 +170,8 @@ export type Idea = {
   prompt: string | null;
   goal: string | null;
   goal_detail: string | null;
+  stage: string | null; // current journey stage key
+  chosen_version_id: string | null; // the version the founder is betting on
   created_at: string;
 };
 
@@ -242,6 +248,8 @@ export function createIdea(
     prompt: statement,
     goal: goal ?? null,
     goal_detail: goalDetail ?? null,
+    stage: "validate",
+    chosen_version_id: null,
     created_at: now,
   };
   const version: Version = {
@@ -260,7 +268,7 @@ export function createIdea(
   };
   const tx = db.transaction(() => {
     db.prepare(
-      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @created_at)"
+      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, chosen_version_id, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @chosen_version_id, @created_at)"
     ).run(idea);
     db.prepare(
       `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, revenue, created_at)
@@ -291,6 +299,15 @@ export function getIdea(id: string): Idea | undefined {
 
 export function setIdeaGoal(id: string, goal: string | null, goalDetail: string | null): void {
   db.prepare("UPDATE ideas SET goal = ?, goal_detail = ? WHERE id = ?").run(goal, goalDetail, id);
+}
+
+export function setIdeaJourney(
+  id: string,
+  fields: { stage?: string; chosenVersionId?: string | null }
+): void {
+  if (fields.stage !== undefined) db.prepare("UPDATE ideas SET stage = ? WHERE id = ?").run(fields.stage, id);
+  if (fields.chosenVersionId !== undefined)
+    db.prepare("UPDATE ideas SET chosen_version_id = ? WHERE id = ?").run(fields.chosenVersionId, id);
 }
 
 export function deleteIdea(id: string): void {

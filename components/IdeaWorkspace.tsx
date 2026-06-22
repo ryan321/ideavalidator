@@ -138,6 +138,17 @@ const GOAL_OPTIONS = [
 const goalLabel = (k: string | null) =>
   GOAL_OPTIONS.find((o) => o.key === k)?.label ?? "Not set";
 
+// The journey: idea -> first paying customers. Each stage groups artifact kinds (or a special view).
+type StageKey = "validate" | "decide" | "pitch" | "brand" | "name";
+const STAGES: { key: StageKey; label: string; kinds: ArtifactKind[]; special?: boolean }[] = [
+  { key: "validate", label: "Validate", kinds: ["validation", "market", "financials", "plan"] },
+  { key: "decide", label: "Decide", kinds: [], special: true },
+  { key: "pitch", label: "Pitch", kinds: ["pitch", "marketing"] },
+  { key: "brand", label: "Brand", kinds: ["brand", "logo"] },
+  { key: "name", label: "Name", kinds: [], special: true },
+];
+const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
+
 type ArtMap = Record<string, Record<string, Artifact>>;
 const bk = (vid: string, kind: string) => `${vid}:${kind}`;
 
@@ -168,9 +179,13 @@ export default function IdeaWorkspace({
   const [activeVersionId, setActiveVersionId] = useState<string>(
     () => versionsProp[versionsProp.length - 1]?.id ?? ""
   );
+  const [currentStage, setCurrentStage] = useState<StageKey>(
+    () => (idea.stage as StageKey) ?? "validate"
+  );
+  const [chosenVersionId, setChosenVersionId] = useState<string | null>(idea.chosen_version_id);
   const [activeTab, setActiveTab] = useState<ArtifactKind>(() => {
-    const first = artifactsByVersion[versionsProp[versionsProp.length - 1]?.id ?? ""]?.[0];
-    return (first?.kind as ArtifactKind) ?? "validation";
+    const st = STAGES.find((s) => s.key === (idea.stage ?? "validate"));
+    return (st?.kinds[0] as ArtifactKind) ?? "validation";
   });
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -243,6 +258,33 @@ export default function IdeaWorkspace({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save goal");
     }
+  }
+
+  function patchIdea(fields: Record<string, unknown>) {
+    fetch(`/api/ideas/${idea.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    }).catch(() => {});
+  }
+
+  function goToStage(key: StageKey) {
+    setCurrentStage(key);
+    setProposal(null);
+    setResponding(false);
+    setChatting(false);
+    const stage = STAGES.find((s) => s.key === key)!;
+    // Stages after Validate build on the chosen version.
+    if (key !== "validate" && key !== "decide" && chosenVersionId && chosenVersionId !== activeVersionId) {
+      setActiveVersionId(chosenVersionId);
+    }
+    if (stage.kinds.length) setActiveTab(stage.kinds[0]);
+    patchIdea({ stage: key });
+  }
+
+  function setChosen(versionId: string) {
+    setChosenVersionId(versionId);
+    patchIdea({ chosenVersionId: versionId });
   }
 
   // auto-iterate
@@ -534,10 +576,40 @@ export default function IdeaWorkspace({
     | undefined;
   const activeQuestions = activeValidationData?.clarifying_questions ?? [];
   const activeAlphas = activeValidationData?.possible_alphas ?? [];
+  const stage = STAGES.find((s) => s.key === currentStage)!;
+  const stageMeta = meta.filter((m) => stage.kinds.includes(m.kind));
+  const reachedIdx = stageIndex(idea.stage);
 
   return (
     <div>
       <div className="no-print">
+        {/* journey stepper */}
+        <div className="mb-5 flex flex-wrap items-center gap-1.5">
+          {STAGES.map((s, i) => {
+            const isCurrent = s.key === currentStage;
+            const reached = i <= reachedIdx || (s.key === "decide" && !!chosenVersionId);
+            return (
+              <div key={s.key} className="flex items-center gap-1.5">
+                <button
+                  onClick={() => goToStage(s.key)}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition ${
+                    isCurrent
+                      ? "bg-accent text-white"
+                      : reached
+                        ? "border border-border text-fg hover:bg-panel2"
+                        : "text-muted hover:text-fg"
+                  }`}
+                >
+                  <span className="font-mono text-xs opacity-70">{i + 1}</span>
+                  {s.label}
+                  {s.key === "decide" && chosenVersionId && <span title="decided">✓</span>}
+                </button>
+                {i < STAGES.length - 1 && <span className="text-muted">→</span>}
+              </div>
+            );
+          })}
+        </div>
+
         {/* version switcher */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {versions.map((v) => {
@@ -565,6 +637,11 @@ export default function IdeaWorkspace({
                 {v.origin === "manual" && <span title="manual edit">✎</span>}
                 {v.origin === "context" && <span title="re-validated with founder context">💬</span>}
                 {isBest && <span title="best score">★</span>}
+                {v.id === chosenVersionId && (
+                  <span title="chosen — building the journey on this" className="font-bold text-good">
+                    ✓
+                  </span>
+                )}
                 {vbusy && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent2" />}
               </button>
             );
@@ -912,66 +989,126 @@ export default function IdeaWorkspace({
           <div className="mb-4 rounded-lg border border-bad/30 bg-bad/10 px-4 py-2 text-sm text-bad">{error}</div>
         )}
 
-        {/* tabs */}
-        <div className="mb-6 flex flex-wrap gap-1.5 border-b border-border pb-3">
-          {meta.map((m) => {
-            const done = !!activeArtifacts[m.kind];
-            const loading = busy.has(bk(activeVersionId, m.kind));
-            return (
+        {currentStage === "decide" ? (
+          <div className="rounded-xl border border-border bg-panel p-5">
+            <h3 className="text-base font-bold">Decide — which version are you betting on?</h3>
+            <p className="mt-1 text-sm text-muted">
+              Pick the idea version to build the rest of the journey on. You can change it anytime — the
+              others stay as research.
+            </p>
+            <div className="mt-4 space-y-2">
+              {versions.map((v) => {
+                const isChosen = v.id === chosenVersionId;
+                return (
+                  <div
+                    key={v.id}
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 ${
+                      isChosen ? "border-good bg-good/5" : "border-border"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="font-mono font-semibold">v{v.n}</span>
+                        {v.score != null && (
+                          <span className="font-mono font-bold" style={{ color: scoreColor(v.score) }}>
+                            {v.score}
+                          </span>
+                        )}
+                        {v.revenue && <span className="font-mono text-xs text-accent2">~{v.revenue}</span>}
+                        {v.label && <span className="text-xs text-muted">· {v.label}</span>}
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted">{v.statement}</p>
+                    </div>
+                    <button
+                      onClick={() => setChosen(v.id)}
+                      disabled={isChosen}
+                      className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
+                        isChosen ? "bg-good/15 text-good" : "bg-accent text-white hover:opacity-90"
+                      }`}
+                    >
+                      {isChosen ? "✓ Chosen" : "Choose this"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            {chosenVersionId && (
               <button
-                key={m.kind}
-                onClick={() => setActiveTab(m.kind)}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
-                  activeTab === m.kind ? "bg-panel2 text-fg" : "text-muted hover:text-fg"
-                }`}
+                onClick={() => goToStage("pitch")}
+                className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
               >
-                <span className={`h-1.5 w-1.5 rounded-full ${loading ? "animate-pulse bg-accent2" : done ? "bg-good" : "bg-border"}`} />
-                {m.label}
+                Continue to Pitch →
               </button>
-            );
-          })}
-        </div>
-
-        {/* active panel */}
-        {busy.has(bk(activeVersionId, activeTab)) ? (
-          <div className="grid place-items-center rounded-xl border border-border bg-panel py-16 text-sm text-muted">
-            <div className="animate-pulse">
-              Generating {activeMeta.label}
-              {activeMeta.grounded ? " (searching the web)" : ""}…
-            </div>
+            )}
           </div>
-        ) : activeArtifact ? (
-          <div>
-            <SafeArtifact
-              key={`${activeVersionId}:${activeTab}`}
-              kind={activeTab}
-              data={activeArtifact.data}
-              onRegenerate={() => generateActive(activeTab)}
-            />
-            <SourcesList sources={activeArtifact.sources} />
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
-              <span>
-                Model: {activeArtifact.model ?? "—"}
-                {activeArtifact.cost != null ? ` · ${fmtCost(activeArtifact.cost)}` : ""}
-              </span>
-              <button onClick={() => generateActive(activeTab)} className="rounded-md border border-border px-2 py-1 hover:bg-panel2">
-                Regenerate
-              </button>
-            </div>
+        ) : currentStage === "name" ? (
+          <div className="grid place-items-center rounded-xl border border-dashed border-border bg-panel/50 py-16 text-center text-sm text-muted">
+            Naming + domain availability — coming up next.
           </div>
         ) : (
-          <div className="grid place-items-center rounded-xl border border-dashed border-border bg-panel/50 py-16 text-center">
-            <div className="max-w-sm">
-              <div className="text-sm text-muted">{activeMeta.blurb}</div>
-              {activeMeta.uses.length > 0 && (
-                <div className="mt-2 text-xs text-muted">Tip: generate {activeMeta.uses.join(", ")} first for best results.</div>
-              )}
-              <button onClick={() => generateActive(activeTab)} disabled={anyBusy} className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-                Generate {activeMeta.label}
-                {activeMeta.grounded ? " 🌐" : ""}
-              </button>
+          <>
+            {/* tabs (this stage's deliverables) */}
+            <div className="mb-6 flex flex-wrap gap-1.5 border-b border-border pb-3">
+              {stageMeta.map((m) => {
+                const done = !!activeArtifacts[m.kind];
+                const loading = busy.has(bk(activeVersionId, m.kind));
+                return (
+                  <button
+                    key={m.kind}
+                    onClick={() => setActiveTab(m.kind)}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
+                      activeTab === m.kind ? "bg-panel2 text-fg" : "text-muted hover:text-fg"
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${loading ? "animate-pulse bg-accent2" : done ? "bg-good" : "bg-border"}`} />
+                    {m.label}
+                  </button>
+                );
+              })}
             </div>
-          </div>
+
+            {/* active panel */}
+            {busy.has(bk(activeVersionId, activeTab)) ? (
+              <div className="grid place-items-center rounded-xl border border-border bg-panel py-16 text-sm text-muted">
+                <div className="animate-pulse">
+                  Generating {activeMeta.label}
+                  {activeMeta.grounded ? " (searching the web)" : ""}…
+                </div>
+              </div>
+            ) : activeArtifact ? (
+              <div>
+                <SafeArtifact
+                  key={`${activeVersionId}:${activeTab}`}
+                  kind={activeTab}
+                  data={activeArtifact.data}
+                  onRegenerate={() => generateActive(activeTab)}
+                />
+                <SourcesList sources={activeArtifact.sources} />
+                <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
+                  <span>
+                    Model: {activeArtifact.model ?? "—"}
+                    {activeArtifact.cost != null ? ` · ${fmtCost(activeArtifact.cost)}` : ""}
+                  </span>
+                  <button onClick={() => generateActive(activeTab)} className="rounded-md border border-border px-2 py-1 hover:bg-panel2">
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid place-items-center rounded-xl border border-dashed border-border bg-panel/50 py-16 text-center">
+                <div className="max-w-sm">
+                  <div className="text-sm text-muted">{activeMeta.blurb}</div>
+                  {activeMeta.uses.length > 0 && (
+                    <div className="mt-2 text-xs text-muted">Tip: generate {activeMeta.uses.join(", ")} first for best results.</div>
+                  )}
+                  <button onClick={() => generateActive(activeTab)} disabled={anyBusy} className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                    Generate {activeMeta.label}
+                    {activeMeta.grounded ? " 🌐" : ""}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
