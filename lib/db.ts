@@ -20,6 +20,16 @@ function tableColumns(db: Database.Database, name: string): string[] {
   );
 }
 
+// Idempotent column add — safe under the race where Next's build workers all run init() at once.
+function addColumn(db: Database.Database, table: string, col: string, def: string): void {
+  if (tableColumns(db, table).includes(col)) return;
+  try {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+  } catch (e) {
+    if (!String(e).toLowerCase().includes("duplicate column")) throw e;
+  }
+}
+
 function init(): Database.Database {
   const db = new Database(path.join(DATA_DIR, "ideavalidator.db"));
   db.pragma("journal_mode = WAL");
@@ -44,6 +54,7 @@ function init(): Database.Database {
       rationale  TEXT,
       context    TEXT,
       score      INTEGER,
+      revenue    TEXT,
       created_at TEXT NOT NULL,
       UNIQUE (idea_id, n)
     );
@@ -68,22 +79,15 @@ function init(): Database.Database {
   }
 
   // founder context on versions + goal on ideas (added in upgrades).
-  if (!tableColumns(db, "versions").includes("context")) {
-    db.exec("ALTER TABLE versions ADD COLUMN context TEXT");
-  }
-  const ideaCols = tableColumns(db, "ideas");
-  if (!ideaCols.includes("goal")) db.exec("ALTER TABLE ideas ADD COLUMN goal TEXT");
-  if (!ideaCols.includes("goal_detail")) db.exec("ALTER TABLE ideas ADD COLUMN goal_detail TEXT");
+  addColumn(db, "versions", "context", "TEXT");
+  addColumn(db, "versions", "revenue", "TEXT");
+  addColumn(db, "ideas", "goal", "TEXT");
+  addColumn(db, "ideas", "goal_detail", "TEXT");
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
-  const acols = tableColumns(db, "artifacts");
-  for (const [col, type] of [
-    ["cost", "REAL"],
-    ["prompt_tokens", "INTEGER"],
-    ["completion_tokens", "INTEGER"],
-  ] as const) {
-    if (!acols.includes(col)) db.exec(`ALTER TABLE artifacts ADD COLUMN ${col} ${type}`);
-  }
+  addColumn(db, "artifacts", "cost", "REAL");
+  addColumn(db, "artifacts", "prompt_tokens", "INTEGER");
+  addColumn(db, "artifacts", "completion_tokens", "INTEGER");
   db.exec(`
     CREATE TABLE IF NOT EXISTS usage_log (
       id                TEXT PRIMARY KEY,
@@ -161,6 +165,7 @@ export type IdeaSummary = Idea & {
   best_score: number | null;
   version_count: number;
   cost: number | null;
+  revenue: string | null;
 };
 
 export type VersionOrigin = "original" | "manual" | "ai" | "context";
@@ -176,6 +181,7 @@ export type Version = {
   rationale: string | null;
   context: string | null;
   score: number | null;
+  revenue: string | null; // cached obtainable_revenue from validation (the forecast)
   created_at: string;
 };
 
@@ -241,6 +247,7 @@ export function createIdea(
     rationale: null,
     context: null,
     score: null,
+    revenue: null,
     created_at: now,
   };
   const tx = db.transaction(() => {
@@ -248,8 +255,8 @@ export function createIdea(
       "INSERT INTO ideas (id, title, prompt, goal, goal_detail, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @created_at)"
     ).run(idea);
     db.prepare(
-      `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, created_at)
-       VALUES (@id, @idea_id, @n, @statement, @label, @origin, @parent_id, @rationale, @context, @score, @created_at)`
+      `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, revenue, created_at)
+       VALUES (@id, @idea_id, @n, @statement, @label, @origin, @parent_id, @rationale, @context, @score, @revenue, @created_at)`
     ).run(version);
   });
   tx();
@@ -262,7 +269,9 @@ export function listIdeas(): IdeaSummary[] {
       `SELECT i.*,
               (SELECT MAX(v.score) FROM versions v WHERE v.idea_id = i.id) AS best_score,
               (SELECT COUNT(*) FROM versions v WHERE v.idea_id = i.id) AS version_count,
-              (SELECT COALESCE(SUM(u.cost), 0) FROM usage_log u WHERE u.idea_id = i.id) AS cost
+              (SELECT COALESCE(SUM(u.cost), 0) FROM usage_log u WHERE u.idea_id = i.id) AS cost,
+              (SELECT v.revenue FROM versions v WHERE v.idea_id = i.id AND v.revenue IS NOT NULL
+                 ORDER BY v.score DESC LIMIT 1) AS revenue
        FROM ideas i ORDER BY i.created_at DESC`
     )
     .all() as IdeaSummary[];
@@ -326,17 +335,22 @@ export function createVersion(
     rationale: opts.rationale ?? null,
     context: opts.context ?? null,
     score: null,
+    revenue: null,
     created_at: new Date().toISOString(),
   };
   db.prepare(
-    `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, created_at)
-     VALUES (@id, @idea_id, @n, @statement, @label, @origin, @parent_id, @rationale, @context, @score, @created_at)`
+    `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, revenue, created_at)
+     VALUES (@id, @idea_id, @n, @statement, @label, @origin, @parent_id, @rationale, @context, @score, @revenue, @created_at)`
   ).run(version);
   return version;
 }
 
 export function setVersionScore(versionId: string, score: number): void {
   db.prepare("UPDATE versions SET score = ? WHERE id = ?").run(Math.round(score), versionId);
+}
+
+export function setVersionRevenue(versionId: string, revenue: string): void {
+  db.prepare("UPDATE versions SET revenue = ? WHERE id = ?").run(revenue, versionId);
 }
 
 // ---- artifacts (version-keyed) ----------------------------------------------

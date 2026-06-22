@@ -7,6 +7,7 @@ import {
   getVersion,
   logUsage,
   saveArtifact,
+  setVersionRevenue,
   setVersionScore,
 } from "../db";
 import { Generator, GenContext } from "./shared";
@@ -94,10 +95,11 @@ export async function runGenerator(
     prompt: def.buildPrompt(ctx),
   });
 
-  // Cache the headline validation score onto the version for the switcher / iteration.
+  // Cache the headline validation score + obtainable-revenue forecast onto the version.
   if (kind === "validation") {
-    const score = (data as { score?: number })?.score;
-    if (typeof score === "number") setVersionScore(versionId, score);
+    const v = data as { score?: number; demand?: { obtainable_revenue?: string } };
+    if (typeof v?.score === "number") setVersionScore(versionId, v.score);
+    if (v?.demand?.obtainable_revenue) setVersionRevenue(versionId, v.demand.obtainable_revenue);
   }
 
   logUsage({ ideaId: version.idea_id, versionId, kind, model, usage });

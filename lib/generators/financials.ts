@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Generator, ideaHeader, priorContext } from "./shared";
+import { Generator, goalContext, ideaHeader, priorContext } from "./shared";
 
 export const FinancialsSchema = z.object({
   summary: z.string(),
@@ -60,13 +60,15 @@ export const financialsGenerator: Generator<Financials> = {
     "concrete numbers with units. Be conservative, not promotional: a healthy LTV:CAC is ~3:1 to 5:1 — flag " +
     "anything above 5:1 as likely under-invested in growth. Ground CAC, LTV and payback in published " +
     "benchmarks for this exact category and name the benchmark basis in the summary.",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}${priorContext(ctx, ["validation", "market"])}
+  buildPrompt: (ctx) => `${ideaHeader(ctx)}${priorContext(ctx, ["validation", "market"])}${goalContext(ctx)}
 
-Produce financials & unit economics. Anchor every number to the prior artifacts: your final-year
-projected revenue must be a credible FRACTION of market.sizing.som (state what share of SOM it implies
-in that year's note); stream prices must be consistent with market.pricing_recommendation; CAC/payback
-must fit the persona and segments named in the market analysis. If a market figure is missing, say so in
-the note rather than inventing one.
+Produce financials & unit economics SIZED TO THE FOUNDER'S GOAL. Anchor the model to the validation's
+demand.obtainable_revenue (the realistic annual revenue this founder could capture) — your projections
+should converge toward that figure, NOT a top-down share of TAM. Keep scale, team, and burn appropriate
+to the goal (a lifestyle business stays solo/lean and bootstrapped; a venture-scale plan can assume hiring
+and raised capital). Stream prices must be consistent with market.pricing_recommendation; CAC/payback must
+fit the persona and segments named in the market analysis. If a figure is missing, say so in the note
+rather than inventing one.
 Constraints: revenue_share values are percentages of total revenue and MUST sum to 100 across all streams
 (e.g. 70 + 20 + 10); provide at least 2 streams. Projections must be EXACTLY 3 rows (Year 1, Year 2,
 Year 3) and internally consistent: each year's revenue should ≈ customers × the blended annual revenue

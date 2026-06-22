@@ -54,6 +54,9 @@ export default function Home() {
                     </span>
                   )}
                 </div>
+                {idea.revenue && (
+                  <div className="mt-1 font-mono text-xs text-accent2">~{idea.revenue}</div>
+                )}
                 <div className="mt-1 text-xs text-muted">
                   {new Date(idea.created_at).toLocaleString()}
                   {idea.version_count > 1 ? ` · ${idea.version_count} versions` : ""}

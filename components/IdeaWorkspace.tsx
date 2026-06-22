@@ -245,9 +245,18 @@ export default function IdeaWorkspace({
       setArtifacts((prev) => ({ ...prev, [versionId]: { ...(prev[versionId] ?? {}), [kind]: art } }));
       setCost((c) => c + (art.cost ?? 0));
       if (kind === "validation") {
-        const score = (art.data as { score?: number })?.score;
-        if (typeof score === "number")
-          setVersions((prev) => prev.map((v) => (v.id === versionId ? { ...v, score: Math.round(score) } : v)));
+        const dv = art.data as { score?: number; demand?: { obtainable_revenue?: string } };
+        setVersions((prev) =>
+          prev.map((v) =>
+            v.id === versionId
+              ? {
+                  ...v,
+                  score: typeof dv?.score === "number" ? Math.round(dv.score) : v.score,
+                  revenue: dv?.demand?.obtainable_revenue ?? v.revenue,
+                }
+              : v
+          )
+        );
       }
       return art;
     } finally {
@@ -382,6 +391,8 @@ export default function IdeaWorkspace({
     const log = (m: string) => setIterLog((prev) => [...prev, m]);
     setIterLog([]);
     const scoreOf = (a: Artifact) => Math.round((a.data as { score?: number })?.score ?? 0);
+    const revOf = (a: Artifact) =>
+      (a.data as { demand?: { obtainable_revenue?: string } })?.demand?.obtainable_revenue ?? "";
     try {
       const curId = activeVersionId;
       const curN = activeVersion.n;
@@ -418,9 +429,14 @@ export default function IdeaWorkspace({
         log(`→ v${v.n} "${prop.label}". Validating…`);
         const val = await generate("validation", v.id);
         const newScore = scoreOf(val);
+        const newRev = revOf(val);
         log(`Market scan for v${v.n}…`);
         await generate("market", v.id);
-        log(`v${v.n} scored ${newScore}/100${newScore > best ? " (new best)" : ""}.`);
+        log(
+          `v${v.n}: ${newScore}/100${newRev ? ` · forecast ${newRev}` : ""}${
+            newScore > best ? "  ← new best" : ""
+          }`
+        );
         if (newScore > best) {
           best = newScore;
           bestId = v.id;
@@ -493,6 +509,14 @@ export default function IdeaWorkspace({
               <h1 className="text-lg font-bold">
                 {idea.title}{" "}
                 <span className="font-mono text-sm font-normal text-muted">· v{activeVersion.n}</span>
+                {activeVersion.revenue && (
+                  <span
+                    className="ml-2 rounded-md border border-accent2/30 bg-accent2/10 px-2 py-0.5 align-middle font-mono text-xs font-normal text-accent2"
+                    title="Forecast: realistic obtainable revenue / yr for this version"
+                  >
+                    ~{activeVersion.revenue}
+                  </span>
+                )}
                 <span
                   className="ml-2 rounded-md border border-border bg-panel2 px-2 py-0.5 align-middle font-mono text-xs font-normal text-muted"
                   title="Total OpenRouter spend on this idea (all versions)"
