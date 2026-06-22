@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Artifact, ArtifactKind, Idea, Version } from "@/lib/db";
 import type { GeneratorMeta } from "@/lib/generators";
 import NameStage from "./NameStage";
+import SellStage from "./SellStage";
 import type { Refinement } from "@/lib/generators/refine";
 import {
   BrandView,
@@ -13,6 +14,7 @@ import {
   LogoView,
   MarketingView,
   MarketView,
+  OutreachView,
   PitchView,
   PlanView,
   SourcesList,
@@ -28,6 +30,7 @@ import { LogoSchema } from "@/lib/generators/logo";
 import { MarketingSchema } from "@/lib/generators/marketing";
 import { CustomerPitchSchema } from "@/lib/generators/customer_pitch";
 import { PitchSchema } from "@/lib/generators/pitch";
+import { OutreachSchema } from "@/lib/generators/outreach";
 
 // Validate persisted artifacts against the current schema so results saved under an
 // older schema show a regenerate prompt instead of crashing the render.
@@ -41,6 +44,7 @@ const SCHEMAS: Record<ArtifactKind, ZodType> = {
   marketing: MarketingSchema,
   customer_pitch: CustomerPitchSchema,
   pitch: PitchSchema,
+  outreach: OutreachSchema,
 };
 function isCurrent(kind: ArtifactKind, data: unknown): boolean {
   return SCHEMAS[kind].safeParse(data).success;
@@ -56,6 +60,7 @@ const VIEWS: Record<ArtifactKind, React.ComponentType<{ d: never }>> = {
   marketing: MarketingView as never,
   customer_pitch: CustomerPitchView as never,
   pitch: PitchView as never,
+  outreach: OutreachView as never,
 };
 
 function renderView(kind: ArtifactKind, data: unknown) {
@@ -144,13 +149,22 @@ const goalLabel = (k: string | null) =>
   GOAL_OPTIONS.find((o) => o.key === k)?.label ?? "Not set";
 
 // The journey: idea -> first paying customers. Each stage groups artifact kinds (or a special view).
-type StageKey = "validate" | "decide" | "pitch" | "brand" | "name";
-const STAGES: { key: StageKey; label: string; blurb: string; kinds: ArtifactKind[]; special?: boolean }[] = [
+type StageKey = "validate" | "decide" | "pitch" | "sell" | "name" | "brand";
+const STAGES: {
+  key: StageKey;
+  label: string;
+  blurb: string;
+  kinds: ArtifactKind[];
+  special?: boolean;
+  optional?: boolean;
+  needsChosen?: boolean; // gated until a version is chosen in Decide
+}[] = [
   { key: "validate", label: "Validate", blurb: "Is there real, paying demand?", kinds: ["validation", "market", "financials", "plan"] },
   { key: "decide", label: "Decide", blurb: "Commit to the version you'll build on.", kinds: [], special: true },
-  { key: "pitch", label: "Pitch", blurb: "Say why they'll buy — pick a customer or investor pitch.", kinds: ["customer_pitch", "pitch", "marketing"] },
-  { key: "brand", label: "Branding", blurb: "Give it a feel, a voice, and a look.", kinds: ["brand", "logo"] },
-  { key: "name", label: "Name", blurb: "Find a name you can actually own.", kinds: [], special: true },
+  { key: "pitch", label: "Pitch", blurb: "Say why they'll buy — pick a customer or investor pitch.", kinds: ["customer_pitch", "pitch", "marketing"], needsChosen: true },
+  { key: "sell", label: "Sell", blurb: "Land your first 5 paying customers.", kinds: ["outreach"], special: true, needsChosen: true },
+  { key: "name", label: "Name", blurb: "Find a name you can actually own.", kinds: [], special: true, needsChosen: true },
+  { key: "brand", label: "Branding", blurb: "Optional — make it pretty once you have traction.", kinds: ["brand", "logo"], needsChosen: true, optional: true },
 ];
 const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
 
@@ -502,6 +516,27 @@ export default function IdeaWorkspace({
     }
   }
 
+  // --- re-validate in light of what real prospects told you (Sell stage) ------
+  async function applyLearnings(context: string) {
+    setError(null);
+    try {
+      const v = await createVersionFrom(
+        activeVersion.statement,
+        "context",
+        activeVersionId,
+        "Learnings from outreach",
+        context,
+        context
+      );
+      switchVersion(v.id);
+      goToStage("validate");
+      await generate("validation", v.id);
+      await generate("market", v.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not re-validate");
+    }
+  }
+
   // --- re-validate positioned around a suggested alpha ------------------------
   async function revalidateWithAlpha(alpha: string, rationale: string) {
     setError(null);
@@ -661,7 +696,13 @@ export default function IdeaWorkspace({
   const activeQuestions = activeValidationData?.clarifying_questions ?? [];
   const activeAlphas = activeValidationData?.possible_alphas ?? [];
   const stage = STAGES.find((s) => s.key === currentStage)!;
-  const stageMeta = meta.filter((m) => stage.kinds.includes(m.kind));
+  // For lifestyle/side-hustle goals, the investor deck is a distraction — keep it
+  // out of the Pitch tabs + chooser (it's still reachable if the goal changes).
+  const hideInvestor =
+    currentStage === "pitch" && (goalBucket === "lifestyle" || goalBucket === "side_hustle");
+  const stageMeta = meta.filter(
+    (m) => stage.kinds.includes(m.kind) && !(hideInvestor && m.kind === "pitch")
+  );
   const steerKey = bk(activeVersionId, activeTab);
   const steerVal = steerDrafts[steerKey] ?? "";
 
@@ -1059,7 +1100,25 @@ export default function IdeaWorkspace({
           <div className="mb-4 rounded-lg border border-bad/30 bg-bad/10 px-4 py-2 text-sm text-bad">{error}</div>
         )}
 
-        {currentStage === "decide" ? (
+        {stage.needsChosen && !chosenVersionId ? (
+          <div className="grid place-items-center rounded-xl border border-dashed border-border bg-panel/50 py-16 text-center">
+            <div className="max-w-sm">
+              <div className="text-2xl" aria-hidden>
+                🔒
+              </div>
+              <div className="mt-2 text-sm font-medium">{stage.label} builds on a chosen version</div>
+              <p className="mt-1 text-sm text-muted">
+                Pick the version you&apos;re betting on in Decide, then come back here.
+              </p>
+              <button
+                onClick={() => goToStage("decide")}
+                className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
+              >
+                Go to Decide →
+              </button>
+            </div>
+          </div>
+        ) : currentStage === "decide" ? (
           <div className="rounded-xl border border-border bg-panel p-5">
             <h3 className="text-base font-bold">Decide — which version are you betting on?</h3>
             <p className="mt-1 text-sm text-muted">
@@ -1113,6 +1172,16 @@ export default function IdeaWorkspace({
           </div>
         ) : currentStage === "name" ? (
           <NameStage ideaId={idea.id} onCost={(d) => setCost((c) => c + d)} />
+        ) : currentStage === "sell" ? (
+          <SellStage
+            ideaId={idea.id}
+            chosenVersionId={chosenVersionId}
+            outreach={chosenVersionId ? artifacts[chosenVersionId]?.outreach?.data : undefined}
+            outreachBusy={!!chosenVersionId && busy.has(bk(chosenVersionId, "outreach"))}
+            onGenerateOutreach={() => chosenVersionId && generate("outreach", chosenVersionId)}
+            onCost={(d) => setCost((c) => c + d)}
+            onApplyLearnings={applyLearnings}
+          />
         ) : (
           <>
             {/* Pitch stage: which pitch are you leading with? Picking marks Pitch done. */}
@@ -1122,7 +1191,9 @@ export default function IdeaWorkspace({
                 {([
                   { which: "customer", label: "Customer pitch", kind: "customer_pitch" },
                   { which: "investor", label: "Investor pitch", kind: "pitch" },
-                ] as const).map((o) => {
+                ] as const)
+                  .filter((o) => o.which !== "investor" || !hideInvestor)
+                  .map((o) => {
                   const picked = chosenPitch === o.which;
                   return (
                     <button
@@ -1279,6 +1350,24 @@ export default function IdeaWorkspace({
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* forward step to keep the journey moving */}
+            {currentStage === "pitch" && chosenPitch && (
+              <button
+                onClick={() => goToStage("sell")}
+                className="mt-6 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
+              >
+                Continue to Sell →
+              </button>
+            )}
+            {currentStage === "brand" && (
+              <button
+                onClick={() => goToStage("name")}
+                className="mt-6 rounded-lg border border-border px-4 py-2 text-sm hover:bg-panel2"
+              >
+                Continue to Name →
+              </button>
             )}
           </>
         )}

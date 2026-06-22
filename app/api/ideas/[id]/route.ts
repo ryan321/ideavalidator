@@ -5,6 +5,8 @@ import {
   getIdea,
   getNameData,
   listVersions,
+  payingCount,
+  prospectCount,
   setChosenName,
   setChosenPitch,
   setIdeaGoal,
@@ -54,12 +56,15 @@ export async function GET(
   const name = getNameData(id);
   const st = (done: boolean, stage: string) =>
     done ? "done" : idea.stage === stage ? "active" : "todo";
+  const paying = payingCount(id);
+  const hasProspects = prospectCount(id) > 0;
   const stageStatus = {
     validate: st(kinds.has("validation"), "validate"),
     decide: st(!!idea.chosen_version_id, "decide"),
     pitch: st(!!idea.chosen_pitch, "pitch"),
-    brand: st(kinds.has("brand"), "brand"),
+    sell: paying > 0 ? "done" : hasProspects || idea.stage === "sell" ? "active" : "todo",
     name: st(!!name.chosen_name, "name"),
+    brand: st(kinds.has("brand"), "brand"),
   };
   return NextResponse.json({
     idea,

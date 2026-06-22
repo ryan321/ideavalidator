@@ -9,6 +9,7 @@ import type { Logo } from "@/lib/generators/logo";
 import type { Marketing } from "@/lib/generators/marketing";
 import type { CustomerPitch } from "@/lib/generators/customer_pitch";
 import type { Pitch } from "@/lib/generators/pitch";
+import type { Outreach } from "@/lib/generators/outreach";
 
 // Report subcomponents (built as standalone files).
 import { CriteriaRadar } from "./report/CriteriaRadar";
@@ -501,6 +502,52 @@ export function MarketingView({ d }: { d: Marketing }) {
             </Card>
           ))}
         </div>
+      </Section>
+    </div>
+  );
+}
+
+export function OutreachView({ d }: { d: Outreach }) {
+  return (
+    <div className="space-y-5">
+      <Card className="border-accent2/40 bg-accent2/5 p-4">
+        <div className="font-mono text-xs uppercase tracking-[0.18em] text-accent2">Channel strategy</div>
+        <p className="mt-1.5 text-sm text-fg/90">{d.channel_strategy}</p>
+      </Card>
+
+      <Section title="Cold openers">
+        <div className="space-y-3">
+          {d.openers.map((o, i) => (
+            <Card key={i} className="p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-xs text-accent">
+                  {o.channel}
+                </span>
+                {o.why && <span className="text-[11px] text-muted">{o.why}</span>}
+              </div>
+              {o.subject && (
+                <div className="mt-2 text-sm">
+                  <span className="text-muted">Subject: </span>
+                  <span className="font-medium">{o.subject}</span>
+                </div>
+              )}
+              <p className="mt-1.5 whitespace-pre-wrap text-sm text-fg/90">{o.message}</p>
+            </Card>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Plan to first 5 paying customers">
+        <Card className="p-4">
+          <ol className="space-y-2">
+            {d.first_five_plan.map((step, i) => (
+              <li key={i} className="flex gap-3 text-sm">
+                <span className="font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
+                <span className="text-fg/90">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </Card>
       </Section>
     </div>
   );

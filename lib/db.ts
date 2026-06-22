@@ -119,6 +119,21 @@ function init(): Database.Database {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_messages_version ON messages(version_id);
+    CREATE TABLE IF NOT EXISTS prospects (
+      id         TEXT PRIMARY KEY,
+      idea_id    TEXT NOT NULL,
+      name       TEXT NOT NULL,
+      company    TEXT,
+      channel    TEXT,
+      status     TEXT NOT NULL DEFAULT 'lead',
+      pain       INTEGER,
+      objection  TEXT,
+      next_step  TEXT,
+      notes      TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_prospects_idea ON prospects(idea_id);
   `);
 
   return db;
@@ -169,7 +184,8 @@ export type ArtifactKind =
   | "logo"
   | "marketing"
   | "customer_pitch"
-  | "pitch";
+  | "pitch"
+  | "outreach";
 
 export type Idea = {
   id: string;
@@ -352,10 +368,99 @@ export function deleteIdea(id: string): void {
       "DELETE FROM messages WHERE version_id IN (SELECT id FROM versions WHERE idea_id = ?)"
     ).run(id);
     db.prepare("DELETE FROM usage_log WHERE idea_id = ?").run(id);
+    db.prepare("DELETE FROM prospects WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM versions WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM ideas WHERE id = ?").run(id);
   });
   tx();
+}
+
+// ---- prospects (the path to first paying customers) --------------------------
+export type ProspectStatus =
+  | "lead"
+  | "contacted"
+  | "meeting"
+  | "demo"
+  | "trial"
+  | "paying"
+  | "lost";
+
+export type Prospect = {
+  id: string;
+  idea_id: string;
+  name: string;
+  company: string | null;
+  channel: string | null;
+  status: ProspectStatus;
+  pain: number | null; // how acutely they feel the problem, 1-5
+  objection: string | null;
+  next_step: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function listProspects(ideaId: string): Prospect[] {
+  return db
+    .prepare("SELECT * FROM prospects WHERE idea_id = ? ORDER BY created_at ASC")
+    .all(ideaId) as Prospect[];
+}
+
+export function createProspect(ideaId: string, name: string): Prospect {
+  const now = new Date().toISOString();
+  const p: Prospect = {
+    id: crypto.randomUUID(),
+    idea_id: ideaId,
+    name,
+    company: null,
+    channel: null,
+    status: "lead",
+    pain: null,
+    objection: null,
+    next_step: null,
+    notes: null,
+    created_at: now,
+    updated_at: now,
+  };
+  db.prepare(
+    `INSERT INTO prospects (id, idea_id, name, company, channel, status, pain, objection, next_step, notes, created_at, updated_at)
+     VALUES (@id, @idea_id, @name, @company, @channel, @status, @pain, @objection, @next_step, @notes, @created_at, @updated_at)`
+  ).run(p);
+  return p;
+}
+
+const PROSPECT_FIELDS = ["name", "company", "channel", "status", "pain", "objection", "next_step", "notes"] as const;
+
+export function updateProspect(
+  id: string,
+  fields: Partial<Pick<Prospect, (typeof PROSPECT_FIELDS)[number]>>
+): void {
+  const sets: string[] = [];
+  const vals: Record<string, unknown> = { id, updated_at: new Date().toISOString() };
+  for (const f of PROSPECT_FIELDS) {
+    if (f in fields) {
+      sets.push(`${f} = @${f}`);
+      vals[f] = (fields as Record<string, unknown>)[f];
+    }
+  }
+  if (!sets.length) return;
+  db.prepare(`UPDATE prospects SET ${sets.join(", ")}, updated_at = @updated_at WHERE id = @id`).run(vals);
+}
+
+export function deleteProspect(id: string): void {
+  db.prepare("DELETE FROM prospects WHERE id = ?").run(id);
+}
+
+export function payingCount(ideaId: string): number {
+  const r = db
+    .prepare("SELECT COUNT(*) AS n FROM prospects WHERE idea_id = ? AND status = 'paying'")
+    .get(ideaId) as { n: number };
+  return r.n;
+}
+
+export function prospectCount(ideaId: string): number {
+  const r = db.prepare("SELECT COUNT(*) AS n FROM prospects WHERE idea_id = ?").get(ideaId) as { n: number };
+  return r.n;
 }
 
 // ---- versions ----------------------------------------------------------------

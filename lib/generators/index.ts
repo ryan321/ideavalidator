@@ -20,6 +20,7 @@ import { logoGenerator } from "./logo";
 import { marketingGenerator } from "./marketing";
 import { customerPitchGenerator } from "./customer_pitch";
 import { pitchGenerator } from "./pitch";
+import { outreachGenerator } from "./outreach";
 
 export const GENERATORS: Record<ArtifactKind, Generator> = {
   validation: validationGenerator,
@@ -31,6 +32,7 @@ export const GENERATORS: Record<ArtifactKind, Generator> = {
   marketing: marketingGenerator,
   customer_pitch: customerPitchGenerator,
   pitch: pitchGenerator,
+  outreach: outreachGenerator,
 };
 
 // Display/run order for the dashboard.
@@ -44,6 +46,7 @@ export const KIND_ORDER: ArtifactKind[] = [
   "customer_pitch",
   "pitch",
   "marketing",
+  "outreach",
 ];
 
 export type GeneratorMeta = {
