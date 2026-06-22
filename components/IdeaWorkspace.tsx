@@ -857,27 +857,21 @@ export default function IdeaWorkspace({
         )}
 
         {/* header */}
-        <div className="mb-5 rounded-xl border border-border bg-panel p-4">
+        <div className="mb-5 rounded-xl border border-border bg-panel/50 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold">
-                {idea.title}{" "}
-                <span className="font-mono text-sm font-normal text-muted">· v{activeVersion.n}</span>
-                {activeVersion.revenue && (
-                  <span
-                    className="ml-2 rounded-md border border-accent2/30 bg-accent2/10 px-2 py-0.5 align-middle font-mono text-xs font-normal text-accent2"
-                    title="Forecast: realistic obtainable revenue / yr for this version"
-                  >
-                    ~{activeVersion.revenue}
-                  </span>
-                )}
+              <div className="mb-1 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+                <span>The idea</span>
+                <span className="text-border">·</span>
+                <span>v{activeVersion.n}</span>
                 <span
-                  className="ml-2 rounded-md border border-border bg-panel2 px-2 py-0.5 align-middle font-mono text-xs font-normal text-muted"
+                  className="rounded border border-border bg-panel2 px-1.5 py-0.5 normal-case tracking-normal"
                   title="Total OpenRouter spend on this idea (all versions)"
                 >
                   spent {fmtCost(cost)}
                 </span>
-              </h1>
+              </div>
+              <h1 className="text-base font-semibold">{idea.title}</h1>
               {editing ? (
                 <div className="mt-2">
                   <textarea
@@ -976,50 +970,64 @@ export default function IdeaWorkspace({
           </div>
 
           {!editing && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {/* validation / idea-changing actions only belong on the Validate stage */}
               {currentStage === "validate" && (
                 <>
-              <button title="Generate every deliverable (market, financials, plan, pitch…) for this version at once." onClick={generateAll} disabled={anyBusy} className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
-                {anyBusy ? "Working…" : "Generate all"}
-              </button>
-              <button title="Edit the idea statement yourself — saves as a new version and re-scores." onClick={startManual} disabled={anyBusy} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2 disabled:opacity-50">
-                ✎ Refine manually
-              </button>
-              <button
-                onClick={() => {
-                  setProposal(null);
-                  setEditing(false);
-                  setResponseDraft("");
-                  setResponding((r) => !r);
-                }}
-                disabled={anyBusy}
-                title="Push back or add context the analysis missed — re-validates treating your input as authoritative."
-                className="rounded-lg border border-accent2/40 px-3 py-1.5 text-sm text-accent2 hover:bg-accent2/10 disabled:opacity-50"
-              >
-                💬 Respond to validator
-              </button>
-              <button
-                onClick={() => (chatting ? setChatting(false) : openChat())}
-                disabled={anyBusy}
-                title="Ask questions about the analysis. Doesn't change anything."
-                className="rounded-lg border border-accent2/40 px-3 py-1.5 text-sm text-accent2 hover:bg-accent2/10 disabled:opacity-50"
-              >
-                ❓ Ask about this
-              </button>
-              <button title="Let AI propose a sharper version aimed at your weakest criteria." onClick={suggest} disabled={anyBusy} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 disabled:opacity-50">
-                {suggesting ? "Thinking…" : "✨ Suggest improvement"}
-              </button>
-              <button title="AI hill-climbs the idea over several rounds toward a target score." onClick={autoIterate} disabled={anyBusy} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 disabled:opacity-50">
-                ⟳ Auto-iterate
-              </button>
+                  <button
+                    title="Generate every deliverable (market, financials, plan, pitch…) for this version at once."
+                    onClick={generateAll}
+                    disabled={anyBusy}
+                    className="rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-white shadow-sm shadow-accent/20 transition hover:brightness-110 disabled:opacity-50"
+                  >
+                    {anyBusy ? "Working…" : "Generate all"}
+                  </button>
+
+                  {/* improve the idea — grouped */}
+                  <div className="flex items-center overflow-hidden rounded-lg border border-accent/30">
+                    <span className="px-2 font-mono text-[10px] uppercase tracking-wider text-accent/70">Improve</span>
+                    <button title="Edit the idea statement yourself — saves as a new version and re-scores." onClick={startManual} disabled={anyBusy} className="border-l border-accent/20 px-2.5 py-1.5 text-sm text-accent transition hover:bg-accent/10 disabled:opacity-50">
+                      ✎ Refine
+                    </button>
+                    <button title="Let AI propose a sharper version aimed at your weakest criteria." onClick={suggest} disabled={anyBusy} className="border-l border-accent/20 px-2.5 py-1.5 text-sm text-accent transition hover:bg-accent/10 disabled:opacity-50">
+                      {suggesting ? "Thinking…" : "✨ Suggest"}
+                    </button>
+                    <button title="AI hill-climbs the idea over several rounds toward a target score." onClick={autoIterate} disabled={anyBusy} className="border-l border-accent/20 px-2.5 py-1.5 text-sm text-accent transition hover:bg-accent/10 disabled:opacity-50">
+                      ⟳ Iterate
+                    </button>
+                  </div>
+
+                  {/* talk to the validator — grouped */}
+                  <div className="flex items-center overflow-hidden rounded-lg border border-accent2/30">
+                    <button
+                      title="Push back or add context the analysis missed — re-validates treating your input as authoritative."
+                      onClick={() => {
+                        setProposal(null);
+                        setEditing(false);
+                        setResponseDraft("");
+                        setResponding((r) => !r);
+                      }}
+                      disabled={anyBusy}
+                      className="px-2.5 py-1.5 text-sm text-accent2 transition hover:bg-accent2/10 disabled:opacity-50"
+                    >
+                      💬 Respond
+                    </button>
+                    <button
+                      title="Ask questions about the analysis. Doesn't change anything."
+                      onClick={() => (chatting ? setChatting(false) : openChat())}
+                      disabled={anyBusy}
+                      className="border-l border-accent2/20 px-2.5 py-1.5 text-sm text-accent2 transition hover:bg-accent2/10 disabled:opacity-50"
+                    >
+                      ❓ Ask
+                    </button>
+                  </div>
                 </>
               )}
-              <div className="ml-auto flex gap-2">
-                <button onClick={() => window.print()} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
-                  Print / PDF
+              <div className="ml-auto flex items-center gap-1">
+                <button onClick={() => window.print()} title="Print or save the full report as a PDF" className="rounded-lg px-2.5 py-1.5 text-sm text-muted transition hover:bg-panel2 hover:text-fg">
+                  ⎙ PDF
                 </button>
-                <button onClick={remove} className="rounded-lg border border-border px-3 py-1.5 text-sm text-bad hover:bg-panel2">
+                <button onClick={remove} title="Delete this idea and all its versions" className="rounded-lg px-2.5 py-1.5 text-sm text-muted transition hover:bg-bad/10 hover:text-bad">
                   Delete
                 </button>
               </div>

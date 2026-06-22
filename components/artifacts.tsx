@@ -146,40 +146,103 @@ function DetailRow({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
+// Signature instrument: a calibrated 0-100 verdict meter. The three zones are the
+// REAL scoring thresholds (NO-GO <45, MAYBE 45-69, GO ≥70), with a needle at the
+// score — so the founder reads not just "59" but "59, in MAYBE, 11 below the GO line".
+function VerdictMeter({ score }: { score: number }) {
+  const s = Math.max(0, Math.min(100, Math.round(score)));
+  const pos = Math.max(5, Math.min(95, s)); // keep the needle chip on-canvas at extremes
+  const color = scoreColor(s);
+  const toGo = s >= 70 ? null : 70 - s;
+  return (
+    <div className="keep-color">
+      {/* score needle + chip */}
+      <div className="relative h-7">
+        <div className="absolute -translate-x-1/2 text-center" style={{ left: `${pos}%` }}>
+          <span
+            className="inline-block rounded-md px-2 py-0.5 font-mono text-sm font-bold tabular-nums"
+            style={{
+              color,
+              background: `color-mix(in srgb, ${color} 16%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${color} 45%, transparent)`,
+            }}
+          >
+            {s}
+          </span>
+          <div className="mx-auto h-2 w-px" style={{ background: color }} />
+        </div>
+      </div>
+      {/* the calibrated track */}
+      <div className="relative h-2.5">
+        <div className="absolute inset-0 flex overflow-hidden rounded-full">
+          <div style={{ width: "45%", background: "color-mix(in srgb, var(--color-bad) 30%, transparent)" }} />
+          <div style={{ width: "25%", background: "color-mix(in srgb, var(--color-warn) 30%, transparent)" }} />
+          <div style={{ width: "30%", background: "color-mix(in srgb, var(--color-good) 30%, transparent)" }} />
+        </div>
+        {/* GO line */}
+        <div className="absolute -top-1 -bottom-1 w-px bg-fg/40" style={{ left: "70%" }} />
+        {/* needle on the track */}
+        <div
+          className="absolute -top-1 -bottom-1 w-[3px] rounded"
+          style={{ left: `${pos}%`, transform: "translateX(-1.5px)", background: color, boxShadow: "0 0 0 2px var(--color-panel)" }}
+        />
+      </div>
+      {/* zone labels under their bands */}
+      <div className="relative mt-1.5 h-3 font-mono text-[10px] uppercase tracking-wider">
+        <span className="absolute -translate-x-1/2 text-bad/70" style={{ left: "22.5%" }}>No-go</span>
+        <span className="absolute -translate-x-1/2 text-warn/80" style={{ left: "57.5%" }}>Maybe</span>
+        <span className="absolute -translate-x-1/2 text-good/80" style={{ left: "85%" }}>Go · 70+</span>
+      </div>
+      <div className="mt-2.5 font-mono text-xs" style={{ color }}>
+        {toGo != null
+          ? `${toGo} point${toGo === 1 ? "" : "s"} below the GO line`
+          : `clears the GO line`}
+      </div>
+    </div>
+  );
+}
+
 export function ValidationView({ d }: { d: Validation }) {
   return (
     <div className="space-y-8">
-      <Card className="border-accent2/30 bg-accent2/5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-              Obtainable revenue / yr
+      <div className="space-y-4">
+        {/* primary instrument — the verdict readout, rail tinted to the verdict */}
+        <div
+          className="overflow-hidden rounded-xl border border-border bg-panel"
+          style={{ borderLeftWidth: 3, borderLeftColor: scoreColor(d.score) }}
+        >
+          <div className="p-5">
+            <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+              <span>Validation readout</span>
+              <span>{d.confidence}% confidence</span>
             </div>
-            <div className="mt-1 font-mono text-3xl font-bold leading-tight text-accent2 [overflow-wrap:anywhere]">
-              {d.demand?.obtainable_revenue ?? "—"}
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+              <div className="min-w-0">
+                <div
+                  className="font-display text-4xl font-bold leading-none tracking-tight"
+                  style={{ color: scoreColor(d.score) }}
+                >
+                  {d.verdict}
+                </div>
+                <div className="mt-2 max-w-sm text-sm text-muted">{scoreBand(d.score).hint}</div>
+              </div>
+              <div className="text-right">
+                <div className="font-mono text-3xl font-bold leading-none text-accent2 [overflow-wrap:anywhere]">
+                  {d.demand?.obtainable_revenue ?? "—"}
+                </div>
+                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+                  obtainable revenue / yr
+                </div>
+              </div>
+            </div>
+            <div className="mt-6">
+              <VerdictMeter score={d.score} />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <span
-                className="rounded-lg px-2.5 py-1 text-base font-bold"
-                style={{
-                  color: scoreColor(d.score),
-                  background: "color-mix(in srgb, " + scoreColor(d.score) + " 15%, transparent)",
-                }}
-              >
-                {d.verdict}
-              </span>
-              <div className="mt-1 text-xs text-muted">{d.confidence}% confidence</div>
-            </div>
-            <ScoreGauge score={d.score} size={76} />
-          </div>
         </div>
-        <div className="mt-2 text-xs" style={{ color: scoreColor(d.score) }}>
-          <span className="font-semibold">{scoreBand(d.score).label}</span>
-          <span className="text-muted"> — {d.score}/100 {scoreBand(d.score).hint}</span>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+        {/* secondary instruments */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {d.demand && (
             <StatTile label="Demand" value={d.demand.strength} color={tone3(d.demand.strength, "Strong", "Moderate")} hint="How many people actively want this and how strongly." />
           )}
@@ -191,8 +254,10 @@ export function ValidationView({ d }: { d: Validation }) {
             <StatTile label="Hard to sell" value={d.acquisition.difficulty} color={tone3(d.acquisition.difficulty, "Easy", "Moderate")} hint="How hard it is to acquire each customer." />
           )}
         </div>
-        <p className="mt-4 text-sm leading-relaxed text-fg/90">{d.summary}</p>
-      </Card>
+
+        {/* the read, in plain words */}
+        <p className="text-sm leading-relaxed text-fg/90">{d.summary}</p>
+      </div>
 
       {d.narrative && (
         <Card>
