@@ -36,6 +36,9 @@ body {
 .print-only {
   display: none;
 }
+@page {
+  margin: 14mm;
+}
 @media print {
   .no-print {
     display: none !important;
@@ -46,5 +49,26 @@ body {
   body {
     background: #fff;
     color: #000;
+  }
+  /* Keep cards, charts, and table rows from splitting across page breaks. */
+  [class*="rounded-xl"],
+  [class*="rounded-lg"],
+  svg,
+  li,
+  tr {
+    break-inside: avoid;
+  }
+  /* Don't strand a heading at the bottom of a page. */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+  /* Each top-level report section starts on a fresh page for a clean layout. */
+  .print-section {
+    break-before: page;
+  }
+  .print-section:first-of-type {
+    break-before: auto;
   }
 }

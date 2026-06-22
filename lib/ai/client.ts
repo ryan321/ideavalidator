@@ -82,7 +82,7 @@ async function call(
   model: string,
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
   opts: GenerateOptions
-): Promise<{ text: string; sources: Source[]; usage: Usage }> {
+): Promise<{ text: string; sources: Source[]; usage: Usage; finishReason: string | null }> {
   const body: Record<string, unknown> = {
     model,
     messages,
@@ -98,10 +98,11 @@ async function call(
   // The `plugins`/`usage` fields are OpenRouter-specific and not in the OpenAI SDK types.
   const completion = await client().chat.completions.create(body as never);
   const data = completion as {
-    choices: { message: RawMessage }[];
+    choices: { message: RawMessage; finish_reason?: string | null }[];
     usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
   };
-  const message = data.choices[0]?.message;
+  const choice = data.choices[0];
+  const message = choice?.message;
   if (!message) throw new Error("Empty response from model");
   const u = data.usage ?? {};
   return {
@@ -112,6 +113,7 @@ async function call(
       completion_tokens: u.completion_tokens ?? 0,
       cost: u.cost ?? 0,
     },
+    finishReason: choice?.finish_reason ?? null,
   };
 }
 
@@ -136,10 +138,17 @@ export async function generateStructured<T>(
 
   let lastErr = "";
   let lastSources: Source[] = [];
+  let lastFinish: string | null = null;
+  let lastLen = 0;
   const usage: Usage = { prompt_tokens: 0, completion_tokens: 0, cost: 0 };
+  const baseMax = opts.maxTokens ?? 4500;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await call(model, messages, opts);
-    const { text, sources } = res;
+    // On the repair attempt, give more room in case the first was truncated.
+    const maxTokens = attempt === 0 ? baseMax : Math.min(Math.round(baseMax * 1.6), 16000);
+    const res = await call(model, messages, { ...opts, maxTokens });
+    const { text, sources, finishReason } = res;
+    lastFinish = finishReason;
+    lastLen = text.length;
     // Accumulate across the self-repair retry — both calls cost money.
     usage.prompt_tokens += res.usage.prompt_tokens;
     usage.completion_tokens += res.usage.completion_tokens;
@@ -151,13 +160,29 @@ export async function generateStructured<T>(
       return { data, sources: sources.length ? sources : lastSources, model, usage };
     } catch (err) {
       lastErr = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[ai] ${model} attempt ${attempt + 1} failed: ${lastErr} | finish=${finishReason} len=${text.length} preview=${JSON.stringify(
+          text.slice(0, 140)
+        )}`
+      );
       // Feed the bad output back for a single repair attempt.
-      messages.push({ role: "assistant", content: text });
+      messages.push({ role: "assistant", content: text || "(empty response)" });
       messages.push({
         role: "user",
-        content: `That response failed validation: ${lastErr}. Reply again with ONLY the corrected JSON object.`,
+        content:
+          finishReason === "length"
+            ? `Your previous reply was cut off before the JSON was complete. Reply again with ONLY the COMPLETE, valid JSON object — be more concise so it fits.`
+            : `That response failed: ${lastErr}. Reply again with ONLY a single valid JSON object — no prose, no markdown, no code fences.`,
       });
     }
   }
-  throw new Error(`Model output failed validation after retry: ${lastErr}`);
+  const hint =
+    lastFinish === "length"
+      ? " — the model's output was truncated (raise the generator's maxTokens, or use a model that spends fewer reasoning tokens)."
+      : lastLen === 0
+        ? " — the model returned empty content (it may have refused or spent its budget on reasoning)."
+        : "";
+  throw new Error(
+    `Model output failed validation after retry (model=${model}, finish=${lastFinish}, len=${lastLen})${hint}: ${lastErr}`
+  );
 }

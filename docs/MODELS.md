@@ -16,7 +16,7 @@ preview slugs change, so re-check `https://openrouter.ai/api/v1/models` before r
 |------|--------|------|-----------------|------------|
 | **scoring** | validation, refine | `anthropic/claude-sonnet-4.6` | 3 / 15 | `google/gemini-3.5-flash` (1.5/9) |
 | **research** | market | `google/gemini-3-flash-preview` | 0.5 / 3 | `openai/gpt-5-mini` (0.25/2) |
-| **writing** | plan, brand, marketing, pitch, financials, logo | `google/gemini-2.5-flash` | 0.3 / 2.5 | `deepseek/deepseek-v4-pro` (0.43/0.87, verbose) |
+| **writing** | plan, brand, marketing, pitch, financials, logo | `google/gemini-3-flash-preview` | 0.5 / 3 | `google/gemini-2.5-flash` (0.3/2.5 — see caveat) |
 
 vs. today's **all-Opus-4.8** ($5/$25): a full 8-artifact run drops from **~$0.55–0.70 → ~$0.13–0.15**
 (~4–6× cheaper), and the auto-iterate loop (validation+market every round) saves the most.
@@ -97,10 +97,12 @@ Bottleneck is honest synthesis of many retrieved snippets into structured JSON +
 ### writing — plan, brand, marketing, pitch, financials, logo (cheap is fine)
 Instruction-following, on-brand voice, and JSON reliability — not deep reasoning.
 
-- **`google/gemini-2.5-flash`** ($0.3/$2.5) — cheapest reliable workhorse; "complete, accurate, compliant
-  outputs without extra prompting," very dependable JSON. Default for the bulk of calls.
-- **`google/gemini-3-flash-preview`** ($0.5/$3) — a notch more quality (Arena Creative Writing ~1461,
-  "~85% of Pro at 40% of cost"); use if copy quality matters more than the last penny.
+- **`google/gemini-3-flash-preview`** ($0.5/$3) — current default. Reliable structured-JSON output across
+  all writing schemas incl. the logo SVG, strong copy (Arena Creative Writing ~1461). Use this.
+- **`google/gemini-2.5-flash`** ($0.3/$2.5) — cheaper, but ⚠️ **observed live to intermittently emit a
+  partial JSON object and stop** (finish=stop) on the complex schemas — fails ~30–50% of attempts on
+  financials/marketing and ~always on logo (which embeds a long SVG). Only use it for the simplest
+  artifacts, or expect repair retries. Switched the default off it for this reason.
 - **`google/gemini-3.5-flash`** ($1.5/$9) — near-Pro format/persona adherence; reserve for highest-stakes
   brand/pitch only.
 - For brand/marketing *voice* specifically, `openai/gpt-4.1-mini` ($0.4/$1.6) is noted strong and is a good

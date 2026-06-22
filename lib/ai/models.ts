@@ -9,7 +9,8 @@ export type ModelRole = "scoring" | "research" | "writing";
 const DEFAULTS: Record<ModelRole, string> = {
   scoring: "anthropic/claude-sonnet-4.6",
   research: "google/gemini-3-flash-preview",
-  writing: "google/gemini-2.5-flash",
+  // gemini-2.5-flash intermittently truncates complex JSON (esp. logo SVG); 3-flash is reliable.
+  writing: "google/gemini-3-flash-preview",
 };
 
 const ENV_KEYS: Record<ModelRole, string> = {

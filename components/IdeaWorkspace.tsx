@@ -636,7 +636,7 @@ export default function IdeaWorkspace({
         <p style={{ color: "#555" }}>{activeVersion.statement}</p>
         {meta.map((m) =>
           activeArtifacts[m.kind] ? (
-            <div key={m.kind} style={{ marginTop: 24, breakInside: "avoid" }}>
+            <div key={m.kind} className="print-section" style={{ marginTop: 24 }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{m.label}</h2>
               <SafeArtifact key={`${activeVersionId}:${m.kind}`} kind={m.kind} data={activeArtifacts[m.kind].data} />
             </div>

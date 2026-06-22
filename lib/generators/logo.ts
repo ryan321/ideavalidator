@@ -33,7 +33,7 @@ export const logoGenerator: Generator<Logo> = {
   grounded: false,
   uses: ["brand"],
   schema: LogoSchema,
-  maxTokens: 4000,
+  maxTokens: 6000, // inline SVG markup can be long
   system:
     "You are a logo and visual-identity designer who outputs a clean, valid, INERT, self-contained SVG " +
     "using a 0 0 240 240 viewBox. Allowed elements ONLY: svg, g, defs, linearGradient, radialGradient, " +
