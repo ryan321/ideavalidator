@@ -75,7 +75,7 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="grid grid-cols-5 gap-1">
+              <div className="keep-color grid grid-cols-5 gap-1">
                 {rows.map((p) =>
                   cols.map((i) => {
                     const key = `${p}-${i}`;
@@ -111,7 +111,7 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
           </div>
 
           {/* Legend */}
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <div className="keep-color mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
             {(Object.keys(CATEGORY_COLOR) as RiskCategory[]).map((c) => (
               <span key={c} className="flex items-center gap-1.5 text-[11px] text-muted">
                 <span
@@ -144,7 +144,7 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
                     className="flex gap-3 rounded-lg border border-border bg-panel p-3"
                   >
                     <span
-                      className="mt-0.5 h-3 w-3 flex-none rounded-full ring-1 ring-black/40"
+                      className="keep-color mt-0.5 h-3 w-3 flex-none rounded-full ring-1 ring-black/40"
                       style={{ background: color }}
                       aria-hidden
                     />

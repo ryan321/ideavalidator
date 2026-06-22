@@ -99,4 +99,11 @@ h3 {
   .print-section:first-of-type {
     break-before: auto;
   }
+  /* keep meaningful fills/tints (risk heatmap, chart fills, legend swatches) in the
+     PDF — scoped so card/panel backgrounds still drop out to white */
+  .keep-color,
+  .keep-color * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }

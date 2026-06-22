@@ -46,7 +46,8 @@ export function CriteriaRadar({ criteria }: { criteria: Criterion[] }) {
         <p className="mb-3 text-xs text-muted">
           Visual overview of all criteria scored 0&ndash;100.
         </p>
-        <div className="h-[360px] w-full">
+        {/* on-screen: responsive (measures its container) */}
+        <div className="no-print h-[360px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart data={data} outerRadius="72%">
               <PolarGrid stroke="var(--color-border)" />
@@ -54,11 +55,7 @@ export function CriteriaRadar({ criteria }: { criteria: Criterion[] }) {
                 dataKey="name"
                 tick={{ fill: "var(--color-muted)", fontSize: 11 }}
               />
-              <PolarRadiusAxis
-                domain={[0, 100]}
-                tick={false}
-                axisLine={false}
-              />
+              <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
               <Radar
                 dataKey="score"
                 stroke="var(--color-accent)"
@@ -77,6 +74,15 @@ export function CriteriaRadar({ criteria }: { criteria: Criterion[] }) {
               />
             </RadarChart>
           </ResponsiveContainer>
+        </div>
+        {/* print: fixed size so it renders without needing to measure a hidden box */}
+        <div className="print-only keep-color" style={{ display: "none" }}>
+          <RadarChart width={560} height={360} data={data} outerRadius="72%">
+            <PolarGrid stroke="#bbbbbb" />
+            <PolarAngleAxis dataKey="name" tick={{ fill: "#444444", fontSize: 11 }} />
+            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+            <Radar dataKey="score" stroke="#6366f1" fill="#6366f1" fillOpacity={0.35} />
+          </RadarChart>
         </div>
       </Card>
     </Section>
