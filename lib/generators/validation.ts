@@ -154,13 +154,19 @@ export const validationGenerator: Generator<Validation> = {
   system:
     "You are a brutally honest startup analyst. Validate ideas against real market evidence from web " +
     "search, not hype. Be specific and quantitative, never generic.\n" +
-    "Score conservatively against this rubric and default to the LOWER end when evidence is thin: " +
-    "0-39 = NO-GO (no validated demand or a fatal flaw), 40-59 = weak/unproven, 60-74 = MAYBE (real but " +
-    "unproven signal), 75-89 = GO (multiple independent demand signals + a viable path), 90-100 = " +
-    "exceptional (reserve for proven paying demand). Most ideas land 45-70. Penalize, do not reward, any " +
-    "criterion where you found no concrete evidence. The overall 'score' MUST fall in the band matching " +
-    "the 'verdict' (NO-GO<60, MAYBE 60-74, GO>=75). Judge the idea RELATIVE TO the founder's stated goal " +
-    "when one is given — the same idea can be a GO for a lifestyle business and a NO-GO for venture scale.",
+    "CALIBRATE EACH OF THE 9 CRITERIA HONESTLY on this 0-100 scale and DEFAULT LOW when evidence is thin: " +
+    "0-30 = no evidence / fatal flaw; 35-50 = weak or unproven; 55-70 = real but unproven signal; " +
+    "75-85 = strong, corroborated evidence; 90-100 = proven (reserve for demonstrated paying demand). A " +
+    "criterion with NO concrete web evidence MUST score below 50.\n" +
+    "CRITICAL — SPREAD THE SCORES. Every real idea has clear strengths AND clear weaknesses, so the 9 " +
+    "criteria should range widely (commonly 30 to 85), NOT huddle in a 70-80 comfort band. If you notice " +
+    "your scores clustering in the 70s, you are being lazy and optimistic — drive the weak criteria down to " +
+    "where the evidence actually is and lift only the genuinely strong ones. Score each criterion " +
+    "independently on its OWN evidence; do NOT pick a target overall number and back-fill to hit it.\n" +
+    "The overall score is COMPUTED by the system from your criteria (demand-weighted), so two different " +
+    "ideas — and two versions of the same idea — should almost never come out the same. Judge the idea " +
+    "RELATIVE TO the founder's stated goal — the same idea can be a GO for a lifestyle business and a NO-GO " +
+    "for venture scale.",
   buildPrompt: (ctx) => `${ideaHeader(ctx)}${goalContext(ctx)}${founderContext(ctx)}
 
 Validate this idea. You MUST issue web searches before answering and base every figure (market size,
@@ -190,7 +196,9 @@ obtainable_revenue so the headline number is traceable }. What matters is the ab
 a small slice of a huge market can beat a large slice of a tiny one. Make the "summary" lead with what the
 founder can realistically expect (the obtainable revenue vs their goal), then the verdict.
 
-Score these 9 criteria 0-100, where HIGHER ALWAYS MEANS MORE FAVORABLE (no inverted axes). Output ALL 9 —
+Score these 9 criteria 0-100, where HIGHER ALWAYS MEANS MORE FAVORABLE (no inverted axes). SPREAD them — a
+typical idea has a couple of strong criteria (75-85), several middling (50-70), and at least one genuinely
+weak (below 45); resist scoring everything in the 70s. Output ALL 9 —
 never fewer, never renamed, never merged (the radar maps these exact names). Use EXACTLY these names and groups:
 - group "demand" (will people buy?):
   - Demand Strength — how badly the target customer wants this, from real signals
@@ -209,7 +217,7 @@ For each: set "category" to one of DEMAND, REVENUE, MARKET, DEFENSIBILITY, EXECU
 ${COMPETITION_GUIDANCE}
 
 Also produce:
-- An overall "score" (0-100) that is roughly the average of the 9 criteria (weight the demand group slightly higher); it must not exceed the highest single criterion by more than 10 points and must sit in the verdict's band. "confidence" (0-100) = how much corroborating web evidence you actually found (lower it when you relied on assumption). "verdict" must match the score band. Add a 2-3 sentence evidence-based "summary".
+- "confidence" (0-100) = how much corroborating web evidence you actually found (lower it when you relied on assumption). Still output a "score" and "verdict", but know the system RECOMPUTES the overall score as a demand-weighted average of your 9 criteria and derives the verdict from it — so put your effort into scoring the 9 criteria honestly and distinctly, NOT into tuning the headline number. Add a 2-3 sentence evidence-based "summary" that leads with what the founder can realistically expect.
 - "validations": problem, solution, and market validation each with a 0-100 score and an evidence-based rationale.
 - "go_signals": positive_signals (why it has momentum) and key_strengths; "stop_signals": critical_risks and areas_of_concern. Each item is { text, category } where category is ONE of MARKET, DEMAND, DEFENSIBILITY, REVENUE, EXECUTION, TECH and "text" references something specific to THIS idea (a named competitor, a real number, or a cited signal) — no statement that could apply to any startup.
 - "action_plan": 4-6 prioritized next steps ordered by impact x ease, each with type (VALIDATE/BUILD/DISTRIBUTE/DE-RISK), effort (Low/Medium/High), horizon (This week/This month/This quarter), a measurable success_metric, and a concrete first_step.

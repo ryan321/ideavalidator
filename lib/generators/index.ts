@@ -108,7 +108,28 @@ export async function runGenerator(
 
   // Cache the headline validation score + obtainable-revenue forecast onto the version.
   if (kind === "validation") {
-    const v = data as { score?: number; demand?: { obtainable_revenue?: string } };
+    const v = data as {
+      score?: number;
+      verdict?: string;
+      criteria?: { group?: string; score?: number }[];
+      demand?: { obtainable_revenue?: string };
+    };
+    // The model's free-form overall score clusters (~76) and ignores how the idea
+    // actually changed. Recompute it as a demand-weighted average of the 9 criteria
+    // so it tracks the analysis and moves when the founder improves a weak area.
+    if (Array.isArray(v.criteria) && v.criteria.length >= 5) {
+      let num = 0;
+      let den = 0;
+      for (const c of v.criteria) {
+        const w = c.group === "demand" ? 1.4 : 1;
+        const s = typeof c.score === "number" ? Math.max(0, Math.min(100, c.score)) : 0;
+        num += w * s;
+        den += w;
+      }
+      const derived = Math.round(num / den);
+      v.score = derived;
+      v.verdict = derived >= 70 ? "GO" : derived >= 45 ? "MAYBE" : "NO-GO";
+    }
     if (typeof v?.score === "number") setVersionScore(versionId, v.score);
     if (v?.demand?.obtainable_revenue) setVersionRevenue(versionId, v.demand.obtainable_revenue);
   }
