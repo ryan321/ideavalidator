@@ -1,20 +1,21 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0a0c10;
-  --color-panel: #12151c;
-  --color-panel2: #171b24;
-  --color-border: #242a36;
-  --color-fg: #e7eaf0;
-  --color-muted: #98a2b3;
+  --color-bg: #080a0f;
+  --color-panel: #11141b;
+  --color-panel2: #181c25;
+  --color-border: #232a37;
+  --color-fg: #e9edf5;
+  --color-muted: #8b95a7;
   --color-accent: #6366f1;
-  --color-accent2: #22d3ee;
-  --color-good: #22c55e;
-  --color-warn: #f59e0b;
-  --color-bad: #ef4444;
+  --color-accent2: #29d2ec;
+  --color-good: #34d399;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jb-mono), ui-monospace, monospace;
 }
 
 html {
@@ -22,9 +23,21 @@ html {
 }
 
 body {
-  background: var(--color-bg);
+  background-color: var(--color-bg);
+  /* faint blueprint dot-grid — the "planning surface" texture */
+  background-image: radial-gradient(circle at 1px 1px, rgba(180, 200, 255, 0.03) 1px, transparent 0);
+  background-size: 24px 24px;
+  background-attachment: fixed;
   color: var(--color-fg);
   font-family: var(--font-sans);
+}
+
+/* headings + the journey carry the display face */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.012em;
 }
 
 * {
@@ -50,7 +63,6 @@ body {
     background: #fff;
     color: #000;
   }
-  /* Keep cards, charts, and table rows from splitting across page breaks. */
   [class*="rounded-xl"],
   [class*="rounded-lg"],
   svg,
@@ -58,13 +70,11 @@ body {
   tr {
     break-inside: avoid;
   }
-  /* Don't strand a heading at the bottom of a page. */
   h1,
   h2,
   h3 {
     break-after: avoid;
   }
-  /* Each top-level report section starts on a fresh page for a clean layout. */
   .print-section {
     break-before: page;
   }

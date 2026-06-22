@@ -7,10 +7,13 @@ export const dynamic = "force-dynamic";
 
 export default async function IdeaPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ stage?: string }>;
 }) {
   const { id } = await params;
+  const { stage } = await searchParams;
   const idea = getIdea(id);
   if (!idea) notFound();
 
@@ -21,6 +24,7 @@ export default async function IdeaPage({
       artifactsByVersion={getArtifactsByVersion(id)}
       meta={generatorMeta()}
       initialCost={getIdeaCost(id)}
+      initialStage={stage ?? idea.stage ?? "validate"}
     />
   );
 }

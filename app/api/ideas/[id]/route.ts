@@ -3,6 +3,7 @@ import {
   deleteIdea,
   getArtifactsByVersion,
   getIdea,
+  getNameData,
   listVersions,
   setChosenName,
   setIdeaGoal,
@@ -44,10 +45,24 @@ export async function GET(
   const { id } = await params;
   const idea = getIdea(id);
   if (!idea) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const artifactsByVersion = getArtifactsByVersion(id);
+  const kinds = new Set(Object.values(artifactsByVersion).flat().map((a) => a.kind));
+  const name = getNameData(id);
+  const st = (done: boolean, stage: string) =>
+    done ? "done" : idea.stage === stage ? "active" : "todo";
+  const stageStatus = {
+    validate: st(kinds.has("validation"), "validate"),
+    decide: st(!!idea.chosen_version_id, "decide"),
+    pitch: st(kinds.has("pitch"), "pitch"),
+    brand: st(kinds.has("brand"), "brand"),
+    name: st(!!name.chosen_name, "name"),
+  };
   return NextResponse.json({
     idea,
     versions: listVersions(id),
-    artifactsByVersion: getArtifactsByVersion(id),
+    artifactsByVersion,
+    chosenName: name.chosen_name,
+    stageStatus,
   });
 }
 

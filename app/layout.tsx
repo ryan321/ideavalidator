@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
+import AppNav from "@/components/AppNav";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"] });
+const mono = JetBrains_Mono({ variable: "--font-jb-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "IdeaValidator",
-  description: "Validate your startup ideas locally with grounded AI analysis.",
+  description: "From idea to first paying customers — validated locally with grounded AI.",
 };
 
 export default function RootLayout({
@@ -17,28 +19,44 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${display.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <header className="no-print sticky top-0 z-20 border-b border-border bg-bg/80 backdrop-blur">
-          <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
-              <span className="inline-grid h-6 w-6 place-items-center rounded-md bg-accent text-xs font-bold text-white">
-                IV
+      <body className="min-h-full">
+        <div className="flex min-h-screen">
+          {/* left rail */}
+          <aside className="no-print sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-panel/40 sm:flex">
+            <Link
+              href="/"
+              className="flex items-center gap-2 border-b border-border px-4 py-4 font-display font-semibold tracking-tight"
+            >
+              <span className="inline-grid h-6 w-6 place-items-center rounded-md bg-accent font-mono text-xs font-bold text-white">
+                iv
               </span>
               IdeaValidator
             </Link>
-            <div className="flex items-center gap-5 text-sm text-muted">
-              <Link href="/" className="hover:text-fg">
-                Ideas
+            <AppNav />
+            <Link
+              href="/calculators"
+              className="border-t border-border px-4 py-3 text-sm text-muted transition hover:text-fg"
+            >
+              Calculators
+            </Link>
+          </aside>
+
+          {/* main */}
+          <main className="min-w-0 flex-1">
+            {/* mobile top bar */}
+            <header className="no-print flex items-center justify-between border-b border-border px-4 py-3 sm:hidden">
+              <Link href="/" className="font-display font-semibold">
+                IdeaValidator
               </Link>
-              <Link href="/calculators" className="hover:text-fg">
+              <Link href="/calculators" className="text-sm text-muted">
                 Calculators
               </Link>
-            </div>
-          </nav>
-        </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8">{children}</main>
+            </header>
+            <div className="mx-auto w-full max-w-5xl px-5 py-7">{children}</div>
+          </main>
+        </div>
       </body>
     </html>
   );

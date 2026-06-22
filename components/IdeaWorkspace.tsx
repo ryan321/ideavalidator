@@ -141,12 +141,12 @@ const goalLabel = (k: string | null) =>
 
 // The journey: idea -> first paying customers. Each stage groups artifact kinds (or a special view).
 type StageKey = "validate" | "decide" | "pitch" | "brand" | "name";
-const STAGES: { key: StageKey; label: string; kinds: ArtifactKind[]; special?: boolean }[] = [
-  { key: "validate", label: "Validate", kinds: ["validation", "market", "financials", "plan"] },
-  { key: "decide", label: "Decide", kinds: [], special: true },
-  { key: "pitch", label: "Pitch", kinds: ["pitch", "marketing"] },
-  { key: "brand", label: "Brand", kinds: ["brand", "logo"] },
-  { key: "name", label: "Name", kinds: [], special: true },
+const STAGES: { key: StageKey; label: string; blurb: string; kinds: ArtifactKind[]; special?: boolean }[] = [
+  { key: "validate", label: "Validate", blurb: "Is there real, paying demand?", kinds: ["validation", "market", "financials", "plan"] },
+  { key: "decide", label: "Decide", blurb: "Commit to the version you'll build on.", kinds: [], special: true },
+  { key: "pitch", label: "Pitch", blurb: "Say why they'll buy — to customers and investors.", kinds: ["pitch", "marketing"] },
+  { key: "brand", label: "Brand", blurb: "Give it a look and a voice.", kinds: ["brand", "logo"] },
+  { key: "name", label: "Name", blurb: "Find a name you can actually own.", kinds: [], special: true },
 ];
 const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
 
@@ -159,12 +159,14 @@ export default function IdeaWorkspace({
   artifactsByVersion,
   meta,
   initialCost,
+  initialStage,
 }: {
   idea: Idea;
   versions: Version[];
   artifactsByVersion: Record<string, Artifact[]>;
   meta: GeneratorMeta[];
   initialCost: number;
+  initialStage: string;
 }) {
   const router = useRouter();
   const [cost, setCost] = useState(initialCost);
@@ -181,8 +183,14 @@ export default function IdeaWorkspace({
     () => versionsProp[versionsProp.length - 1]?.id ?? ""
   );
   const [currentStage, setCurrentStage] = useState<StageKey>(
-    () => (idea.stage as StageKey) ?? "validate"
+    () => (initialStage as StageKey) ?? "validate"
   );
+  // keep the workspace in sync with the URL (?stage=) driven by the left nav
+  useEffect(() => {
+    if (STAGES.some((s) => s.key === initialStage)) {
+      setCurrentStage(initialStage as StageKey);
+    }
+  }, [initialStage]);
   const [chosenVersionId, setChosenVersionId] = useState<string | null>(idea.chosen_version_id);
   const [activeTab, setActiveTab] = useState<ArtifactKind>(() => {
     const st = STAGES.find((s) => s.key === (idea.stage ?? "validate"));
@@ -281,6 +289,7 @@ export default function IdeaWorkspace({
     }
     if (stage.kinds.length) setActiveTab(stage.kinds[0]);
     patchIdea({ stage: key });
+    router.replace(`/idea/${idea.id}?stage=${key}`, { scroll: false });
   }
 
   function setChosen(versionId: string) {
@@ -618,36 +627,23 @@ export default function IdeaWorkspace({
   const activeAlphas = activeValidationData?.possible_alphas ?? [];
   const stage = STAGES.find((s) => s.key === currentStage)!;
   const stageMeta = meta.filter((m) => stage.kinds.includes(m.kind));
-  const reachedIdx = stageIndex(idea.stage);
 
   return (
     <div>
       <div className="no-print">
-        {/* journey stepper */}
-        <div className="mb-5 flex flex-wrap items-center gap-1.5">
-          {STAGES.map((s, i) => {
-            const isCurrent = s.key === currentStage;
-            const reached = i <= reachedIdx || (s.key === "decide" && !!chosenVersionId);
-            return (
-              <div key={s.key} className="flex items-center gap-1.5">
-                <button
-                  onClick={() => goToStage(s.key)}
-                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition ${
-                    isCurrent
-                      ? "bg-accent text-white"
-                      : reached
-                        ? "border border-border text-fg hover:bg-panel2"
-                        : "text-muted hover:text-fg"
-                  }`}
-                >
-                  <span className="font-mono text-xs opacity-70">{i + 1}</span>
-                  {s.label}
-                  {s.key === "decide" && chosenVersionId && <span title="decided">✓</span>}
-                </button>
-                {i < STAGES.length - 1 && <span className="text-muted">→</span>}
-              </div>
-            );
-          })}
+        {/* stage header — the journey lives in the left rail; this grounds the current stop */}
+        <div className="mb-5">
+          <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+            <span className="text-accent2">{String(stageIndex(currentStage) + 1).padStart(2, "0")}</span>
+            <span className="text-border">/</span>
+            <span>{String(STAGES.length).padStart(2, "0")}</span>
+            <span className="text-border">·</span>
+            <span>Journey</span>
+          </div>
+          <h1 className="mt-1.5 flex items-baseline gap-3 text-2xl font-semibold">
+            {stage.label}
+            <span className="text-sm font-normal text-muted">{stage.blurb}</span>
+          </h1>
         </div>
 
         {/* version switcher */}
@@ -999,32 +995,6 @@ export default function IdeaWorkspace({
           </div>
         )}
 
-        {/* possible alpha — test a different edge */}
-        {activeAlphas.length > 0 && !responding && !proposal && (
-          <div className="mb-5 rounded-xl border border-accent/30 bg-accent/5 p-4">
-            <div className="mb-1 text-sm font-semibold text-accent">✨ Possible alpha — test a different edge</div>
-            <p className="mb-3 text-xs text-muted">
-              Differentiators this idea could pursue. Re-validate positioned around one to see how it moves
-              the forecast.
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {activeAlphas.map((a, i) => (
-                <div key={i} className="flex flex-col rounded-lg border border-border bg-panel2 p-3">
-                  <div className="text-sm font-medium">{a.alpha}</div>
-                  <p className="mt-1 flex-1 text-xs leading-relaxed text-muted">{a.rationale}</p>
-                  <button
-                    onClick={() => revalidateWithAlpha(a.alpha, a.rationale)}
-                    disabled={anyBusy}
-                    className="mt-2 self-start rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
-                  >
-                    Re-validate with this alpha →
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {error && (
           <div className="mb-4 rounded-lg border border-bad/30 bg-bad/10 px-4 py-2 text-sm text-bad">{error}</div>
         )}
@@ -1225,6 +1195,33 @@ export default function IdeaWorkspace({
                     Generate {activeMeta.label}
                     {activeMeta.grounded ? " 🌐" : ""}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "validation" && activeArtifact && activeAlphas.length > 0 && (
+              <div className="mt-6 rounded-xl border border-accent/30 bg-accent/5 p-4">
+                <div className="mb-1 text-sm font-semibold text-accent">
+                  ✨ Possible alpha — test a different edge
+                </div>
+                <p className="mb-3 text-xs text-muted">
+                  Differentiators this idea could pursue. Re-validate positioned around one to see how it
+                  moves the forecast.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {activeAlphas.map((a, i) => (
+                    <div key={i} className="flex flex-col rounded-lg border border-border bg-panel2 p-3">
+                      <div className="text-sm font-medium">{a.alpha}</div>
+                      <p className="mt-1 flex-1 text-xs leading-relaxed text-muted">{a.rationale}</p>
+                      <button
+                        onClick={() => revalidateWithAlpha(a.alpha, a.rationale)}
+                        disabled={anyBusy}
+                        className="mt-2 self-start rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                      >
+                        Re-validate with this alpha →
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
