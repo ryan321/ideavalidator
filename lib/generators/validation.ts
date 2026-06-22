@@ -75,7 +75,7 @@ export const validationGenerator: Generator<Validation> = {
   kind: "validation",
   label: "Validation",
   blurb: "Scored GO / NO-GO with radar, signals, scorecard, action plan & risk matrix.",
-  role: "reasoning",
+  role: "scoring",
   grounded: true,
   schema: ValidationSchema,
   maxTokens: 9000,

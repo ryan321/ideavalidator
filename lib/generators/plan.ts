@@ -23,7 +23,7 @@ export const planGenerator: Generator<Plan> = {
   kind: "plan",
   label: "Business Plan",
   blurb: "Investor-ready 8-section plan with financials and milestones.",
-  role: "reasoning",
+  role: "writing",
   grounded: false,
   uses: ["validation", "market", "financials"],
   schema: PlanSchema,

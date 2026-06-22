@@ -50,7 +50,7 @@ export const financialsGenerator: Generator<Financials> = {
   kind: "financials",
   label: "Financials",
   blurb: "Revenue model, CAC/LTV unit economics, startup costs & break-even.",
-  role: "reasoning",
+  role: "writing",
   grounded: false,
   uses: ["validation", "market"],
   schema: FinancialsSchema,

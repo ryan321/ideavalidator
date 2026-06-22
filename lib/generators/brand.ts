@@ -20,7 +20,7 @@ export const brandGenerator: Generator<Brand> = {
   kind: "brand",
   label: "Brand Strategy",
   blurb: "Archetype, mission/vision, voice, taglines, positioning.",
-  role: "reasoning",
+  role: "writing",
   grounded: false,
   uses: ["validation", "market"],
   schema: BrandSchema,

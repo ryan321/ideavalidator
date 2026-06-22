@@ -2,20 +2,20 @@
 // Every role is overridable via env so you can paste current slugs from
 // https://openrouter.ai/models without touching code.
 
-export type ModelRole = "reasoning" | "research" | "fast" | "image";
+// Roles (see docs/MODELS.md): scoring = accuracy/calibration-critical (validation, refine);
+// research = grounded web synthesis (market); writing = cheap long-form + JSON (everything else).
+export type ModelRole = "scoring" | "research" | "writing";
 
 const DEFAULTS: Record<ModelRole, string> = {
-  reasoning: "anthropic/claude-opus-4.8",
-  research: "anthropic/claude-sonnet-4.6",
-  fast: "google/gemini-2.5-flash",
-  image: "google/gemini-2.5-flash-image",
+  scoring: "anthropic/claude-sonnet-4.6",
+  research: "google/gemini-3-flash-preview",
+  writing: "google/gemini-2.5-flash",
 };
 
 const ENV_KEYS: Record<ModelRole, string> = {
-  reasoning: "MODEL_REASONING",
+  scoring: "MODEL_SCORING",
   research: "MODEL_RESEARCH",
-  fast: "MODEL_FAST",
-  image: "MODEL_IMAGE",
+  writing: "MODEL_WRITING",
 };
 
 export function resolveModel(role: ModelRole): string {

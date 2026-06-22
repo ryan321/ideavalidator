@@ -29,7 +29,7 @@ export const logoGenerator: Generator<Logo> = {
   kind: "logo",
   label: "Logo & Visual Identity",
   blurb: "An SVG logo concept, color palette, and font pairing.",
-  role: "reasoning",
+  role: "writing",
   grounded: false,
   uses: ["brand"],
   schema: LogoSchema,

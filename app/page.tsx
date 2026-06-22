@@ -57,6 +57,9 @@ export default function Home() {
                 <div className="mt-1 text-xs text-muted">
                   {new Date(idea.created_at).toLocaleString()}
                   {idea.version_count > 1 ? ` · ${idea.version_count} versions` : ""}
+                  {idea.cost && idea.cost > 0
+                    ? ` · spent $${idea.cost < 1 ? idea.cost.toFixed(3) : idea.cost.toFixed(2)}`
+                    : ""}
                 </div>
               </Link>
             </li>

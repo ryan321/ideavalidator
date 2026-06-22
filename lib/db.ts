@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
-import type { Source } from "./ai/client";
+import type { Source, Usage } from "./ai/client";
 
 // ---- connection (singleton across dev hot-reloads) ---------------------------
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -64,6 +64,30 @@ function init(): Database.Database {
     migrateArtifactsToVersions(db);
   }
 
+  // usage columns on artifacts (added in upgrades) + a full per-call usage log.
+  const acols = tableColumns(db, "artifacts");
+  for (const [col, type] of [
+    ["cost", "REAL"],
+    ["prompt_tokens", "INTEGER"],
+    ["completion_tokens", "INTEGER"],
+  ] as const) {
+    if (!acols.includes(col)) db.exec(`ALTER TABLE artifacts ADD COLUMN ${col} ${type}`);
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS usage_log (
+      id                TEXT PRIMARY KEY,
+      idea_id           TEXT,
+      version_id        TEXT,
+      kind              TEXT NOT NULL,
+      model             TEXT,
+      prompt_tokens     INTEGER,
+      completion_tokens INTEGER,
+      cost              REAL,
+      created_at        TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_usage_idea ON usage_log(idea_id);
+  `);
+
   return db;
 }
 
@@ -115,7 +139,11 @@ export type ArtifactKind =
 
 export type Idea = { id: string; title: string; prompt: string | null; created_at: string };
 
-export type IdeaSummary = Idea & { best_score: number | null; version_count: number };
+export type IdeaSummary = Idea & {
+  best_score: number | null;
+  version_count: number;
+  cost: number | null;
+};
 
 export type VersionOrigin = "original" | "manual" | "ai";
 
@@ -139,6 +167,7 @@ export type Artifact = {
   data: unknown;
   sources: Source[];
   model: string | null;
+  cost: number | null;
   created_at: string;
 };
 
@@ -149,6 +178,7 @@ type ArtifactRow = {
   data_json: string;
   sources_json: string;
   model: string | null;
+  cost: number | null;
   created_at: string;
 };
 
@@ -160,6 +190,7 @@ function rowToArtifact(r: ArtifactRow): Artifact {
     data: JSON.parse(r.data_json),
     sources: JSON.parse(r.sources_json) as Source[],
     model: r.model,
+    cost: r.cost ?? null,
     created_at: r.created_at,
   };
 }
@@ -198,7 +229,8 @@ export function listIdeas(): IdeaSummary[] {
     .prepare(
       `SELECT i.*,
               (SELECT MAX(v.score) FROM versions v WHERE v.idea_id = i.id) AS best_score,
-              (SELECT COUNT(*) FROM versions v WHERE v.idea_id = i.id) AS version_count
+              (SELECT COUNT(*) FROM versions v WHERE v.idea_id = i.id) AS version_count,
+              (SELECT COALESCE(SUM(u.cost), 0) FROM usage_log u WHERE u.idea_id = i.id) AS cost
        FROM ideas i ORDER BY i.created_at DESC`
     )
     .all() as IdeaSummary[];
@@ -213,6 +245,7 @@ export function deleteIdea(id: string): void {
     db.prepare(
       "DELETE FROM artifacts WHERE version_id IN (SELECT id FROM versions WHERE idea_id = ?)"
     ).run(id);
+    db.prepare("DELETE FROM usage_log WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM versions WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM ideas WHERE id = ?").run(id);
   });
@@ -268,7 +301,8 @@ export function saveArtifact(
   kind: ArtifactKind,
   data: unknown,
   sources: Source[],
-  model: string | null
+  model: string | null,
+  usage?: Usage
 ): Artifact {
   const row: ArtifactRow = {
     id: crypto.randomUUID(),
@@ -277,16 +311,54 @@ export function saveArtifact(
     data_json: JSON.stringify(data),
     sources_json: JSON.stringify(sources ?? []),
     model,
+    cost: usage?.cost ?? null,
     created_at: new Date().toISOString(),
   };
   db.prepare(
-    `INSERT INTO artifacts (id, version_id, kind, data_json, sources_json, model, created_at)
-     VALUES (@id, @version_id, @kind, @data_json, @sources_json, @model, @created_at)
+    `INSERT INTO artifacts (id, version_id, kind, data_json, sources_json, model, cost, prompt_tokens, completion_tokens, created_at)
+     VALUES (@id, @version_id, @kind, @data_json, @sources_json, @model, @cost, @prompt_tokens, @completion_tokens, @created_at)
      ON CONFLICT (version_id, kind) DO UPDATE SET
        data_json = excluded.data_json, sources_json = excluded.sources_json,
-       model = excluded.model, created_at = excluded.created_at`
-  ).run(row);
+       model = excluded.model, cost = excluded.cost,
+       prompt_tokens = excluded.prompt_tokens, completion_tokens = excluded.completion_tokens,
+       created_at = excluded.created_at`
+  ).run({
+    ...row,
+    prompt_tokens: usage?.prompt_tokens ?? null,
+    completion_tokens: usage?.completion_tokens ?? null,
+  });
   return rowToArtifact(row);
+}
+
+// One row per LLM call (generations AND refines) — the source of truth for spend.
+export function logUsage(entry: {
+  ideaId: string | null;
+  versionId: string | null;
+  kind: string;
+  model: string | null;
+  usage: Usage;
+}): void {
+  db.prepare(
+    `INSERT INTO usage_log (id, idea_id, version_id, kind, model, prompt_tokens, completion_tokens, cost, created_at)
+     VALUES (@id, @idea_id, @version_id, @kind, @model, @prompt_tokens, @completion_tokens, @cost, @created_at)`
+  ).run({
+    id: crypto.randomUUID(),
+    idea_id: entry.ideaId,
+    version_id: entry.versionId,
+    kind: entry.kind,
+    model: entry.model,
+    prompt_tokens: entry.usage.prompt_tokens,
+    completion_tokens: entry.usage.completion_tokens,
+    cost: entry.usage.cost,
+    created_at: new Date().toISOString(),
+  });
+}
+
+export function getIdeaCost(ideaId: string): number {
+  const r = db
+    .prepare("SELECT COALESCE(SUM(cost), 0) AS c FROM usage_log WHERE idea_id = ?")
+    .get(ideaId) as { c: number };
+  return r.c ?? 0;
 }
 
 export function getArtifacts(versionId: string): Artifact[] {

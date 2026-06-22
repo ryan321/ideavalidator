@@ -42,7 +42,7 @@ export const marketingGenerator: Generator<Marketing> = {
   kind: "marketing",
   label: "Marketing Suite",
   blurb: "Platform ads, landing copy, email sequence, and UGC scripts.",
-  role: "reasoning",
+  role: "writing",
   grounded: false,
   uses: ["validation", "market", "brand"],
   schema: MarketingSchema,

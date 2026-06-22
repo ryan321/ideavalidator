@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { generateStructured } from "../ai/client";
-import { getArtifact, getIdea, getVersion } from "../db";
+import { getArtifact, getIdea, getVersion, logUsage } from "../db";
 
 export const RefinementSchema = z.object({
   statement: z.string(), // the rewritten idea statement (same crisp 1-3 sentence format)
@@ -32,7 +32,9 @@ const INVERTED = new Set(["Competition Level", "Market Entry Barriers"]);
  * Propose a refined idea statement for a version, attacking its lowest-scoring
  * criteria and highest risks. Does NOT create a version — returns the proposal.
  */
-export async function proposeRefinement(versionId: string): Promise<Refinement> {
+export async function proposeRefinement(
+  versionId: string
+): Promise<Refinement & { _cost: number }> {
   const version = getVersion(versionId);
   if (!version) throw new Error("Version not found");
   const idea = getIdea(version.idea_id);
@@ -71,8 +73,8 @@ Already-recommended actions (build on these, don't just repeat them): ${(validat
     ? `\n\nMarket context (competitors/gaps) for reference:\n${JSON.stringify(market).slice(0, 2500)}`
     : "";
 
-  const { data } = await generateStructured(RefinementSchema, {
-    role: "reasoning",
+  const { data, usage, model } = await generateStructured(RefinementSchema, {
+    role: "scoring",
     grounded: false,
     maxTokens: 2500,
     system:
@@ -107,5 +109,6 @@ keeping the same core idea. Return JSON:
 }`,
   });
 
-  return data;
+  logUsage({ ideaId: version.idea_id, versionId, kind: "refine", model, usage });
+  return { ...data, _cost: usage.cost };
 }

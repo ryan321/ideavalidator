@@ -20,7 +20,7 @@ export const pitchGenerator: Generator<Pitch> = {
   kind: "pitch",
   label: "Pitch Deck",
   blurb: "A 10-12 slide investor deck with speaker notes.",
-  role: "reasoning",
+  role: "writing",
   grounded: false,
   uses: ["validation", "market", "financials", "plan", "brand"],
   schema: PitchSchema,

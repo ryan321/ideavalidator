@@ -5,6 +5,7 @@ import {
   getArtifacts,
   getIdea,
   getVersion,
+  logUsage,
   saveArtifact,
   setVersionScore,
 } from "../db";
@@ -83,7 +84,7 @@ export async function runGenerator(
     prior,
   };
 
-  const { data, sources, model } = await generateStructured(def.schema, {
+  const { data, sources, model, usage } = await generateStructured(def.schema, {
     role: def.role,
     grounded: def.grounded,
     maxTokens: def.maxTokens,
@@ -97,5 +98,6 @@ export async function runGenerator(
     if (typeof score === "number") setVersionScore(versionId, score);
   }
 
-  return saveArtifact(versionId, kind, data, sources, model);
+  logUsage({ ideaId: version.idea_id, versionId, kind, model, usage });
+  return saveArtifact(versionId, kind, data, sources, model, usage);
 }

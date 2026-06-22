@@ -35,10 +35,13 @@ export type GenerateOptions = {
   temperature?: number;
 };
 
+export type Usage = { prompt_tokens: number; completion_tokens: number; cost: number };
+
 export type GenerateResult<T> = {
   data: T;
   sources: Source[];
   model: string;
+  usage: Usage;
 };
 
 // Pull a JSON object out of a model response that may be wrapped in prose or ```json fences.
@@ -79,24 +82,37 @@ async function call(
   model: string,
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
   opts: GenerateOptions
-): Promise<{ text: string; sources: Source[] }> {
+): Promise<{ text: string; sources: Source[]; usage: Usage }> {
   const body: Record<string, unknown> = {
     model,
     messages,
     temperature: opts.temperature ?? 0.4,
     max_tokens: opts.maxTokens ?? 4500,
     response_format: { type: "json_object" },
+    usage: { include: true }, // ask OpenRouter to return token + cost accounting
   };
   if (opts.grounded) {
     // OpenRouter web-search plugin — adds cited results, no extra API key.
     body.plugins = [{ id: "web", max_results: 5 }];
   }
-  // The `plugins` field is OpenRouter-specific and not in the OpenAI SDK types.
+  // The `plugins`/`usage` fields are OpenRouter-specific and not in the OpenAI SDK types.
   const completion = await client().chat.completions.create(body as never);
-  const message = (completion as { choices: { message: RawMessage }[] }).choices[0]
-    ?.message;
+  const data = completion as {
+    choices: { message: RawMessage }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
+  };
+  const message = data.choices[0]?.message;
   if (!message) throw new Error("Empty response from model");
-  return { text: message.content ?? "", sources: extractSources(message) };
+  const u = data.usage ?? {};
+  return {
+    text: message.content ?? "",
+    sources: extractSources(message),
+    usage: {
+      prompt_tokens: u.prompt_tokens ?? 0,
+      completion_tokens: u.completion_tokens ?? 0,
+      cost: u.cost ?? 0,
+    },
+  };
 }
 
 /**
@@ -107,7 +123,7 @@ export async function generateStructured<T>(
   schema: z.ZodType<T>,
   opts: GenerateOptions
 ): Promise<GenerateResult<T>> {
-  const model = resolveModel(opts.role ?? "reasoning");
+  const model = resolveModel(opts.role ?? "writing");
   const system =
     opts.system +
     "\n\nReturn ONLY a single valid JSON object matching the requested shape. " +
@@ -120,13 +136,19 @@ export async function generateStructured<T>(
 
   let lastErr = "";
   let lastSources: Source[] = [];
+  const usage: Usage = { prompt_tokens: 0, completion_tokens: 0, cost: 0 };
   for (let attempt = 0; attempt < 2; attempt++) {
-    const { text, sources } = await call(model, messages, opts);
+    const res = await call(model, messages, opts);
+    const { text, sources } = res;
+    // Accumulate across the self-repair retry — both calls cost money.
+    usage.prompt_tokens += res.usage.prompt_tokens;
+    usage.completion_tokens += res.usage.completion_tokens;
+    usage.cost += res.usage.cost;
     if (sources.length) lastSources = sources;
     try {
       const parsed = JSON.parse(extractJson(text));
       const data = schema.parse(parsed);
-      return { data, sources: sources.length ? sources : lastSources, model };
+      return { data, sources: sources.length ? sources : lastSources, model, usage };
     } catch (err) {
       lastErr = err instanceof Error ? err.message : String(err);
       // Feed the bad output back for a single repair attempt.

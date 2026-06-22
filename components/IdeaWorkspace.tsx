@@ -127,6 +127,8 @@ function SafeArtifact({
 const scoreColor = (n: number) =>
   n >= 70 ? "var(--color-good)" : n >= 45 ? "var(--color-warn)" : "var(--color-bad)";
 
+const fmtCost = (n: number) => "$" + (n < 1 ? n.toFixed(n < 0.1 ? 4 : 3) : n.toFixed(2));
+
 type ArtMap = Record<string, Record<string, Artifact>>;
 const bk = (vid: string, kind: string) => `${vid}:${kind}`;
 
@@ -135,13 +137,16 @@ export default function IdeaWorkspace({
   versions: versionsProp,
   artifactsByVersion,
   meta,
+  initialCost,
 }: {
   idea: Idea;
   versions: Version[];
   artifactsByVersion: Record<string, Artifact[]>;
   meta: GeneratorMeta[];
+  initialCost: number;
 }) {
   const router = useRouter();
+  const [cost, setCost] = useState(initialCost);
 
   const [versions, setVersions] = useState<Version[]>(versionsProp);
   const [artifacts, setArtifacts] = useState<ArtMap>(() => {
@@ -210,6 +215,7 @@ export default function IdeaWorkspace({
       if (!res.ok) throw new Error(json.error ?? "Generation failed");
       const art = json as Artifact;
       setArtifacts((prev) => ({ ...prev, [versionId]: { ...(prev[versionId] ?? {}), [kind]: art } }));
+      setCost((c) => c + (art.cost ?? 0));
       if (kind === "validation") {
         const score = (art.data as { score?: number })?.score;
         if (typeof score === "number")
@@ -287,6 +293,7 @@ export default function IdeaWorkspace({
       const res = await fetch(`/api/versions/${activeVersionId}/refine`, { method: "POST" });
       const p = await res.json();
       if (!res.ok) throw new Error(p.error ?? "Refinement failed");
+      setCost((c) => c + (p._cost ?? 0));
       setProposal(p as Refinement);
       setProposalDraft((p as Refinement).statement);
     } catch (e) {
@@ -351,6 +358,7 @@ export default function IdeaWorkspace({
         const pRes = await fetch(`/api/versions/${bestId}/refine`, { method: "POST" });
         const prop = await pRes.json();
         if (!pRes.ok) throw new Error(prop.error ?? "Refinement failed");
+        setCost((c) => c + (prop._cost ?? 0));
         const v = await createVersionFrom(prop.statement, "ai", bestId, prop.label, prop.rationale);
         setActiveVersionId(v.id);
         setActiveTab("validation");
@@ -428,6 +436,12 @@ export default function IdeaWorkspace({
               <h1 className="text-lg font-bold">
                 {idea.title}{" "}
                 <span className="font-mono text-sm font-normal text-muted">· v{activeVersion.n}</span>
+                <span
+                  className="ml-2 rounded-md border border-border bg-panel2 px-2 py-0.5 align-middle font-mono text-xs font-normal text-muted"
+                  title="Total OpenRouter spend on this idea (all versions)"
+                >
+                  spent {fmtCost(cost)}
+                </span>
               </h1>
               {editing ? (
                 <div className="mt-2">
@@ -589,7 +603,10 @@ export default function IdeaWorkspace({
             />
             <SourcesList sources={activeArtifact.sources} />
             <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
-              <span>Model: {activeArtifact.model ?? "—"}</span>
+              <span>
+                Model: {activeArtifact.model ?? "—"}
+                {activeArtifact.cost != null ? ` · ${fmtCost(activeArtifact.cost)}` : ""}
+              </span>
               <button onClick={() => generateActive(activeTab)} className="rounded-md border border-border px-2 py-1 hover:bg-panel2">
                 Regenerate
               </button>
