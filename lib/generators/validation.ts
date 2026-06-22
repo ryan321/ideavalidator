@@ -111,6 +111,12 @@ export const ValidationSchema = z.object({
       reasoning: z.string(), // category education tax, budget lines, sales cycle, channels
     })
     .optional(),
+
+  // Concrete differentiators the idea could pursue — each is one-click testable via re-validation.
+  possible_alphas: z
+    .array(z.object({ alpha: z.string(), rationale: z.string() }))
+    .max(5)
+    .default([]),
 });
 
 export type Validation = z.infer<typeof ValidationSchema>;
@@ -151,14 +157,21 @@ capture — NOT the TAM), reasoning }. What matters is the absolute obtainable d
 a small slice of a huge market can beat a large slice of a tiny one. Make the "summary" lead with what the
 founder can realistically expect (the obtainable revenue vs their goal), then the verdict.
 
-Score these 9 criteria 0-100. Output ALL 9 — never fewer, never renamed, never merged (the radar maps
-these exact names). Use EXACTLY these names and groups:
-- group "demand": Target Market Clarity, Market Timing, Market Entry Barriers, Competition Level, Problem-Solution Fit
-- group "build": MVP Viability, Value Proposition, Initial Feasibility, Resource Requirements
-For each: set "category" to one of MARKET, DEMAND, EXECUTION, DEFENSIBILITY; write a 2-3 sentence
-"explanation" that cites a specific named competitor, number, or source (no generic phrasing). REMEMBER
-THE INVERTED SCALE: for "Competition Level" and "Market Entry Barriers", a HIGH score means a more
-FAVORABLE position (less crowded OR a strong differentiator/wedge) — a crowded market with no edge scores LOW.
+Score these 9 criteria 0-100, where HIGHER ALWAYS MEANS MORE FAVORABLE (no inverted axes). Output ALL 9 —
+never fewer, never renamed, never merged (the radar maps these exact names). Use EXACTLY these names and groups:
+- group "demand" (will people buy?):
+  - Demand Strength — how badly the target customer wants this, from real signals
+  - Willingness to Pay — how readily they will pay, and how much
+  - Problem-Solution Fit — how well this actually solves their problem
+  - Market Timing — whether now is the right moment
+  - Competitive Position — how favorable your position is given competitors, their customer satisfaction, switching costs, and your alpha (crowded with NO edge = LOW; a clear wedge or disaffected incumbent customers = HIGH)
+- group "build" (can you win, deliver, and keep it?):
+  - Differentiation / Moat — strength and defensibility of your alpha
+  - Acquisition Ease — how easy it is to actually WIN customers (an established category buyers already understand = HIGH; needing to educate / create a category = LOW)
+  - Feasibility — how realistically THIS founder can build and run it
+  - Goal Fit — how well the required effort, time, and capital fit the founder's goal
+For each: set "category" to one of DEMAND, REVENUE, MARKET, DEFENSIBILITY, EXECUTION, GTM, FIT; write a
+2-3 sentence "explanation" citing a specific named competitor, number, or source (no generic phrasing).
 
 ${COMPETITION_GUIDANCE}
 
@@ -169,10 +182,11 @@ Also produce:
 - "action_plan": 4-6 prioritized next steps ordered by impact x ease, each with type (VALIDATE/BUILD/DISTRIBUTE/DE-RISK), effort (Low/Medium/High), horizon (This week/This month/This quarter), a measurable success_metric, and a concrete first_step.
 - "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation.
 - "clarifying_questions": 2-4 pointed questions whose answers would most change this assessment (e.g. exact target segment, what truly distinguishes this from the named competitors, pricing/distribution). If FOUNDER CONTEXT above already answered earlier questions, ask new ones (or fewer) — don't repeat answered ones.
-- "demand": { strength (Weak/Moderate/Strong), willingness_to_pay, obtainable_revenue (realistic annual dollars THIS founder could capture given the competition + goal — not the TAM), reasoning }.
-- "operating": { effort_level (Low/Medium/High to run day-to-day), description (what the founder would actually spend their time DOING — e.g. "mostly async, remote customer support" vs "high-touch outbound sales calls and in-person demos") }. This tells the founder what the day-to-day life of running it looks like.
-- "downside": { capital_at_risk (how much money the founder must put up and could realistically lose), liability (legal/regulatory/liability exposure, e.g. handling payments, PII, regulated advice), if_it_fails (what's realistically at stake — incl. the risk of customers not paying / bad debt) }. The honest worst-case to weigh against the upside.
-- "acquisition": { difficulty (Easy/Moderate/Hard), reasoning }. How hard it will be to actually WIN customers — which is often DECOUPLED from demand. Weigh: is there an established category buyers already understand and budget for (easier), or must you EDUCATE the market / create a category (harder, long sales cycles)? Note that having competitors can make selling EASIER (you'd be best-in-category, not only-in-category). Also weigh sales-cycle length, self-serve vs high-touch, and whether a clear channel exists.
+- "demand": { strength (Weak/Moderate/Strong), willingness_to_pay (a SHORT figure ONLY, e.g. "$200–600/team/mo" — NO prose), obtainable_revenue (a SHORT headline figure ONLY, e.g. "$120K–360K/yr" — realistic annual dollars THIS founder could capture given competition + goal, NOT the TAM, NO prose), reasoning (2–4 sentences: the pricing basis and the demand × capturable-share math) }.
+- "operating": { effort_level (Low/Medium/High), description (2–3 sentences on what the founder would actually spend time DOING — e.g. "mostly async remote support" vs "high-touch outbound sales + in-person demos") }.
+- "acquisition": { difficulty (Easy/Moderate/Hard), reasoning (2–3 sentences; weigh the category-education tax — an established category buyers understand is EASIER, creating a category is HARDER; competitors can make selling easier) }.
+- "downside": { capital_at_risk (1–2 sentences, LEAD with the figure, e.g. "<$15K to MVP; main risk is foregone salary"), liability (1–2 sentences), if_it_fails (1–2 sentences) }.
+- "possible_alphas": 2-4 concrete differentiators/angles this idea COULD pursue to improve its odds — each { alpha (short, specific — a niche to own, a positioning as the alternative to a dominant player, a workflow/data edge, an underserved segment), rationale (1-2 sentences on why it would raise the obtainable revenue / lower risk for the goal) }. These are TESTABLE directions distinct from the current positioning.
 
 Return JSON exactly matching:
 {
@@ -187,6 +201,7 @@ Return JSON exactly matching:
   "demand": {"strength": "Weak"|"Moderate"|"Strong", "willingness_to_pay": string, "obtainable_revenue": string, "reasoning": string},
   "operating": {"effort_level": "Low"|"Medium"|"High", "description": string},
   "downside": {"capital_at_risk": string, "liability": string, "if_it_fails": string},
-  "acquisition": {"difficulty": "Easy"|"Moderate"|"Hard", "reasoning": string}
+  "acquisition": {"difficulty": "Easy"|"Moderate"|"Hard", "reasoning": string},
+  "possible_alphas": [{"alpha": string, "rationale": string}]
 }`,
 };

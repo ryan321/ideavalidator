@@ -71,8 +71,8 @@ export function FactorBars({ criteria }: { criteria: Criterion[] }) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <FactorColumn label="Demand Side" title="Market Factors" items={demand} />
-      <FactorColumn label="Build Side" title="Execution Factors" items={build} />
+      <FactorColumn label="Demand & Market" title="Will people buy?" items={demand} />
+      <FactorColumn label="Execution & Fit" title="Can you win & keep it?" items={build} />
     </div>
   );
 }

@@ -329,6 +329,26 @@ export default function IdeaWorkspace({
     }
   }
 
+  // --- re-validate positioned around a suggested alpha ------------------------
+  async function revalidateWithAlpha(alpha: string, rationale: string) {
+    setError(null);
+    try {
+      const v = await createVersionFrom(
+        activeVersion.statement,
+        "context",
+        activeVersionId,
+        `Alpha: ${alpha}`,
+        `Pursuing this alpha: ${alpha}`,
+        `The founder wants to pursue this specific alpha / differentiator: "${alpha}". ${rationale} Re-evaluate the idea positioned around this alpha — its effect on competition, demand, obtainable revenue, and the verdict.`
+      );
+      switchVersion(v.id);
+      await generate("validation", v.id);
+      await generate("market", v.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not re-validate");
+    }
+  }
+
   // --- manual refine ----------------------------------------------------------
   function startManual() {
     setProposal(null);
@@ -462,9 +482,11 @@ export default function IdeaWorkspace({
 
   const activeMeta = metaByKind[activeTab];
   const activeArtifact = activeArtifacts[activeTab];
-  const activeQuestions =
-    (activeArtifacts.validation?.data as { clarifying_questions?: string[] } | undefined)
-      ?.clarifying_questions ?? [];
+  const activeValidationData = activeArtifacts.validation?.data as
+    | { clarifying_questions?: string[]; possible_alphas?: { alpha: string; rationale: string }[] }
+    | undefined;
+  const activeQuestions = activeValidationData?.clarifying_questions ?? [];
+  const activeAlphas = activeValidationData?.possible_alphas ?? [];
 
   return (
     <div>
@@ -750,6 +772,32 @@ export default function IdeaWorkspace({
                 {iterLog.join("\n")}
               </pre>
             )}
+          </div>
+        )}
+
+        {/* possible alpha — test a different edge */}
+        {activeAlphas.length > 0 && !responding && !proposal && (
+          <div className="mb-5 rounded-xl border border-accent/30 bg-accent/5 p-4">
+            <div className="mb-1 text-sm font-semibold text-accent">✨ Possible alpha — test a different edge</div>
+            <p className="mb-3 text-xs text-muted">
+              Differentiators this idea could pursue. Re-validate positioned around one to see how it moves
+              the forecast.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {activeAlphas.map((a, i) => (
+                <div key={i} className="flex flex-col rounded-lg border border-border bg-panel2 p-3">
+                  <div className="text-sm font-medium">{a.alpha}</div>
+                  <p className="mt-1 flex-1 text-xs leading-relaxed text-muted">{a.rationale}</p>
+                  <button
+                    onClick={() => revalidateWithAlpha(a.alpha, a.rationale)}
+                    disabled={anyBusy}
+                    className="mt-2 self-start rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                  >
+                    Re-validate with this alpha →
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

@@ -36,7 +36,9 @@ export default function Home() {
                 className="block rounded-xl border border-border bg-panel p-4 transition hover:border-accent/50 hover:bg-panel2"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="font-medium">{idea.title}</div>
+                  <div className="line-clamp-2 font-medium">
+                    {idea.title.replace(/^#+\s*/, "").replace(/^Business Idea:\s*/i, "")}
+                  </div>
                   {idea.best_score != null && (
                     <span
                       className="shrink-0 rounded-md px-2 py-0.5 font-mono text-sm font-bold"
@@ -55,7 +57,12 @@ export default function Home() {
                   )}
                 </div>
                 {idea.revenue && (
-                  <div className="mt-1 font-mono text-xs text-accent2">~{idea.revenue}</div>
+                  <div
+                    className="mt-1 truncate font-mono text-xs text-accent2"
+                    title={idea.revenue}
+                  >
+                    ~{idea.revenue}
+                  </div>
                 )}
                 <div className="mt-1 text-xs text-muted">
                   {new Date(idea.created_at).toLocaleString()}

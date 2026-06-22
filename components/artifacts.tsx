@@ -104,116 +104,119 @@ export function SvgLogo({ svg }: { svg: string }) {
 
 // ---- Validation (composed) ---------------------------------------------------
 
+// good if value===good, warn if ===mid, else bad.
+function tone3(value: string, good: string, mid: string): string {
+  return value === good
+    ? "var(--color-good)"
+    : value === mid
+      ? "var(--color-warn)"
+      : "var(--color-bad)";
+}
+
+function StatTile({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-panel2 p-2.5">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted">{label}</div>
+      <div
+        className="mt-0.5 text-sm font-semibold leading-snug [overflow-wrap:anywhere]"
+        style={color ? { color } : undefined}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{title}</div>
+      {children}
+    </div>
+  );
+}
+
 export function ValidationView({ d }: { d: Validation }) {
   return (
     <div className="space-y-8">
-      <Card className="flex flex-col items-center gap-5 sm:flex-row">
-        <ScoreGauge score={d.score} />
-        <div className="flex-1">
-          <div className="mb-2 flex items-center gap-3">
-            <span
-              className="rounded-lg px-3 py-1 text-lg font-bold"
-              style={{
-                color: scoreColor(d.score),
-                background: "color-mix(in srgb, " + scoreColor(d.score) + " 15%, transparent)",
-              }}
-            >
-              {d.verdict}
-            </span>
-            <span className="text-sm text-muted">{d.confidence}% confidence</span>
+      <Card className="border-accent2/30 bg-accent2/5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Obtainable revenue / yr
+            </div>
+            <div className="mt-1 font-mono text-3xl font-bold leading-tight text-accent2 [overflow-wrap:anywhere]">
+              {d.demand?.obtainable_revenue ?? "—"}
+            </div>
           </div>
-          <Prose>{d.summary}</Prose>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <span
+                className="rounded-lg px-2.5 py-1 text-base font-bold"
+                style={{
+                  color: scoreColor(d.score),
+                  background: "color-mix(in srgb, " + scoreColor(d.score) + " 15%, transparent)",
+                }}
+              >
+                {d.verdict}
+              </span>
+              <div className="mt-1 text-xs text-muted">{d.confidence}% confidence</div>
+            </div>
+            <ScoreGauge score={d.score} size={76} />
+          </div>
         </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {d.demand && (
+            <StatTile label="Demand" value={d.demand.strength} color={tone3(d.demand.strength, "Strong", "Moderate")} />
+          )}
+          {d.demand && <StatTile label="Pays" value={d.demand.willingness_to_pay} />}
+          {d.operating && (
+            <StatTile label="Effort to run" value={d.operating.effort_level} color={tone3(d.operating.effort_level, "Low", "Medium")} />
+          )}
+          {d.acquisition && (
+            <StatTile label="Hard to sell" value={d.acquisition.difficulty} color={tone3(d.acquisition.difficulty, "Easy", "Moderate")} />
+          )}
+        </div>
+        <p className="mt-4 text-sm leading-relaxed text-fg/90">{d.summary}</p>
       </Card>
 
-      {d.demand && (
-        <Card className="border-accent2/30 bg-accent2/5">
-          <div className="text-xs font-semibold uppercase tracking-wide text-accent2">
-            What to expect
+      {(d.demand || d.operating || d.acquisition || d.downside) && (
+        <details className="group rounded-xl border border-border bg-panel">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-medium text-muted hover:text-fg">
+            <span className="transition group-open:rotate-90">▸</span>
+            Forecast detail — demand & pricing, day-to-day, sales & downside
+          </summary>
+          <div className="space-y-5 border-t border-border p-5">
+            {d.demand && (
+              <DetailRow title="Demand & pricing">
+                <p className="text-sm">
+                  <span className="text-muted">Willingness to pay: </span>
+                  {d.demand.willingness_to_pay}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-muted">{d.demand.reasoning}</p>
+              </DetailRow>
+            )}
+            {d.operating && (
+              <DetailRow title={`What running it is like · ${d.operating.effort_level} effort`}>
+                <p className="text-sm leading-relaxed text-fg/90">{d.operating.description}</p>
+              </DetailRow>
+            )}
+            {d.acquisition && (
+              <DetailRow title={`How hard to sell · ${d.acquisition.difficulty}`}>
+                <p className="text-sm leading-relaxed text-fg/90">{d.acquisition.reasoning}</p>
+              </DetailRow>
+            )}
+            {d.downside && (
+              <DetailRow title="Downside / what's at risk">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Field label="Capital at risk" value={d.downside.capital_at_risk} />
+                  <Field label="Liability" value={d.downside.liability} />
+                  <Field label="If it fails" value={d.downside.if_it_fails} />
+                </div>
+              </DetailRow>
+            )}
           </div>
-          <div className="mt-3 grid gap-4 sm:grid-cols-3">
-            <Field
-              label="Demand"
-              value={
-                <span
-                  style={{
-                    color:
-                      d.demand.strength === "Strong"
-                        ? "var(--color-good)"
-                        : d.demand.strength === "Moderate"
-                          ? "var(--color-warn)"
-                          : "var(--color-bad)",
-                  }}
-                  className="font-semibold"
-                >
-                  {d.demand.strength}
-                </span>
-              }
-            />
-            <Field label="Willingness to pay" value={d.demand.willingness_to_pay} />
-            <Field
-              label="Obtainable revenue / yr"
-              value={
-                <span className="font-mono text-lg font-bold text-accent2">
-                  {d.demand.obtainable_revenue}
-                </span>
-              }
-            />
-          </div>
-          <p className="mt-3 text-sm leading-relaxed text-fg/90">{d.demand.reasoning}</p>
-        </Card>
-      )}
-
-      {d.operating && (
-        <Card>
-          <div className="flex items-baseline justify-between gap-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-              What running it is like
-            </div>
-            <span className="font-mono text-sm">
-              <span className="text-muted">effort to run: </span>
-              <span className="font-bold text-accent2">{d.operating.effort_level}</span>
-            </span>
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-fg/90">{d.operating.description}</p>
-        </Card>
-      )}
-
-      {d.acquisition && (
-        <Card>
-          <div className="flex items-baseline justify-between gap-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-              How hard to sell
-            </div>
-            <span
-              className="font-mono text-sm font-bold"
-              style={{
-                color:
-                  d.acquisition.difficulty === "Easy"
-                    ? "var(--color-good)"
-                    : d.acquisition.difficulty === "Moderate"
-                      ? "var(--color-warn)"
-                      : "var(--color-bad)",
-              }}
-            >
-              {d.acquisition.difficulty}
-            </span>
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-fg/90">{d.acquisition.reasoning}</p>
-        </Card>
-      )}
-
-      {d.downside && (
-        <Card className="border-bad/30 bg-bad/5">
-          <div className="text-xs font-semibold uppercase tracking-wide text-bad">
-            Downside / what's at risk
-          </div>
-          <div className="mt-3 grid gap-4 sm:grid-cols-3">
-            <Field label="Capital at risk" value={d.downside.capital_at_risk} />
-            <Field label="Liability" value={d.downside.liability} />
-            <Field label="If it fails" value={d.downside.if_it_fails} />
-          </div>
-        </Card>
+        </details>
       )}
 
       <Section title="Visual Overview">

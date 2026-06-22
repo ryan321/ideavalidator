@@ -53,7 +53,7 @@ export const COMPETITION_GUIDANCE = `Judge COMPETITION carefully, never crudely 
 - Measure the ALPHA / differentiator: an occupied category is fine IF there is a real edge. The edge can be (a) PRODUCT — better on a dimension that matters; (b) a NICHE / different angle the incumbents serve badly (e.g. CLI dev tools vs a team product); or (c) POSITIONING — being the credible ALTERNATIVE to a dominant player for a segment that rejects it for non-product reasons (privacy, trust, ideology, lock-in/vendor-diversification, simplicity, "anyone-but-BigCo"). A not-better-but-not-the-incumbent option can still capture enough of a disaffected segment to be worthwhile.
 - CATEGORY EDUCATION (counterintuitive): an established category (competitors already exist) usually makes selling EASIER — buyers understand the category, have a budget line, and you'd be best-in-category rather than only-in-category. Creating a brand-new category means an education tax and long sales cycles even when demand is real. So "no competitors" can mean harder customer acquisition, not easier.
 - Name the specific alpha and the target segment, weighted RELATIVE TO THE GOAL (a lifestyle business can thrive amid competition by owning a slice; a venture bet usually cannot if incumbents are entrenched AND well-liked).
-Reflect this in the "Competition Level" score (HIGH = favorable position GIVEN the alpha, not merely "few competitors") and in "Value Proposition" (how strong/defensible the alpha is).`;
+Reflect this in the "Competitive Position" score (HIGH = favorable position GIVEN the alpha, not merely "few competitors") and in "Differentiation / Moat" (how strong/defensible the alpha is).`;
 
 export type Generator<T = unknown> = {
   kind: ArtifactKind;

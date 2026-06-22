@@ -26,9 +26,6 @@ type ValidationLike = {
   action_plan?: { title: string; first_step?: string }[];
 };
 
-// Criteria whose scale is inverted (high score = LESS competition / EASIER entry).
-const INVERTED = new Set(["Competition Level", "Market Entry Barriers"]);
-
 /**
  * Propose a refined idea statement for a version, attacking its lowest-scoring
  * criteria and highest risks. Does NOT create a version — returns the proposal.
@@ -50,12 +47,7 @@ ${(validation.criteria ?? [])
         .slice()
         .sort((a, b) => a.score - b.score)
         .slice(0, 4)
-        .map(
-          (c) =>
-            `  - ${c.name} (${c.score})${
-              INVERTED.has(c.name) ? " [inverted: low score = crowded market / high barriers]" : ""
-            }: ${c.explanation ?? ""}`
-        )
+        .map((c) => `  - ${c.name} (${c.score}): ${c.explanation ?? ""}`)
         .join("\n")}
 Critical risks: ${(validation.stop_signals?.critical_risks ?? []).map((r) => r.text).join("; ")}
 Concerns: ${(validation.stop_signals?.areas_of_concern ?? []).map((r) => r.text).join("; ")}
@@ -85,10 +77,11 @@ Already-recommended actions (build on these, don't just repeat them): ${(validat
       "concrete defensibility — not just its wording.\n" +
       "Your refined statement will be RE-SCORED by a grounded analyst with live web search, so do NOT add " +
       "unverifiable superlatives ('AI-powered', 'first-ever', 'massive market') to inflate perception — " +
-      "they get fact-checked and penalized. For the inverted criteria (Competition Level, Market Entry " +
-      "Barriers) a low score means a crowded/contested market: the fix is sharper differentiation and a " +
-      "defensible wedge (a niche, proprietary data, a hard-to-copy workflow) — NOT adding competitors or " +
-      "barriers. Make the SMALLEST change set that lifts the lowest criteria; if a prior refinement hurt a " +
+      "they get fact-checked and penalized. All criteria are scored high=favorable: a low 'Competitive " +
+      "Position' or 'Acquisition Ease' means a crowded/contested market or a hard sell, and the fix is a " +
+      "sharper differentiator/wedge (a niche, proprietary data, a hard-to-copy workflow, or being the " +
+      "trusted alternative) plus an easier go-to-market — NOT adding competitors or barriers. Make the " +
+      "SMALLEST change set that lifts the lowest criteria; if a prior refinement hurt a " +
       "criterion, prefer reverting that specific aspect. The refined 'statement' must be a crisp 1-3 " +
       "sentence idea statement in the same format as the input (no preamble), and STRICTLY more specific " +
       "than the current one — name the exact target segment (a real 'who', not 'businesses'), the concrete " +
