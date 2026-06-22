@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Generator, ideaHeader, priorContext } from "./shared";
+import { Generator, founderContext, ideaHeader, priorContext } from "./shared";
 
 export const MarketSchema = z.object({
   summary: z.string(),
@@ -122,7 +122,7 @@ export const marketGenerator: Generator<Market> = {
     "and show the arithmetic. For demand_signals, report only real signals you found: paraphrase real " +
     "pain patterns (never fabricate a verbatim post or claim a specific post exists), and shrink the array " +
     "rather than inventing entries.",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}${priorContext(ctx, ["validation"])}
+  buildPrompt: (ctx) => `${ideaHeader(ctx)}${priorContext(ctx, ["validation"])}${founderContext(ctx)}
 
 Produce a market & competition analysis grounded in live web data. Include:
 - "summary"; "cagr_label" (e.g. "18% CAGR (2025-2033)"); "cagr_pct" (just the number, e.g. 18). The year

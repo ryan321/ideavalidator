@@ -82,6 +82,7 @@ export async function runGenerator(
   const ctx: GenContext = {
     idea: { title: idea.title, prompt: version.statement },
     prior,
+    context: version.context,
   };
 
   const { data, sources, model, usage } = await generateStructured(def.schema, {

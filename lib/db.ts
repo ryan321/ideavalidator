@@ -40,6 +40,7 @@ function init(): Database.Database {
       origin     TEXT NOT NULL DEFAULT 'original',
       parent_id  TEXT,
       rationale  TEXT,
+      context    TEXT,
       score      INTEGER,
       created_at TEXT NOT NULL,
       UNIQUE (idea_id, n)
@@ -62,6 +63,11 @@ function init(): Database.Database {
     `);
   } else if (!tableColumns(db, "artifacts").includes("version_id")) {
     migrateArtifactsToVersions(db);
+  }
+
+  // founder context on versions (added in upgrades).
+  if (!tableColumns(db, "versions").includes("context")) {
+    db.exec("ALTER TABLE versions ADD COLUMN context TEXT");
   }
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
@@ -145,7 +151,7 @@ export type IdeaSummary = Idea & {
   cost: number | null;
 };
 
-export type VersionOrigin = "original" | "manual" | "ai";
+export type VersionOrigin = "original" | "manual" | "ai" | "context";
 
 export type Version = {
   id: string;
@@ -156,6 +162,7 @@ export type Version = {
   origin: VersionOrigin;
   parent_id: string | null;
   rationale: string | null;
+  context: string | null;
   score: number | null;
   created_at: string;
 };
@@ -208,6 +215,7 @@ export function createIdea(title: string, statement: string): { idea: Idea; vers
     origin: "original",
     parent_id: null,
     rationale: null,
+    context: null,
     score: null,
     created_at: now,
   };
@@ -216,8 +224,8 @@ export function createIdea(title: string, statement: string): { idea: Idea; vers
       "INSERT INTO ideas (id, title, prompt, created_at) VALUES (@id, @title, @prompt, @created_at)"
     ).run(idea);
     db.prepare(
-      `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, score, created_at)
-       VALUES (@id, @idea_id, @n, @statement, @label, @origin, @parent_id, @rationale, @score, @created_at)`
+      `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, created_at)
+       VALUES (@id, @idea_id, @n, @statement, @label, @origin, @parent_id, @rationale, @context, @score, @created_at)`
     ).run(version);
   });
   tx();
@@ -267,7 +275,14 @@ export function getVersion(versionId: string): Version | undefined {
 
 export function createVersion(
   ideaId: string,
-  opts: { statement: string; label?: string | null; origin: VersionOrigin; parentId?: string | null; rationale?: string | null }
+  opts: {
+    statement: string;
+    label?: string | null;
+    origin: VersionOrigin;
+    parentId?: string | null;
+    rationale?: string | null;
+    context?: string | null;
+  }
 ): Version {
   const row = db.prepare("SELECT MAX(n) AS maxN FROM versions WHERE idea_id = ?").get(ideaId) as {
     maxN: number | null;
@@ -281,12 +296,13 @@ export function createVersion(
     origin: opts.origin,
     parent_id: opts.parentId ?? null,
     rationale: opts.rationale ?? null,
+    context: opts.context ?? null,
     score: null,
     created_at: new Date().toISOString(),
   };
   db.prepare(
-    `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, score, created_at)
-     VALUES (@id, @idea_id, @n, @statement, @label, @origin, @parent_id, @rationale, @score, @created_at)`
+    `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, created_at)
+     VALUES (@id, @idea_id, @n, @statement, @label, @origin, @parent_id, @rationale, @context, @score, @created_at)`
   ).run(version);
   return version;
 }

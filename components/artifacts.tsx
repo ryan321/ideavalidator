@@ -139,6 +139,16 @@ export function ValidationView({ d }: { d: Validation }) {
       <ValidationScorecard validations={d.validations} criteria={d.criteria} />
       <ActionPlan steps={d.action_plan} />
       <RiskMatrix risks={d.risk_matrix} />
+      {d.clarifying_questions && d.clarifying_questions.length > 0 && (
+        <Section title="Open questions from the validator">
+          <Card className="border-accent2/30 bg-accent2/5">
+            <p className="mb-2 text-xs text-muted">
+              Answer these via “💬 Respond to validator” to sharpen the next validation.
+            </p>
+            <Bullets items={d.clarifying_questions} />
+          </Card>
+        </Section>
+      )}
     </div>
   );
 }

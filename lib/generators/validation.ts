@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Generator, ideaHeader } from "./shared";
+import { Generator, founderContext, ideaHeader } from "./shared";
 
 const Signal = z.object({
   text: z.string(),
@@ -67,6 +67,9 @@ export const ValidationSchema = z.object({
       })
     )
     .min(3),
+
+  // Questions the founder could answer that would most change this assessment.
+  clarifying_questions: z.array(z.string()).max(6).default([]),
 });
 
 export type Validation = z.infer<typeof ValidationSchema>;
@@ -88,7 +91,7 @@ export const validationGenerator: Generator<Validation> = {
     "exceptional (reserve for proven paying demand). Most ideas land 45-70. Penalize, do not reward, any " +
     "criterion where you found no concrete evidence. The overall 'score' MUST fall in the band matching " +
     "the 'verdict' (NO-GO<60, MAYBE 60-74, GO>=75).",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}
+  buildPrompt: (ctx) => `${ideaHeader(ctx)}${founderContext(ctx)}
 
 Validate this idea. You MUST issue web searches before answering and base every figure (market size,
 CAGR, competitor funding, pricing, thread/upvote counts) on a result you actually retrieved. Name the
@@ -112,6 +115,7 @@ Also produce:
 - "go_signals": positive_signals (why it has momentum) and key_strengths; "stop_signals": critical_risks and areas_of_concern. Each item is { text, category } where category is ONE of MARKET, DEMAND, DEFENSIBILITY, REVENUE, EXECUTION, TECH and "text" references something specific to THIS idea (a named competitor, a real number, or a cited signal) — no statement that could apply to any startup.
 - "action_plan": 4-6 prioritized next steps ordered by impact x ease, each with type (VALIDATE/BUILD/DISTRIBUTE/DE-RISK), effort (Low/Medium/High), horizon (This week/This month/This quarter), a measurable success_metric, and a concrete first_step.
 - "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation.
+- "clarifying_questions": 2-4 pointed questions whose answers would most change this assessment (e.g. exact target segment, what truly distinguishes this from the named competitors, pricing/distribution). If FOUNDER CONTEXT above already answered earlier questions, ask new ones (or fewer) — don't repeat answered ones.
 
 Return JSON exactly matching:
 {
@@ -121,6 +125,7 @@ Return JSON exactly matching:
   "go_signals": {"positive_signals": [{"text": string, "category": string}], "key_strengths": [{"text": string, "category": string}]},
   "stop_signals": {"critical_risks": [{"text": string, "category": string}], "areas_of_concern": [{"text": string, "category": string}]},
   "action_plan": [{"title": string, "rationale": string, "type": "VALIDATE"|"BUILD"|"DISTRIBUTE"|"DE-RISK", "effort": "Low"|"Medium"|"High", "horizon": "This week"|"This month"|"This quarter", "success_metric": string, "first_step": string}],
-  "risk_matrix": [{"title": string, "category": "tech"|"market"|"financial", "probability": number, "impact": number, "mitigation": string}]
+  "risk_matrix": [{"title": string, "category": "tech"|"market"|"financial", "probability": number, "impact": number, "mitigation": string}],
+  "clarifying_questions": [string]
 }`,
 };

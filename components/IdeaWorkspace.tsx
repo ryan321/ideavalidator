@@ -172,6 +172,8 @@ export default function IdeaWorkspace({
   const [proposal, setProposal] = useState<Refinement | null>(null);
   const [proposalDraft, setProposalDraft] = useState("");
   const [suggesting, setSuggesting] = useState(false);
+  const [responding, setResponding] = useState(false);
+  const [responseDraft, setResponseDraft] = useState("");
 
   // auto-iterate
   const [iterating, setIterating] = useState(false);
@@ -198,6 +200,7 @@ export default function IdeaWorkspace({
     setActiveVersionId(id);
     setProposal(null);
     setEditing(false);
+    setResponding(false);
     const first = artifacts[id] ? Object.keys(artifacts[id])[0] : undefined;
     setActiveTab((first as ArtifactKind) ?? "validation");
   }
@@ -251,20 +254,45 @@ export default function IdeaWorkspace({
 
   async function createVersionFrom(
     statement: string,
-    origin: "manual" | "ai",
+    origin: "manual" | "ai" | "context",
     parentId: string,
     label?: string,
-    rationale?: string
+    rationale?: string,
+    context?: string
   ): Promise<Version> {
     const res = await fetch("/api/versions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ideaId: idea.id, statement, origin, parentId, label, rationale }),
+      body: JSON.stringify({ ideaId: idea.id, statement, origin, parentId, label, rationale, context }),
     });
     const v = await res.json();
     if (!res.ok) throw new Error(v.error ?? "Could not create version");
     setVersions((prev) => [...prev, v as Version]);
     return v as Version;
+  }
+
+  // --- respond to the validator (add context / push back, then re-validate) ---
+  async function respondToValidator() {
+    const text = responseDraft.trim();
+    if (text.length < 4) return;
+    setError(null);
+    try {
+      const v = await createVersionFrom(
+        activeVersion.statement,
+        "context",
+        activeVersionId,
+        "Responded to validator",
+        text,
+        text
+      );
+      setResponding(false);
+      setResponseDraft("");
+      switchVersion(v.id);
+      await generate("validation", v.id);
+      await generate("market", v.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not re-validate");
+    }
   }
 
   // --- manual refine ----------------------------------------------------------
@@ -393,6 +421,9 @@ export default function IdeaWorkspace({
 
   const activeMeta = metaByKind[activeTab];
   const activeArtifact = activeArtifacts[activeTab];
+  const activeQuestions =
+    (activeArtifacts.validation?.data as { clarifying_questions?: string[] } | undefined)
+      ?.clarifying_questions ?? [];
 
   return (
     <div>
@@ -422,6 +453,7 @@ export default function IdeaWorkspace({
                 )}
                 {v.origin === "ai" && <span title="AI refinement">✨</span>}
                 {v.origin === "manual" && <span title="manual edit">✎</span>}
+                {v.origin === "context" && <span title="re-validated with founder context">💬</span>}
                 {isBest && <span title="best score">★</span>}
                 {vbusy && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent2" />}
               </button>
@@ -484,6 +516,18 @@ export default function IdeaWorkspace({
               <button onClick={startManual} disabled={anyBusy} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2 disabled:opacity-50">
                 ✎ Refine manually
               </button>
+              <button
+                onClick={() => {
+                  setProposal(null);
+                  setEditing(false);
+                  setResponseDraft("");
+                  setResponding((r) => !r);
+                }}
+                disabled={anyBusy}
+                className="rounded-lg border border-accent2/40 px-3 py-1.5 text-sm text-accent2 hover:bg-accent2/10 disabled:opacity-50"
+              >
+                💬 Respond to validator
+              </button>
               <button onClick={suggest} disabled={anyBusy} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 disabled:opacity-50">
                 {suggesting ? "Thinking…" : "✨ Suggest improvement"}
               </button>
@@ -501,6 +545,59 @@ export default function IdeaWorkspace({
             </div>
           )}
         </div>
+
+        {/* respond-to-validator panel */}
+        {responding && (
+          <div className="mb-5 rounded-xl border border-accent2/40 bg-accent2/5 p-4">
+            <div className="mb-1 text-sm font-semibold text-accent2">
+              💬 Respond to the validator
+            </div>
+            <p className="mb-2 text-xs text-muted">
+              Push back on what it got wrong, add context, or answer its questions. The next validation
+              treats your input as authoritative and re-evaluates (e.g. competitors, market) accordingly.
+            </p>
+            {activeQuestions.length > 0 && (
+              <div className="mb-2 rounded-lg border border-border bg-panel2 p-3">
+                <div className="mb-1 text-xs font-medium text-muted">The validator asked:</div>
+                <ul className="space-y-1">
+                  {activeQuestions.map((q, i) => (
+                    <li key={i} className="flex gap-2 text-xs">
+                      <button
+                        onClick={() =>
+                          setResponseDraft((d) => (d ? d + "\n" : "") + `Q: ${q}\nA: `)
+                        }
+                        className="shrink-0 text-accent2 hover:underline"
+                        title="add this question to your response"
+                      >
+                        ＋
+                      </button>
+                      <span>{q}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <textarea
+              value={responseDraft}
+              onChange={(e) => setResponseDraft(e.target.value)}
+              rows={4}
+              placeholder={`e.g. "The competitors you listed (X, Y) are CLI tools for individual developers — my product is a team workspace, 'Jira for AI-agent intent management'. Re-evaluate competition with that in mind."`}
+              className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent2"
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={respondToValidator}
+                disabled={anyBusy || responseDraft.trim().length < 4}
+                className="rounded-lg bg-accent2 px-3 py-1.5 text-sm font-medium text-bg disabled:opacity-50"
+              >
+                Re-validate with this context (v{versions.length + 1})
+              </button>
+              <button onClick={() => setResponding(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* AI proposal panel */}
         {proposal && (

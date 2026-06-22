@@ -4,7 +4,7 @@ import { createVersion, getIdea, type VersionOrigin } from "@/lib/db";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const { ideaId, statement, label, origin, parentId, rationale } = await req.json();
+  const { ideaId, statement, label, origin, parentId, rationale, context } = await req.json();
   if (!ideaId || !getIdea(ideaId)) {
     return NextResponse.json({ error: "Unknown ideaId" }, { status: 400 });
   }
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     origin: (origin as VersionOrigin) ?? "manual",
     parentId: parentId ?? null,
     rationale: rationale ?? null,
+    context: typeof context === "string" && context.trim() ? context.trim() : null,
   });
   return NextResponse.json(version, { status: 201 });
 }

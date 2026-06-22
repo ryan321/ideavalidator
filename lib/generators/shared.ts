@@ -7,6 +7,8 @@ import type { ArtifactKind } from "../db";
 export type GenContext = {
   idea: { title: string; prompt: string };
   prior: Partial<Record<ArtifactKind, unknown>>;
+  /** Founder clarifications/corrections for this version (the "respond to the validator" feature). */
+  context?: string | null;
 };
 
 export type Generator<T = unknown> = {
@@ -38,4 +40,11 @@ export function priorContext(ctx: GenContext, kinds: ArtifactKind[]): string {
 
 export function ideaHeader(ctx: GenContext): string {
   return `Idea: "${ctx.idea.title}"\n\nDescription: ${ctx.idea.prompt}`;
+}
+
+// Authoritative founder clarifications, injected into analysis prompts when present.
+export function founderContext(ctx: GenContext): string {
+  const c = ctx.context?.trim();
+  if (!c) return "";
+  return `\n\nFOUNDER CONTEXT — the founder reviewed a prior analysis and is clarifying or pushing back. Treat the following as AUTHORITATIVE and correct earlier mistakes accordingly (e.g. if it says certain "competitors" aren't real competitors, re-evaluate the competition criterion in that light). Address these points directly and acknowledge them in the summary:\n"""\n${c}\n"""`;
 }
