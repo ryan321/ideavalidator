@@ -45,6 +45,24 @@ h3 {
   scrollbar-color: var(--color-border) transparent;
 }
 
+/* respect users who ask for less motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* keyboard focus stays clearly visible on the dark theme */
+:focus-visible {
+  outline: 2px solid var(--color-accent2);
+  outline-offset: 2px;
+}
+
 /* print: hide interactive chrome, reveal the stacked full-report view for PDF export */
 .print-only {
   display: none;

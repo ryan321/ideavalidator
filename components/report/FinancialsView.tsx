@@ -56,6 +56,28 @@ const STREAM_TONE: Record<StreamType, { cls: string; label: string }> = {
   },
 };
 
+// Loosely parse "$360K", "1.2M", "3,000" → a number, so we can show the implied
+// per-customer revenue (revenue ÷ customers) and make the projection math legible.
+function parseLoose(s: string | undefined): number | null {
+  if (!s) return null;
+  const m = s.replace(/[,$\s]/g, "").match(/([0-9.]+)\s*([kKmMbB]?)/);
+  if (!m) return null;
+  let n = parseFloat(m[1]);
+  const u = m[2].toLowerCase();
+  if (u === "k") n *= 1e3;
+  else if (u === "m") n *= 1e6;
+  else if (u === "b") n *= 1e9;
+  return Number.isFinite(n) ? n : null;
+}
+function impliedArpu(revenue?: string, customers?: string): string | null {
+  const r = parseLoose(revenue);
+  const c = parseLoose(customers);
+  if (!r || !c || c < 1) return null;
+  const per = r / c;
+  const fmt = per >= 1000 ? `$${(per / 1000).toFixed(1)}k` : `$${Math.round(per)}`;
+  return `≈ ${fmt}/customer/yr`;
+}
+
 export function FinancialsView({ d }: { d: Financials }) {
   const ue = d?.unit_economics ?? {
     cac: "—",
@@ -249,7 +271,14 @@ export function FinancialsView({ d }: { d: Financials }) {
                     <div className="font-mono text-sm font-bold text-fg">
                       {p?.revenue ?? "—"}
                     </div>
-                    <div className="text-sm text-muted">{p?.customers ?? "—"}</div>
+                    <div className="text-sm text-muted">
+                      {p?.customers ?? "—"}
+                      {impliedArpu(p?.revenue, p?.customers) && (
+                        <span className="ml-1 font-mono text-[11px] text-accent2/80">
+                          {impliedArpu(p?.revenue, p?.customers)}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-sm text-muted">{p?.note ?? ""}</div>
                   </div>
                 ))}

@@ -81,6 +81,9 @@ export default function AppNav() {
                     const locked = s.needsChosen && !hasChosen;
                     const dot = (
                       <span
+                        role="img"
+                        aria-label={st === "done" ? "done" : st === "active" ? "in progress" : "not started"}
+                        title={st === "done" ? "Done" : st === "active" ? "In progress" : "Not started"}
                         className={`h-1.5 w-1.5 rounded-full ${
                           st === "done"
                             ? "bg-good"

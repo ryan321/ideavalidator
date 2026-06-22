@@ -18,6 +18,20 @@ function clampScore(n: number) {
   return Math.max(0, Math.min(100, n));
 }
 
+// Plain-English meaning for each criterion, shown on hover so a non-startup-native
+// founder knows what the score is actually measuring.
+const CRITERIA_HELP: Record<string, string> = {
+  "Demand Strength": "How many people actively feel this problem and want it solved.",
+  "Willingness to Pay": "Whether those people will actually open their wallet, and how much.",
+  "Problem-Solution Fit": "How well your solution actually relieves the pain (not just relates to it).",
+  "Market Timing": "Why now — tailwinds or shifts that make this the right moment.",
+  "Competitive Position": "How favorable your spot is given who already serves this demand.",
+  "Differentiation / Moat": "Your real edge and how defensible it is once others notice.",
+  "Acquisition Ease": "How hard/expensive it is to reach and convert each customer.",
+  "Feasibility": "How realistically you can build and run this with your resources.",
+  "Goal Fit": "How well the idea matches the goal, time, and budget you set.",
+};
+
 function PillarCard({ title, pillar }: { title: string; pillar?: Pillar }) {
   const raw = pillar?.score ?? 0;
   const score = clampScore(raw);
@@ -52,8 +66,12 @@ function CriterionCard({ criterion }: { criterion: Criterion }) {
     <div className="rounded-xl border border-border bg-panel2 p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-sm font-bold text-fg">
+          <div
+            className="truncate text-sm font-bold text-fg"
+            title={CRITERIA_HELP[criterion?.name] ?? undefined}
+          >
             {criterion?.name || "Untitled criterion"}
+            {CRITERIA_HELP[criterion?.name] && <span className="ml-1 cursor-help text-xs text-muted">ⓘ</span>}
           </div>
           {criterion?.category ? (
             <div className="mt-1.5">

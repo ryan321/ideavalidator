@@ -886,10 +886,10 @@ export default function IdeaWorkspace({
               {/* validation / idea-changing actions only belong on the Validate stage */}
               {currentStage === "validate" && (
                 <>
-              <button onClick={generateAll} disabled={anyBusy} className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+              <button title="Generate every deliverable (market, financials, plan, pitch…) for this version at once." onClick={generateAll} disabled={anyBusy} className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
                 {anyBusy ? "Working…" : "Generate all"}
               </button>
-              <button onClick={startManual} disabled={anyBusy} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2 disabled:opacity-50">
+              <button title="Edit the idea statement yourself — saves as a new version and re-scores." onClick={startManual} disabled={anyBusy} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2 disabled:opacity-50">
                 ✎ Refine manually
               </button>
               <button
@@ -900,6 +900,7 @@ export default function IdeaWorkspace({
                   setResponding((r) => !r);
                 }}
                 disabled={anyBusy}
+                title="Push back or add context the analysis missed — re-validates treating your input as authoritative."
                 className="rounded-lg border border-accent2/40 px-3 py-1.5 text-sm text-accent2 hover:bg-accent2/10 disabled:opacity-50"
               >
                 💬 Respond to validator
@@ -907,14 +908,15 @@ export default function IdeaWorkspace({
               <button
                 onClick={() => (chatting ? setChatting(false) : openChat())}
                 disabled={anyBusy}
+                title="Ask questions about the analysis. Doesn't change anything."
                 className="rounded-lg border border-accent2/40 px-3 py-1.5 text-sm text-accent2 hover:bg-accent2/10 disabled:opacity-50"
               >
                 ❓ Ask about this
               </button>
-              <button onClick={suggest} disabled={anyBusy} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 disabled:opacity-50">
+              <button title="Let AI propose a sharper version aimed at your weakest criteria." onClick={suggest} disabled={anyBusy} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 disabled:opacity-50">
                 {suggesting ? "Thinking…" : "✨ Suggest improvement"}
               </button>
-              <button onClick={autoIterate} disabled={anyBusy} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 disabled:opacity-50">
+              <button title="AI hill-climbs the idea over several rounds toward a target score." onClick={autoIterate} disabled={anyBusy} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 disabled:opacity-50">
                 ⟳ Auto-iterate
               </button>
                 </>
@@ -1097,7 +1099,9 @@ export default function IdeaWorkspace({
         )}
 
         {error && (
-          <div className="mb-4 rounded-lg border border-bad/30 bg-bad/10 px-4 py-2 text-sm text-bad">{error}</div>
+          <div role="alert" aria-live="assertive" className="mb-4 rounded-lg border border-bad/30 bg-bad/10 px-4 py-2 text-sm text-bad">
+            {error}
+          </div>
         )}
 
         {stage.needsChosen && !chosenVersionId ? (

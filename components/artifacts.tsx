@@ -35,6 +35,14 @@ function scoreColor(n: number): string {
   return "var(--color-bad)";
 }
 
+// Plain-English calibration for the 0-100 score (already judged relative to the goal),
+// so a founder knows whether the number is good without startup intuition.
+function scoreBand(n: number): { label: string; hint: string } {
+  if (n >= 70) return { label: "Strong signal", hint: "clears the bar for your goal — worth committing and moving to build/sell." };
+  if (n >= 45) return { label: "Mixed", hint: "promising but not there yet — refine the weak criteria below, then re-validate." };
+  return { label: "Weak as written", hint: "doesn't clear the bar for your goal — iterate hard or reconsider the wedge." };
+}
+
 export function ScoreGauge({ score, size = 120 }: { score: number; size?: number }) {
   const r = size / 2 - 8;
   const c = 2 * Math.PI * r;
@@ -115,9 +123,9 @@ function tone3(value: string, good: string, mid: string): string {
       : "var(--color-bad)";
 }
 
-function StatTile({ label, value, color }: { label: string; value: string; color?: string }) {
+function StatTile({ label, value, color, hint }: { label: string; value: string; color?: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-panel2 p-2.5">
+    <div className="rounded-lg border border-border bg-panel2 p-2.5" title={hint}>
       <div className="text-[10px] font-medium uppercase tracking-wide text-muted">{label}</div>
       <div
         className="mt-0.5 text-sm font-semibold leading-snug [overflow-wrap:anywhere]"
@@ -167,16 +175,20 @@ export function ValidationView({ d }: { d: Validation }) {
             <ScoreGauge score={d.score} size={76} />
           </div>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-2 text-xs" style={{ color: scoreColor(d.score) }}>
+          <span className="font-semibold">{scoreBand(d.score).label}</span>
+          <span className="text-muted"> — {d.score}/100 {scoreBand(d.score).hint}</span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {d.demand && (
-            <StatTile label="Demand" value={d.demand.strength} color={tone3(d.demand.strength, "Strong", "Moderate")} />
+            <StatTile label="Demand" value={d.demand.strength} color={tone3(d.demand.strength, "Strong", "Moderate")} hint="How many people actively want this and how strongly." />
           )}
-          {d.demand && <StatTile label="Pays" value={d.demand.willingness_to_pay} />}
+          {d.demand && <StatTile label="Pays" value={d.demand.willingness_to_pay} hint="What they'll realistically pay." />}
           {d.operating && (
-            <StatTile label="Effort to run" value={d.operating.effort_level} color={tone3(d.operating.effort_level, "Low", "Medium")} />
+            <StatTile label="Effort to run" value={d.operating.effort_level} color={tone3(d.operating.effort_level, "Low", "Medium")} hint="How much ongoing work running this takes." />
           )}
           {d.acquisition && (
-            <StatTile label="Hard to sell" value={d.acquisition.difficulty} color={tone3(d.acquisition.difficulty, "Easy", "Moderate")} />
+            <StatTile label="Hard to sell" value={d.acquisition.difficulty} color={tone3(d.acquisition.difficulty, "Easy", "Moderate")} hint="How hard it is to acquire each customer." />
           )}
         </div>
         <p className="mt-4 text-sm leading-relaxed text-fg/90">{d.summary}</p>
@@ -190,6 +202,11 @@ export function ValidationView({ d }: { d: Validation }) {
             </div>
             <span
               className="rounded-full border px-2.5 py-0.5 text-xs font-bold"
+              title={
+                d.narrative.verdict === "Painkiller"
+                  ? "Painkiller — solves an urgent, must-fix pain people already pay to relieve. Easier to sell."
+                  : "Vitamin — a nice-to-have improvement. Real, but harder to sell because no one is forced to act."
+              }
               style={{
                 color:
                   d.narrative.verdict === "Painkiller" ? "var(--color-good)" : "var(--color-warn)",
@@ -199,7 +216,7 @@ export function ValidationView({ d }: { d: Validation }) {
                     : "color-mix(in srgb, var(--color-warn) 40%, transparent)",
               }}
             >
-              {d.narrative.verdict}
+              {d.narrative.verdict === "Painkiller" ? "💊 Painkiller" : "🟡 Vitamin"}
             </span>
           </div>
           <div className="mt-3 grid gap-2 text-sm sm:grid-cols-[150px_1fr]">
