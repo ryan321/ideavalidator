@@ -83,6 +83,7 @@ export async function runGenerator(
     idea: { title: idea.title, prompt: version.statement },
     prior,
     context: version.context,
+    goal: idea.goal ? { bucket: idea.goal, detail: idea.goal_detail } : null,
   };
 
   const { data, sources, model, usage } = await generateStructured(def.schema, {

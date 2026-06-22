@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { Generator, founderContext, ideaHeader } from "./shared";
+import {
+  COMPETITION_GUIDANCE,
+  Generator,
+  founderContext,
+  goalContext,
+  ideaHeader,
+} from "./shared";
 
 const Signal = z.object({
   text: z.string(),
@@ -70,6 +76,41 @@ export const ValidationSchema = z.object({
 
   // Questions the founder could answer that would most change this assessment.
   clarifying_questions: z.array(z.string()).max(6).default([]),
+
+  // The headline: demand → willingness to pay → realistically obtainable revenue (vs the goal).
+  demand: z
+    .object({
+      strength: z.enum(["Weak", "Moderate", "Strong"]),
+      willingness_to_pay: z.string(), // what target customers would realistically pay
+      obtainable_revenue: z.string(), // realistic annual $ THIS founder could capture
+      reasoning: z.string(), // demand x WTP x capturable share, judged against the goal
+    })
+    .optional(),
+
+  // What running this business is actually like, day to day.
+  operating: z
+    .object({
+      effort_level: z.enum(["Low", "Medium", "High"]),
+      description: z.string(), // what the founder would spend their time doing
+    })
+    .optional(),
+
+  // The downside: personal/financial exposure if it goes wrong.
+  downside: z
+    .object({
+      capital_at_risk: z.string(), // money the founder must put up and could lose
+      liability: z.string(), // legal / regulatory / liability exposure
+      if_it_fails: z.string(), // what's realistically at stake (incl. customers not paying)
+    })
+    .optional(),
+
+  // How hard it is to actually win customers (often decoupled from demand).
+  acquisition: z
+    .object({
+      difficulty: z.enum(["Easy", "Moderate", "Hard"]),
+      reasoning: z.string(), // category education tax, budget lines, sales cycle, channels
+    })
+    .optional(),
 });
 
 export type Validation = z.infer<typeof ValidationSchema>;
@@ -90,8 +131,9 @@ export const validationGenerator: Generator<Validation> = {
     "unproven signal), 75-89 = GO (multiple independent demand signals + a viable path), 90-100 = " +
     "exceptional (reserve for proven paying demand). Most ideas land 45-70. Penalize, do not reward, any " +
     "criterion where you found no concrete evidence. The overall 'score' MUST fall in the band matching " +
-    "the 'verdict' (NO-GO<60, MAYBE 60-74, GO>=75).",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}${founderContext(ctx)}
+    "the 'verdict' (NO-GO<60, MAYBE 60-74, GO>=75). Judge the idea RELATIVE TO the founder's stated goal " +
+    "when one is given — the same idea can be a GO for a lifestyle business and a NO-GO for venture scale.",
+  buildPrompt: (ctx) => `${ideaHeader(ctx)}${goalContext(ctx)}${founderContext(ctx)}
 
 Validate this idea. You MUST issue web searches before answering and base every figure (market size,
 CAGR, competitor funding, pricing, thread/upvote counts) on a result you actually retrieved. Name the
@@ -100,14 +142,25 @@ If search returns no figure, write "no reliable source found" and LOWER that cri
 overall confidence — do NOT invent a number, a competitor, or a Reddit thread. Name at least 2 real,
 currently-operating competitors by name in the explanations.
 
+DEMAND IS THE #1 SIGNAL — lead with it. This report is less "pass/fail" and more "here is what the founder
+can realistically EXPECT, then how to improve it." Assess, in order: (1) how badly target customers want
+this (from real demand signals), (2) what they would realistically pay, (3) given competitors + switching
+costs + the alpha, what SHARE this founder could capture. Synthesize into "demand": { strength
+(Weak/Moderate/Strong), willingness_to_pay, obtainable_revenue (realistic ANNUAL DOLLARS this founder could
+capture — NOT the TAM), reasoning }. What matters is the absolute obtainable dollars judged against the GOAL:
+a small slice of a huge market can beat a large slice of a tiny one. Make the "summary" lead with what the
+founder can realistically expect (the obtainable revenue vs their goal), then the verdict.
+
 Score these 9 criteria 0-100. Output ALL 9 — never fewer, never renamed, never merged (the radar maps
 these exact names). Use EXACTLY these names and groups:
 - group "demand": Target Market Clarity, Market Timing, Market Entry Barriers, Competition Level, Problem-Solution Fit
 - group "build": MVP Viability, Value Proposition, Initial Feasibility, Resource Requirements
 For each: set "category" to one of MARKET, DEMAND, EXECUTION, DEFENSIBILITY; write a 2-3 sentence
 "explanation" that cites a specific named competitor, number, or source (no generic phrasing). REMEMBER
-THE INVERTED SCALE: for "Competition Level" and "Market Entry Barriers", a HIGH score means LESS
-competition / EASIER entry — a crowded market or high barriers must score LOW.
+THE INVERTED SCALE: for "Competition Level" and "Market Entry Barriers", a HIGH score means a more
+FAVORABLE position (less crowded OR a strong differentiator/wedge) — a crowded market with no edge scores LOW.
+
+${COMPETITION_GUIDANCE}
 
 Also produce:
 - An overall "score" (0-100) that is roughly the average of the 9 criteria (weight the demand group slightly higher); it must not exceed the highest single criterion by more than 10 points and must sit in the verdict's band. "confidence" (0-100) = how much corroborating web evidence you actually found (lower it when you relied on assumption). "verdict" must match the score band. Add a 2-3 sentence evidence-based "summary".
@@ -116,6 +169,10 @@ Also produce:
 - "action_plan": 4-6 prioritized next steps ordered by impact x ease, each with type (VALIDATE/BUILD/DISTRIBUTE/DE-RISK), effort (Low/Medium/High), horizon (This week/This month/This quarter), a measurable success_metric, and a concrete first_step.
 - "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation.
 - "clarifying_questions": 2-4 pointed questions whose answers would most change this assessment (e.g. exact target segment, what truly distinguishes this from the named competitors, pricing/distribution). If FOUNDER CONTEXT above already answered earlier questions, ask new ones (or fewer) — don't repeat answered ones.
+- "demand": { strength (Weak/Moderate/Strong), willingness_to_pay, obtainable_revenue (realistic annual dollars THIS founder could capture given the competition + goal — not the TAM), reasoning }.
+- "operating": { effort_level (Low/Medium/High to run day-to-day), description (what the founder would actually spend their time DOING — e.g. "mostly async, remote customer support" vs "high-touch outbound sales calls and in-person demos") }. This tells the founder what the day-to-day life of running it looks like.
+- "downside": { capital_at_risk (how much money the founder must put up and could realistically lose), liability (legal/regulatory/liability exposure, e.g. handling payments, PII, regulated advice), if_it_fails (what's realistically at stake — incl. the risk of customers not paying / bad debt) }. The honest worst-case to weigh against the upside.
+- "acquisition": { difficulty (Easy/Moderate/Hard), reasoning }. How hard it will be to actually WIN customers — which is often DECOUPLED from demand. Weigh: is there an established category buyers already understand and budget for (easier), or must you EDUCATE the market / create a category (harder, long sales cycles)? Note that having competitors can make selling EASIER (you'd be best-in-category, not only-in-category). Also weigh sales-cycle length, self-serve vs high-touch, and whether a clear channel exists.
 
 Return JSON exactly matching:
 {
@@ -126,6 +183,10 @@ Return JSON exactly matching:
   "stop_signals": {"critical_risks": [{"text": string, "category": string}], "areas_of_concern": [{"text": string, "category": string}]},
   "action_plan": [{"title": string, "rationale": string, "type": "VALIDATE"|"BUILD"|"DISTRIBUTE"|"DE-RISK", "effort": "Low"|"Medium"|"High", "horizon": "This week"|"This month"|"This quarter", "success_metric": string, "first_step": string}],
   "risk_matrix": [{"title": string, "category": "tech"|"market"|"financial", "probability": number, "impact": number, "mitigation": string}],
-  "clarifying_questions": [string]
+  "clarifying_questions": [string],
+  "demand": {"strength": "Weak"|"Moderate"|"Strong", "willingness_to_pay": string, "obtainable_revenue": string, "reasoning": string},
+  "operating": {"effort_level": "Low"|"Medium"|"High", "description": string},
+  "downside": {"capital_at_risk": string, "liability": string, "if_it_fails": string},
+  "acquisition": {"difficulty": "Easy"|"Moderate"|"Hard", "reasoning": string}
 }`,
 };

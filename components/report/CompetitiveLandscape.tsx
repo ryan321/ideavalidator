@@ -7,8 +7,16 @@ type Competitor = {
   funding: string;
   strengths: string[];
   weaknesses: string[];
+  customer_sentiment?: "Happy" | "Mixed" | "Frustrated";
+  switching_costs?: "Low" | "Medium" | "High";
   opportunity: string;
 };
+
+// Frustrated customers = opportunity (green); happy = hard moat (red).
+const sentimentTone = (s?: string) =>
+  s === "Frustrated" ? "low" : s === "Happy" ? "high" : "medium";
+// Low lock-in = easy to take share (green); high = captured (red).
+const lockTone = (s?: string) => (s === "Low" ? "low" : s === "High" ? "high" : "medium");
 
 function normalizeUrl(url: string): string {
   if (!url) return "";
@@ -35,14 +43,7 @@ function MiniBullets({ items, tone }: { items: string[]; tone: "good" | "bad" })
 export function CompetitiveLandscape({
   competitors,
 }: {
-  competitors: {
-    name: string;
-    url: string;
-    funding: string;
-    strengths: string[];
-    weaknesses: string[];
-    opportunity: string;
-  }[];
+  competitors: Competitor[];
 }) {
   const list: Competitor[] = Array.isArray(competitors) ? competitors : [];
 
@@ -81,6 +82,20 @@ export function CompetitiveLandscape({
                       <span className="truncate">{c.url}</span>
                     </a>
                   ) : null}
+                  {(c?.customer_sentiment || c?.switching_costs) && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {c?.customer_sentiment && (
+                        <Badge tone={sentimentTone(c.customer_sentiment)}>
+                          customers: {c.customer_sentiment.toLowerCase()}
+                        </Badge>
+                      )}
+                      {c?.switching_costs && (
+                        <Badge tone={lockTone(c.switching_costs)}>
+                          lock-in: {c.switching_costs.toLowerCase()}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">

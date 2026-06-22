@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { generateStructured } from "../ai/client";
 import { getArtifact, getIdea, getVersion, logUsage } from "../db";
+import { goalContext } from "./shared";
 
 export const RefinementSchema = z.object({
   statement: z.string(), // the rewritten idea statement (same crisp 1-3 sentence format)
@@ -91,15 +92,28 @@ Already-recommended actions (build on these, don't just repeat them): ${(validat
       "criterion, prefer reverting that specific aspect. The refined 'statement' must be a crisp 1-3 " +
       "sentence idea statement in the same format as the input (no preamble), and STRICTLY more specific " +
       "than the current one — name the exact target segment (a real 'who', not 'businesses'), the concrete " +
-      "wedge, and at least one quantified or named detail. Never restate the idea in vaguer or broader terms.",
-    prompt: `Idea title: ${idea?.title ?? ""}
+      "wedge, and at least one quantified or named detail. Never restate the idea in vaguer or broader terms.\n" +
+      "Refine TOWARD the founder's goal (below) and hunt for the ALPHA: the specific differentiator, niche, " +
+      "angle, or positioning (incl. simply being the credible alternative to a dominant incumbent for a " +
+      "disaffected segment) that would most raise the OBTAINABLE REVENUE for that goal — ideally aimed where " +
+      "the incumbents' customers are unhappy or underserved.",
+    prompt: `Idea title: ${idea?.title ?? ""}${
+      idea?.goal
+        ? goalContext({
+            idea: { title: idea.title, prompt: "" },
+            prior: {},
+            goal: { bucket: idea.goal, detail: idea.goal_detail },
+          })
+        : ""
+    }
 Current statement (v${version.n}): ${version.statement}
 
 Validation evidence to improve against:
 ${evidence}${marketCtx}
 
 Rewrite the idea statement to raise the overall validation score and reduce the top risks, while
-keeping the same core idea. Return JSON:
+keeping the same core idea. Ask yourself: what ALPHA (differentiator/niche/angle/positioning) would most
+raise the obtainable revenue for this founder's goal? Return JSON:
 {
   "statement": string,            // the improved 1-3 sentence idea statement
   "label": string,                // short label describing the change

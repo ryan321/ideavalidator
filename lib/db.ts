@@ -26,10 +26,12 @@ function init(): Database.Database {
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS ideas (
-      id         TEXT PRIMARY KEY,
-      title      TEXT NOT NULL,
-      prompt     TEXT,
-      created_at TEXT NOT NULL
+      id          TEXT PRIMARY KEY,
+      title       TEXT NOT NULL,
+      prompt      TEXT,
+      goal        TEXT,
+      goal_detail TEXT,
+      created_at  TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS versions (
       id         TEXT PRIMARY KEY,
@@ -65,10 +67,13 @@ function init(): Database.Database {
     migrateArtifactsToVersions(db);
   }
 
-  // founder context on versions (added in upgrades).
+  // founder context on versions + goal on ideas (added in upgrades).
   if (!tableColumns(db, "versions").includes("context")) {
     db.exec("ALTER TABLE versions ADD COLUMN context TEXT");
   }
+  const ideaCols = tableColumns(db, "ideas");
+  if (!ideaCols.includes("goal")) db.exec("ALTER TABLE ideas ADD COLUMN goal TEXT");
+  if (!ideaCols.includes("goal_detail")) db.exec("ALTER TABLE ideas ADD COLUMN goal_detail TEXT");
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
   const acols = tableColumns(db, "artifacts");
@@ -143,7 +148,14 @@ export type ArtifactKind =
   | "marketing"
   | "pitch";
 
-export type Idea = { id: string; title: string; prompt: string | null; created_at: string };
+export type Idea = {
+  id: string;
+  title: string;
+  prompt: string | null;
+  goal: string | null;
+  goal_detail: string | null;
+  created_at: string;
+};
 
 export type IdeaSummary = Idea & {
   best_score: number | null;
@@ -203,9 +215,21 @@ function rowToArtifact(r: ArtifactRow): Artifact {
 }
 
 // ---- ideas + initial version -------------------------------------------------
-export function createIdea(title: string, statement: string): { idea: Idea; version: Version } {
+export function createIdea(
+  title: string,
+  statement: string,
+  goal?: string | null,
+  goalDetail?: string | null
+): { idea: Idea; version: Version } {
   const now = new Date().toISOString();
-  const idea: Idea = { id: crypto.randomUUID(), title, prompt: statement, created_at: now };
+  const idea: Idea = {
+    id: crypto.randomUUID(),
+    title,
+    prompt: statement,
+    goal: goal ?? null,
+    goal_detail: goalDetail ?? null,
+    created_at: now,
+  };
   const version: Version = {
     id: crypto.randomUUID(),
     idea_id: idea.id,
@@ -221,7 +245,7 @@ export function createIdea(title: string, statement: string): { idea: Idea; vers
   };
   const tx = db.transaction(() => {
     db.prepare(
-      "INSERT INTO ideas (id, title, prompt, created_at) VALUES (@id, @title, @prompt, @created_at)"
+      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @created_at)"
     ).run(idea);
     db.prepare(
       `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, created_at)
@@ -246,6 +270,10 @@ export function listIdeas(): IdeaSummary[] {
 
 export function getIdea(id: string): Idea | undefined {
   return db.prepare("SELECT * FROM ideas WHERE id = ?").get(id) as Idea | undefined;
+}
+
+export function setIdeaGoal(id: string, goal: string | null, goalDetail: string | null): void {
+  db.prepare("UPDATE ideas SET goal = ?, goal_detail = ? WHERE id = ?").run(goal, goalDetail, id);
 }
 
 export function deleteIdea(id: string): void {

@@ -129,6 +129,15 @@ const scoreColor = (n: number) =>
 
 const fmtCost = (n: number) => "$" + (n < 1 ? n.toFixed(n < 0.1 ? 4 : 3) : n.toFixed(2));
 
+const GOAL_OPTIONS = [
+  { key: "lifestyle", label: "Lifestyle / replace my job" },
+  { key: "side_hustle", label: "Side hustle" },
+  { key: "venture", label: "Venture-scale / raise" },
+  { key: "unsure", label: "Not sure yet" },
+];
+const goalLabel = (k: string | null) =>
+  GOAL_OPTIONS.find((o) => o.key === k)?.label ?? "Not set";
+
 type ArtMap = Record<string, Record<string, Artifact>>;
 const bk = (vid: string, kind: string) => `${vid}:${kind}`;
 
@@ -174,6 +183,22 @@ export default function IdeaWorkspace({
   const [suggesting, setSuggesting] = useState(false);
   const [responding, setResponding] = useState(false);
   const [responseDraft, setResponseDraft] = useState("");
+  const [goalBucket, setGoalBucket] = useState(idea.goal ?? "unsure");
+  const [goalDetail, setGoalDetail] = useState(idea.goal_detail ?? "");
+  const [editingGoal, setEditingGoal] = useState(false);
+
+  async function saveGoal() {
+    try {
+      await fetch(`/api/ideas/${idea.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal: goalBucket, goalDetail }),
+      });
+      setEditingGoal(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save goal");
+    }
+  }
 
   // auto-iterate
   const [iterating, setIterating] = useState(false);
@@ -504,6 +529,52 @@ export default function IdeaWorkspace({
                   {activeVersion.label ? <b>{activeVersion.label}: </b> : null}
                   {activeVersion.rationale}
                 </p>
+              )}
+              {!editing && (
+                <div className="mt-2 text-xs">
+                  {editingGoal ? (
+                    <div className="rounded-lg border border-border bg-panel2 p-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {GOAL_OPTIONS.map((o) => (
+                          <button
+                            key={o.key}
+                            onClick={() => setGoalBucket(o.key)}
+                            className={`rounded-md border px-2 py-1 ${
+                              goalBucket === o.key
+                                ? "border-accent bg-accent/15 text-accent"
+                                : "border-border text-muted hover:text-fg"
+                            }`}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        value={goalDetail}
+                        onChange={(e) => setGoalDetail(e.target.value)}
+                        placeholder="time, effort & budget — e.g. “~$200k/yr, solo, nights & weekends”"
+                        className="mt-1.5 w-full rounded-md border border-border bg-panel px-2 py-1 outline-none focus:border-accent"
+                      />
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <button onClick={saveGoal} className="rounded-md bg-accent px-2 py-1 font-medium text-white">
+                          Save
+                        </button>
+                        <button onClick={() => setEditingGoal(false)} className="rounded-md border border-border px-2 py-1 hover:bg-panel">
+                          Cancel
+                        </button>
+                        <span className="text-muted">Then regenerate validation to apply.</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-muted">
+                      Goal: <span className="text-fg/80">{goalLabel(goalBucket)}</span>
+                      {goalDetail ? ` · ${goalDetail}` : ""}{" "}
+                      <button onClick={() => setEditingGoal(true)} className="text-accent hover:underline">
+                        ✎ edit
+                      </button>
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </div>

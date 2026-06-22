@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { Generator, founderContext, ideaHeader, priorContext } from "./shared";
+import {
+  Generator,
+  founderContext,
+  goalContext,
+  ideaHeader,
+  priorContext,
+} from "./shared";
 
 export const MarketSchema = z.object({
   summary: z.string(),
@@ -73,6 +79,8 @@ export const MarketSchema = z.object({
         funding: z.string(), // Bootstrapped | Seed | Series A ...
         strengths: z.array(z.string()).min(1),
         weaknesses: z.array(z.string()).min(1),
+        customer_sentiment: z.enum(["Happy", "Mixed", "Frustrated"]).optional(),
+        switching_costs: z.enum(["Low", "Medium", "High"]).optional(),
         opportunity: z.string(),
       })
     )
@@ -122,7 +130,7 @@ export const marketGenerator: Generator<Market> = {
     "and show the arithmetic. For demand_signals, report only real signals you found: paraphrase real " +
     "pain patterns (never fabricate a verbatim post or claim a specific post exists), and shrink the array " +
     "rather than inventing entries.",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}${priorContext(ctx, ["validation"])}${founderContext(ctx)}
+  buildPrompt: (ctx) => `${ideaHeader(ctx)}${priorContext(ctx, ["validation"])}${goalContext(ctx)}${founderContext(ctx)}
 
 Produce a market & competition analysis grounded in live web data. Include:
 - "summary"; "cagr_label" (e.g. "18% CAGR (2025-2033)"); "cagr_pct" (just the number, e.g. 18). The year
@@ -139,7 +147,7 @@ Produce a market & competition analysis grounded in live web data. Include:
     threads: 2-4 {subreddit (a real subreddit you verified exists), title, body (a representative PARAPHRASE — "Users in this sub repeatedly describe…", never a copied/invented verbatim post), tag(PAIN POINT/FEATURE REQUEST/DISCUSSION), sentiment}}
   - search_trends: {keyword, interest_score(0-100; reserve 80+ for clear broad/sustained interest), direction(Rising/Flat/Falling), momentum,
     rising_searches: 2-4 {term, change as a relative/approximate figure (e.g. "~+180% YoY"), omitting any you can't source}}
-- "competitors": 3-5 real, currently-operating, named companies (verify each exists; do not invent) {name, url (the real homepage domain you found — never a guessed or placeholder URL), funding (latest known stage/amount, or "unknown"), strengths[], weaknesses[], opportunity (your specific gap to exploit)}.
+- "competitors": 3-5 real, currently-operating, named companies (verify each exists; do not invent) {name, url (the real homepage domain you found — never a guessed or placeholder URL), funding (latest known stage/amount, or "unknown"), strengths[], weaknesses[], customer_sentiment ("Happy"|"Mixed"|"Frustrated" — judge from real reviews/complaints: G2/Capterra/Trustpilot, Reddit/HN), switching_costs ("Low"|"Medium"|"High" — how locked-in are their customers), opportunity (your specific wedge/alpha — a niche they serve badly, a product edge, OR simply being the credible alternative for a segment that rejects them)}.
 - "persona": {title (one rich sentence), roles[], region, pains[], current_solutions[], jobs_to_be_done[]}.
 - "discovery": {interview_questions (4-6), experiments: 2-3 {name, timeline, budget, metric}}.
 - "pricing_recommendation".

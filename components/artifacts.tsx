@@ -126,6 +126,96 @@ export function ValidationView({ d }: { d: Validation }) {
         </div>
       </Card>
 
+      {d.demand && (
+        <Card className="border-accent2/30 bg-accent2/5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-accent2">
+            What to expect
+          </div>
+          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            <Field
+              label="Demand"
+              value={
+                <span
+                  style={{
+                    color:
+                      d.demand.strength === "Strong"
+                        ? "var(--color-good)"
+                        : d.demand.strength === "Moderate"
+                          ? "var(--color-warn)"
+                          : "var(--color-bad)",
+                  }}
+                  className="font-semibold"
+                >
+                  {d.demand.strength}
+                </span>
+              }
+            />
+            <Field label="Willingness to pay" value={d.demand.willingness_to_pay} />
+            <Field
+              label="Obtainable revenue / yr"
+              value={
+                <span className="font-mono text-lg font-bold text-accent2">
+                  {d.demand.obtainable_revenue}
+                </span>
+              }
+            />
+          </div>
+          <p className="mt-3 text-sm leading-relaxed text-fg/90">{d.demand.reasoning}</p>
+        </Card>
+      )}
+
+      {d.operating && (
+        <Card>
+          <div className="flex items-baseline justify-between gap-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+              What running it is like
+            </div>
+            <span className="font-mono text-sm">
+              <span className="text-muted">effort to run: </span>
+              <span className="font-bold text-accent2">{d.operating.effort_level}</span>
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-relaxed text-fg/90">{d.operating.description}</p>
+        </Card>
+      )}
+
+      {d.acquisition && (
+        <Card>
+          <div className="flex items-baseline justify-between gap-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+              How hard to sell
+            </div>
+            <span
+              className="font-mono text-sm font-bold"
+              style={{
+                color:
+                  d.acquisition.difficulty === "Easy"
+                    ? "var(--color-good)"
+                    : d.acquisition.difficulty === "Moderate"
+                      ? "var(--color-warn)"
+                      : "var(--color-bad)",
+              }}
+            >
+              {d.acquisition.difficulty}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-relaxed text-fg/90">{d.acquisition.reasoning}</p>
+        </Card>
+      )}
+
+      {d.downside && (
+        <Card className="border-bad/30 bg-bad/5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-bad">
+            Downside / what's at risk
+          </div>
+          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            <Field label="Capital at risk" value={d.downside.capital_at_risk} />
+            <Field label="Liability" value={d.downside.liability} />
+            <Field label="If it fails" value={d.downside.if_it_fails} />
+          </div>
+        </Card>
+      )}
+
       <Section title="Visual Overview">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Card>
