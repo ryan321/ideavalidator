@@ -43,6 +43,8 @@ function init(): Database.Database {
       goal_detail       TEXT,
       stage             TEXT,
       chosen_version_id TEXT,
+      chosen_name       TEXT,
+      name_data         TEXT,
       created_at        TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS versions (
@@ -87,6 +89,8 @@ function init(): Database.Database {
   addColumn(db, "ideas", "goal_detail", "TEXT");
   addColumn(db, "ideas", "stage", "TEXT");
   addColumn(db, "ideas", "chosen_version_id", "TEXT");
+  addColumn(db, "ideas", "chosen_name", "TEXT");
+  addColumn(db, "ideas", "name_data", "TEXT");
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
   addColumn(db, "artifacts", "cost", "REAL");
@@ -308,6 +312,25 @@ export function setIdeaJourney(
   if (fields.stage !== undefined) db.prepare("UPDATE ideas SET stage = ? WHERE id = ?").run(fields.stage, id);
   if (fields.chosenVersionId !== undefined)
     db.prepare("UPDATE ideas SET chosen_version_id = ? WHERE id = ?").run(fields.chosenVersionId, id);
+}
+
+// ---- naming (name candidates + domain availability) -------------------------
+export function getNameData(id: string): { chosen_name: string | null; candidates: unknown } {
+  const r = db.prepare("SELECT chosen_name, name_data FROM ideas WHERE id = ?").get(id) as
+    | { chosen_name: string | null; name_data: string | null }
+    | undefined;
+  return {
+    chosen_name: r?.chosen_name ?? null,
+    candidates: r?.name_data ? JSON.parse(r.name_data) : null,
+  };
+}
+
+export function saveNameData(id: string, candidates: unknown): void {
+  db.prepare("UPDATE ideas SET name_data = ? WHERE id = ?").run(JSON.stringify(candidates), id);
+}
+
+export function setChosenName(id: string, name: string | null): void {
+  db.prepare("UPDATE ideas SET chosen_name = ? WHERE id = ?").run(name, id);
 }
 
 export function deleteIdea(id: string): void {

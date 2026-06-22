@@ -4,6 +4,7 @@ import {
   getArtifactsByVersion,
   getIdea,
   listVersions,
+  setChosenName,
   setIdeaGoal,
   setIdeaJourney,
 } from "@/lib/db";
@@ -29,6 +30,9 @@ export async function PATCH(
       stage: typeof body.stage === "string" ? body.stage : undefined,
       chosenVersionId: "chosenVersionId" in body ? body.chosenVersionId : undefined,
     });
+  }
+  if ("chosenName" in body) {
+    setChosenName(id, typeof body.chosenName === "string" ? body.chosenName : null);
   }
   return NextResponse.json({ ok: true });
 }
