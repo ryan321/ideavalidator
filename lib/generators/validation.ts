@@ -77,6 +77,20 @@ export const ValidationSchema = z.object({
   // Questions the founder could answer that would most change this assessment.
   clarifying_questions: z.array(z.string()).max(6).default([]),
 
+  // The "pain → obvious solution" sales narrative, gleaned from the idea (drives demand).
+  narrative: z
+    .object({
+      who: z.string(), // who feels the pain
+      pain: z.string(), // articulated so they'd say "yes, that's me"
+      status_quo: z.string(), // what they do today / existing solutions / workarounds
+      cost_of_inaction: z.string(), // what staying the same costs them
+      solution: z.string(), // your offering
+      after: z.string(), // the transformation if they use it
+      verdict: z.enum(["Painkiller", "Vitamin"]),
+      why: z.string(),
+    })
+    .optional(),
+
   // The headline: demand → willingness to pay → realistically obtainable revenue (vs the goal).
   demand: z
     .object({
@@ -148,6 +162,14 @@ If search returns no figure, write "no reliable source found" and LOWER that cri
 overall confidence — do NOT invent a number, a competitor, or a Reddit thread. Name at least 2 real,
 currently-operating competitors by name in the explanations.
 
+FIRST, glean the "pain → obvious solution" NARRATIVE from the idea — even if the founder didn't spell it
+out (this drives the demand judgment): WHO feels the pain; the PAIN itself, articulated so that person
+would say "yes, that's exactly me"; what they do TODAY (status_quo: existing solutions / workarounds);
+the COST OF INACTION (what staying the same costs them — quantify if you can); your SOLUTION; and the
+AFTER (the transformation). Then set the VERDICT: a PAINKILLER (an obvious solution to an acute, costly
+pain — people will buy) or a VITAMIN (a nice-to-have the status quo handles fine). A "Vitamin" verdict
+MUST cap Demand Strength low no matter how big the market, and usually means a harder, education-heavy sale.
+
 DEMAND IS THE #1 SIGNAL — lead with it. This report is less "pass/fail" and more "here is what the founder
 can realistically EXPECT, then how to improve it." Assess, in order: (1) how badly target customers want
 this (from real demand signals), (2) what they would realistically pay, (3) given competitors + switching
@@ -182,6 +204,7 @@ Also produce:
 - "action_plan": 4-6 prioritized next steps ordered by impact x ease, each with type (VALIDATE/BUILD/DISTRIBUTE/DE-RISK), effort (Low/Medium/High), horizon (This week/This month/This quarter), a measurable success_metric, and a concrete first_step.
 - "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation.
 - "clarifying_questions": 2-4 pointed questions whose answers would most change this assessment (e.g. exact target segment, what truly distinguishes this from the named competitors, pricing/distribution). If FOUNDER CONTEXT above already answered earlier questions, ask new ones (or fewer) — don't repeat answered ones.
+- "narrative": { who, pain, status_quo, cost_of_inaction, solution, after, verdict ("Painkiller"|"Vitamin"), why (1-2 sentences for the verdict) }. Each field 1-2 sentences, concrete to THIS idea.
 - "demand": { strength (Weak/Moderate/Strong), willingness_to_pay (a SHORT figure ONLY, e.g. "$200–600/team/mo" — NO prose), obtainable_revenue (a SHORT headline figure ONLY, e.g. "$120K–360K/yr" — realistic annual dollars THIS founder could capture given competition + goal, NOT the TAM, NO prose), reasoning (2–4 sentences: the pricing basis and the demand × capturable-share math) }.
 - "operating": { effort_level (Low/Medium/High), description (2–3 sentences on what the founder would actually spend time DOING — e.g. "mostly async remote support" vs "high-touch outbound sales + in-person demos") }.
 - "acquisition": { difficulty (Easy/Moderate/Hard), reasoning (2–3 sentences; weigh the category-education tax — an established category buyers understand is EASIER, creating a category is HARDER; competitors can make selling easier) }.
@@ -198,6 +221,7 @@ Return JSON exactly matching:
   "action_plan": [{"title": string, "rationale": string, "type": "VALIDATE"|"BUILD"|"DISTRIBUTE"|"DE-RISK", "effort": "Low"|"Medium"|"High", "horizon": "This week"|"This month"|"This quarter", "success_metric": string, "first_step": string}],
   "risk_matrix": [{"title": string, "category": "tech"|"market"|"financial", "probability": number, "impact": number, "mitigation": string}],
   "clarifying_questions": [string],
+  "narrative": {"who": string, "pain": string, "status_quo": string, "cost_of_inaction": string, "solution": string, "after": string, "verdict": "Painkiller"|"Vitamin", "why": string},
   "demand": {"strength": "Weak"|"Moderate"|"Strong", "willingness_to_pay": string, "obtainable_revenue": string, "reasoning": string},
   "operating": {"effort_level": "Low"|"Medium"|"High", "description": string},
   "downside": {"capital_at_risk": string, "liability": string, "if_it_fails": string},

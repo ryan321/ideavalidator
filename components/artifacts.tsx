@@ -180,6 +180,47 @@ export function ValidationView({ d }: { d: Validation }) {
         <p className="mt-4 text-sm leading-relaxed text-fg/90">{d.summary}</p>
       </Card>
 
+      {d.narrative && (
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Why they'll buy — pain → obvious solution
+            </div>
+            <span
+              className="rounded-full border px-2.5 py-0.5 text-xs font-bold"
+              style={{
+                color:
+                  d.narrative.verdict === "Painkiller" ? "var(--color-good)" : "var(--color-warn)",
+                borderColor:
+                  d.narrative.verdict === "Painkiller"
+                    ? "color-mix(in srgb, var(--color-good) 40%, transparent)"
+                    : "color-mix(in srgb, var(--color-warn) 40%, transparent)",
+              }}
+            >
+              {d.narrative.verdict}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-[150px_1fr]">
+            {[
+              ["Who feels it", d.narrative.who, ""],
+              ["The pain", d.narrative.pain, ""],
+              ["Today they", d.narrative.status_quo, "text-muted"],
+              ["Cost of doing nothing", d.narrative.cost_of_inaction, "text-bad"],
+              ["Your solution", d.narrative.solution, "text-accent"],
+              ["After", d.narrative.after, "text-good"],
+            ].map(([label, text, cls]) => (
+              <React.Fragment key={label}>
+                <div className="text-xs uppercase tracking-wide text-muted sm:pt-0.5">{label}</div>
+                <div className={`leading-relaxed ${cls}`}>{text}</div>
+              </React.Fragment>
+            ))}
+          </div>
+          <p className="mt-3 border-t border-border pt-2 text-xs text-muted">
+            <b className="text-fg/80">{d.narrative.verdict}:</b> {d.narrative.why}
+          </p>
+        </Card>
+      )}
+
       {(d.demand || d.operating || d.acquisition || d.downside) && (
         <details className="group rounded-xl border border-border bg-panel">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-medium text-muted hover:text-fg">
