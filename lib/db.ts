@@ -44,6 +44,7 @@ function init(): Database.Database {
       stage             TEXT,
       chosen_version_id TEXT,
       chosen_name       TEXT,
+      chosen_pitch      TEXT,
       name_data         TEXT,
       created_at        TEXT NOT NULL
     );
@@ -90,6 +91,7 @@ function init(): Database.Database {
   addColumn(db, "ideas", "stage", "TEXT");
   addColumn(db, "ideas", "chosen_version_id", "TEXT");
   addColumn(db, "ideas", "chosen_name", "TEXT");
+  addColumn(db, "ideas", "chosen_pitch", "TEXT");
   addColumn(db, "ideas", "name_data", "TEXT");
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
@@ -166,6 +168,7 @@ export type ArtifactKind =
   | "brand"
   | "logo"
   | "marketing"
+  | "customer_pitch"
   | "pitch";
 
 export type Idea = {
@@ -176,6 +179,7 @@ export type Idea = {
   goal_detail: string | null;
   stage: string | null; // current journey stage key
   chosen_version_id: string | null; // the version the founder is betting on
+  chosen_pitch: string | null; // which pitch they lead with: "customer" | "investor"
   created_at: string;
 };
 
@@ -254,6 +258,7 @@ export function createIdea(
     goal_detail: goalDetail ?? null,
     stage: "validate",
     chosen_version_id: null,
+    chosen_pitch: null,
     created_at: now,
   };
   const version: Version = {
@@ -272,7 +277,7 @@ export function createIdea(
   };
   const tx = db.transaction(() => {
     db.prepare(
-      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, chosen_version_id, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @chosen_version_id, @created_at)"
+      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, chosen_version_id, chosen_pitch, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @chosen_version_id, @chosen_pitch, @created_at)"
     ).run(idea);
     db.prepare(
       `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, revenue, created_at)
@@ -331,6 +336,11 @@ export function saveNameData(id: string, candidates: unknown): void {
 
 export function setChosenName(id: string, name: string | null): void {
   db.prepare("UPDATE ideas SET chosen_name = ? WHERE id = ?").run(name, id);
+}
+
+// Which pitch the founder is leading with — "customer" | "investor" | null.
+export function setChosenPitch(id: string, pitch: string | null): void {
+  db.prepare("UPDATE ideas SET chosen_pitch = ? WHERE id = ?").run(pitch, id);
 }
 
 export function deleteIdea(id: string): void {

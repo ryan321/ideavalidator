@@ -18,7 +18,7 @@ export type Pitch = z.infer<typeof PitchSchema>;
 
 export const pitchGenerator: Generator<Pitch> = {
   kind: "pitch",
-  label: "Pitch Deck",
+  label: "Investor Pitch",
   blurb: "A 10-12 slide investor deck with speaker notes.",
   role: "writing",
   grounded: false,

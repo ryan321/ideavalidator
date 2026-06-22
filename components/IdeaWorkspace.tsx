@@ -8,6 +8,7 @@ import type { GeneratorMeta } from "@/lib/generators";
 import type { Refinement } from "@/lib/generators/refine";
 import {
   BrandView,
+  CustomerPitchView,
   FinancialsView,
   LogoView,
   MarketingView,
@@ -25,6 +26,7 @@ import { PlanSchema } from "@/lib/generators/plan";
 import { BrandSchema } from "@/lib/generators/brand";
 import { LogoSchema } from "@/lib/generators/logo";
 import { MarketingSchema } from "@/lib/generators/marketing";
+import { CustomerPitchSchema } from "@/lib/generators/customer_pitch";
 import { PitchSchema } from "@/lib/generators/pitch";
 
 // Validate persisted artifacts against the current schema so results saved under an
@@ -37,6 +39,7 @@ const SCHEMAS: Record<ArtifactKind, ZodType> = {
   brand: BrandSchema,
   logo: LogoSchema,
   marketing: MarketingSchema,
+  customer_pitch: CustomerPitchSchema,
   pitch: PitchSchema,
 };
 function isCurrent(kind: ArtifactKind, data: unknown): boolean {
@@ -51,6 +54,7 @@ const VIEWS: Record<ArtifactKind, React.ComponentType<{ d: never }>> = {
   brand: BrandView as never,
   logo: LogoView as never,
   marketing: MarketingView as never,
+  customer_pitch: CustomerPitchView as never,
   pitch: PitchView as never,
 };
 
@@ -144,8 +148,8 @@ type StageKey = "validate" | "decide" | "pitch" | "brand" | "name";
 const STAGES: { key: StageKey; label: string; blurb: string; kinds: ArtifactKind[]; special?: boolean }[] = [
   { key: "validate", label: "Validate", blurb: "Is there real, paying demand?", kinds: ["validation", "market", "financials", "plan"] },
   { key: "decide", label: "Decide", blurb: "Commit to the version you'll build on.", kinds: [], special: true },
-  { key: "pitch", label: "Pitch", blurb: "Say why they'll buy — to customers and investors.", kinds: ["pitch", "marketing"] },
-  { key: "brand", label: "Brand", blurb: "Give it a look and a voice.", kinds: ["brand", "logo"] },
+  { key: "pitch", label: "Pitch", blurb: "Say why they'll buy — pick a customer or investor pitch.", kinds: ["customer_pitch", "pitch", "marketing"] },
+  { key: "brand", label: "Branding", blurb: "Give it a feel, a voice, and a look.", kinds: ["brand", "logo"] },
   { key: "name", label: "Name", blurb: "Find a name you can actually own.", kinds: [], special: true },
 ];
 const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
@@ -185,19 +189,53 @@ export default function IdeaWorkspace({
   const [currentStage, setCurrentStage] = useState<StageKey>(
     () => (initialStage as StageKey) ?? "validate"
   );
-  // keep the workspace in sync with the URL (?stage=) driven by the left nav
-  useEffect(() => {
-    if (STAGES.some((s) => s.key === initialStage)) {
-      setCurrentStage(initialStage as StageKey);
-    }
-  }, [initialStage]);
   const [chosenVersionId, setChosenVersionId] = useState<string | null>(idea.chosen_version_id);
   const [activeTab, setActiveTab] = useState<ArtifactKind>(() => {
-    const st = STAGES.find((s) => s.key === (idea.stage ?? "validate"));
+    // match the tab to the stage in the URL (not the persisted stage) so a direct
+    // ?stage= link shows the right deliverable on first paint; on Pitch, open the
+    // pitch the founder already chose.
+    if (initialStage === "pitch" && idea.chosen_pitch)
+      return idea.chosen_pitch === "customer" ? "customer_pitch" : "pitch";
+    const st = STAGES.find((s) => s.key === initialStage);
     return (st?.kinds[0] as ArtifactKind) ?? "validation";
   });
+  // which pitch the founder leads with ("customer" | "investor"); marks Pitch done
+  const [chosenPitch, setChosenPitch] = useState<string | null>(idea.chosen_pitch);
+  const [statementExpanded, setStatementExpanded] = useState(false);
+  // per-deliverable steer drafts, keyed by version:kind so each tab keeps its own
+  const [steerDrafts, setSteerDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+
+  // keep the workspace in sync with the URL (?stage=) driven by the left nav.
+  // Crucially, reset the active deliverable tab + downstream version so a stage
+  // switch shows that stage's content instead of whatever tab was last open.
+  useEffect(() => {
+    const s = STAGES.find((x) => x.key === initialStage);
+    if (!s) return;
+    setCurrentStage(initialStage as StageKey);
+    if (s.kinds.length) {
+      // on Pitch, open the chosen pitch so the tab and the chooser agree.
+      const tab =
+        initialStage === "pitch" && chosenPitch
+          ? chosenPitch === "customer"
+            ? "customer_pitch"
+            : "pitch"
+          : s.kinds[0];
+      setActiveTab(tab as ArtifactKind);
+    }
+    if (
+      initialStage !== "validate" &&
+      initialStage !== "decide" &&
+      chosenVersionId &&
+      chosenVersionId !== activeVersionId
+    ) {
+      setActiveVersionId(chosenVersionId);
+    }
+    // chosenVersionId is a dep so navigating after a Decide pick reads the fresh
+    // value; activeVersionId/chosenPitch are read as a snapshot on purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialStage, chosenVersionId]);
 
   // panels
   const [editing, setEditing] = useState(false);
@@ -211,6 +249,16 @@ export default function IdeaWorkspace({
   const [chatMessages, setChatMessages] = useState<{ role: string; text: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+
+  // Changing stage via the left nav (URL) should close any transient panels that
+  // were opened on the previous stage — mirrors what goToStage does for in-app nav.
+  useEffect(() => {
+    setProposal(null);
+    setResponding(false);
+    setChatting(false);
+    setEditing(false);
+    setEditingGoal(false);
+  }, [initialStage]);
 
   async function openChat() {
     setProposal(null);
@@ -297,6 +345,14 @@ export default function IdeaWorkspace({
     patchIdea({ chosenVersionId: versionId });
   }
 
+  // pick the pitch you lead with — marks Pitch done. Sticky: re-clicking the
+  // current pick is a no-op (the chooser bar guards it) so you can't lose it by
+  // accident; switch by picking the other one.
+  function choosePitch(which: "customer" | "investor") {
+    setChosenPitch(which);
+    patchIdea({ chosenPitch: which });
+  }
+
   // --- naming stage -----------------------------------------------------------
   const [nameData, setNameData] = useState<NameCandidate[] | null>(null);
   const [chosenName, setChosenName] = useState<string | null>(null);
@@ -368,14 +424,18 @@ export default function IdeaWorkspace({
     setActiveTab((first as ArtifactKind) ?? "validation");
   }
 
-  async function generate(kind: ArtifactKind, versionId: string): Promise<Artifact> {
+  async function generate(
+    kind: ArtifactKind,
+    versionId: string,
+    steer?: string
+  ): Promise<Artifact> {
     setError(null);
     setBusyKey(bk(versionId, kind), true);
     try {
       const res = await fetch(`/api/generate/${kind}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId }),
+        body: JSON.stringify({ versionId, steer }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Generation failed");
@@ -406,6 +466,20 @@ export default function IdeaWorkspace({
     setActiveTab(kind);
     try {
       await generate(kind, activeVersionId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Generation failed");
+    }
+  }
+
+  // Revise the active deliverable from a natural-language instruction instead of a
+  // blank regenerate — keeps what works, changes what the founder asks for.
+  async function steerActive() {
+    const key = bk(activeVersionId, activeTab);
+    const s = (steerDrafts[key] ?? "").trim();
+    if (!s) return;
+    try {
+      await generate(activeTab, activeVersionId, s);
+      setSteerDrafts((p) => ({ ...p, [key]: "" }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Generation failed");
     }
@@ -627,6 +701,8 @@ export default function IdeaWorkspace({
   const activeAlphas = activeValidationData?.possible_alphas ?? [];
   const stage = STAGES.find((s) => s.key === currentStage)!;
   const stageMeta = meta.filter((m) => stage.kinds.includes(m.kind));
+  const steerKey = bk(activeVersionId, activeTab);
+  const steerVal = steerDrafts[steerKey] ?? "";
 
   return (
     <div>
@@ -728,7 +804,23 @@ export default function IdeaWorkspace({
                   </div>
                 </div>
               ) : (
-                <p className="mt-1 max-w-3xl text-sm text-muted">{activeVersion.statement}</p>
+                <div className="mt-1 max-w-3xl">
+                  <p
+                    className={`text-sm leading-relaxed text-muted ${
+                      statementExpanded ? "whitespace-pre-wrap" : "line-clamp-3"
+                    }`}
+                  >
+                    {activeVersion.statement}
+                  </p>
+                  {activeVersion.statement.length > 240 && (
+                    <button
+                      onClick={() => setStatementExpanded((v) => !v)}
+                      className="mt-1 font-mono text-xs text-accent hover:underline"
+                    >
+                      {statementExpanded ? "− Collapse" : "+ Expand"}
+                    </button>
+                  )}
+                </div>
               )}
               {!editing && activeVersion.rationale && (
                 <p className="mt-2 text-xs text-accent">
@@ -775,9 +867,11 @@ export default function IdeaWorkspace({
                     <span className="text-muted">
                       Goal: <span className="text-fg/80">{goalLabel(goalBucket)}</span>
                       {goalDetail ? ` · ${goalDetail}` : ""}{" "}
-                      <button onClick={() => setEditingGoal(true)} className="text-accent hover:underline">
-                        ✎ edit
-                      </button>
+                      {currentStage === "validate" && (
+                        <button onClick={() => setEditingGoal(true)} className="text-accent hover:underline">
+                          ✎ edit
+                        </button>
+                      )}
                     </span>
                   )}
                 </div>
@@ -787,6 +881,9 @@ export default function IdeaWorkspace({
 
           {!editing && (
             <div className="mt-3 flex flex-wrap gap-2">
+              {/* validation / idea-changing actions only belong on the Validate stage */}
+              {currentStage === "validate" && (
+                <>
               <button onClick={generateAll} disabled={anyBusy} className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
                 {anyBusy ? "Working…" : "Generate all"}
               </button>
@@ -818,6 +915,8 @@ export default function IdeaWorkspace({
               <button onClick={autoIterate} disabled={anyBusy} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 disabled:opacity-50">
                 ⟳ Auto-iterate
               </button>
+                </>
+              )}
               <div className="ml-auto flex gap-2">
                 <button onClick={() => window.print()} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
                   Print / PDF
@@ -1137,6 +1236,47 @@ export default function IdeaWorkspace({
           </div>
         ) : (
           <>
+            {/* Pitch stage: which pitch are you leading with? Picking marks Pitch done. */}
+            {currentStage === "pitch" && (
+              <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-panel p-3">
+                <span className="text-sm text-muted">Lead with:</span>
+                {([
+                  { which: "customer", label: "Customer pitch", kind: "customer_pitch" },
+                  { which: "investor", label: "Investor pitch", kind: "pitch" },
+                ] as const).map((o) => {
+                  const picked = chosenPitch === o.which;
+                  return (
+                    <button
+                      key={o.which}
+                      onClick={() => {
+                        setActiveTab(o.kind);
+                        if (!picked) choosePitch(o.which);
+                      }}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition ${
+                        picked
+                          ? "border-good/60 bg-good/10 text-good"
+                          : "border-border text-muted hover:text-fg"
+                      }`}
+                      title={picked ? "Your primary pitch" : "Make this your primary pitch"}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          picked ? "bg-good" : "border border-border"
+                        }`}
+                      />
+                      {o.label}
+                      {picked && <span aria-hidden>✓</span>}
+                    </button>
+                  );
+                })}
+                <span className="ml-auto text-xs text-muted">
+                  {chosenPitch
+                    ? `Leading with your ${chosenPitch} pitch.`
+                    : "Pick one to mark this stage done."}
+                </span>
+              </div>
+            )}
+
             {/* tabs (this stage's deliverables) */}
             <div className="mb-6 flex flex-wrap gap-1.5 border-b border-border pb-3">
               {stageMeta.map((m) => {
@@ -1182,6 +1322,42 @@ export default function IdeaWorkspace({
                   <button onClick={() => generateActive(activeTab)} className="rounded-md border border-border px-2 py-1 hover:bg-panel2">
                     Regenerate
                   </button>
+                </div>
+
+                {/* steer: revise this deliverable with an instruction instead of a blank regen */}
+                <div className="mt-4 rounded-xl border border-accent2/30 bg-accent2/5 p-3">
+                  <div className="text-sm font-semibold text-accent2">
+                    💬 Steer this {activeMeta.label.toLowerCase()}
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted">
+                    Like most of it but want it different? Tell the AI what to change — it rewrites this
+                    draft, keeping it grounded in your research. e.g. “lead with the cost-of-inaction
+                    angle,” “make it more enterprise,” “shorter and punchier.”
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      value={steerVal}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSteerDrafts((p) => ({ ...p, [steerKey]: val }));
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          steerActive();
+                        }
+                      }}
+                      placeholder={`How should I adjust this ${activeMeta.label.toLowerCase()}?`}
+                      className="min-w-0 flex-1 rounded-lg border border-border bg-panel2 px-3 py-2 text-sm outline-none focus:border-accent2"
+                    />
+                    <button
+                      onClick={steerActive}
+                      disabled={!steerVal.trim() || anyBusy}
+                      className="shrink-0 rounded-lg bg-accent2 px-3 py-2 text-sm font-semibold text-bg disabled:opacity-50"
+                    >
+                      Steer →
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (

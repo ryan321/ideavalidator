@@ -11,6 +11,8 @@ export type GenContext = {
   context?: string | null;
   /** Founder's goal/ambition — scoring is judged relative to this. */
   goal?: { bucket: string; detail: string | null } | null;
+  /** Per-regeneration steer: how the founder wants THIS deliverable adjusted. */
+  steer?: string | null;
 };
 
 // Goal/ambition buckets. "Good idea" is judged relative to the founder's goal, not a generic VC lens.
@@ -84,6 +86,14 @@ export function priorContext(ctx: GenContext, kinds: ArtifactKind[]): string {
 
 export function ideaHeader(ctx: GenContext): string {
   return `Idea: "${ctx.idea.title}"\n\nDescription: ${ctx.idea.prompt}`;
+}
+
+// Per-regeneration steer: how the founder wants THIS deliverable adjusted. Applied
+// generically on top of any generator's prompt so steering works on every stage.
+export function steerContext(ctx: GenContext): string {
+  const s = ctx.steer?.trim();
+  if (!s) return "";
+  return `\n\nFOUNDER STEER — the founder has reviewed the current draft of this deliverable and wants it adjusted. Treat the following as a direct instruction for emphasis, framing, and content, and revise the output accordingly. IMPORTANT: the steer may change wording, focus, and which points you lead with, but it must NOT override this task's analytical rules — keep every scoring number, verdict/banding rule, and required schema field governed by the system instructions, and stay grounded in the artifacts above without inventing or contradicting their figures. If the steer asks for something the evidence doesn't support (e.g. a higher score than warranted), reflect that honestly rather than fabricating it:\n"""\n${s}\n"""`;
 }
 
 // Authoritative founder clarifications, injected into analysis prompts when present.

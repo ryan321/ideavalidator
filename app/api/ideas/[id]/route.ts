@@ -6,6 +6,7 @@ import {
   getNameData,
   listVersions,
   setChosenName,
+  setChosenPitch,
   setIdeaGoal,
   setIdeaJourney,
 } from "@/lib/db";
@@ -35,6 +36,9 @@ export async function PATCH(
   if ("chosenName" in body) {
     setChosenName(id, typeof body.chosenName === "string" ? body.chosenName : null);
   }
+  if ("chosenPitch" in body) {
+    setChosenPitch(id, typeof body.chosenPitch === "string" ? body.chosenPitch : null);
+  }
   return NextResponse.json({ ok: true });
 }
 
@@ -53,7 +57,7 @@ export async function GET(
   const stageStatus = {
     validate: st(kinds.has("validation"), "validate"),
     decide: st(!!idea.chosen_version_id, "decide"),
-    pitch: st(kinds.has("pitch"), "pitch"),
+    pitch: st(!!idea.chosen_pitch, "pitch"),
     brand: st(kinds.has("brand"), "brand"),
     name: st(!!name.chosen_name, "name"),
   };

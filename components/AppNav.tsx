@@ -8,7 +8,7 @@ const STAGES = [
   { key: "validate", label: "Validate" },
   { key: "decide", label: "Decide" },
   { key: "pitch", label: "Pitch" },
-  { key: "brand", label: "Brand" },
+  { key: "brand", label: "Branding" },
   { key: "name", label: "Name" },
 ];
 

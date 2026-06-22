@@ -7,6 +7,7 @@ import type { Plan } from "@/lib/generators/plan";
 import type { Brand } from "@/lib/generators/brand";
 import type { Logo } from "@/lib/generators/logo";
 import type { Marketing } from "@/lib/generators/marketing";
+import type { CustomerPitch } from "@/lib/generators/customer_pitch";
 import type { Pitch } from "@/lib/generators/pitch";
 
 // Report subcomponents (built as standalone files).
@@ -501,6 +502,69 @@ export function MarketingView({ d }: { d: Marketing }) {
           ))}
         </div>
       </Section>
+    </div>
+  );
+}
+
+export function CustomerPitchView({ d }: { d: CustomerPitch }) {
+  return (
+    <div className="space-y-5">
+      {/* the line you lead with */}
+      <Card className="p-5">
+        <div className="font-mono text-xs uppercase tracking-[0.18em] text-accent2">One-liner</div>
+        <p className="mt-1.5 text-lg font-semibold leading-snug">{d.one_liner}</p>
+        <p className="mt-3 border-t border-border pt-3 text-sm leading-relaxed text-fg/90">
+          <span className="font-mono text-xs uppercase tracking-wide text-muted">Hook · </span>
+          {d.hook}
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-muted">
+          <span className="font-mono text-xs uppercase tracking-wide text-muted">Elevator · </span>
+          {d.elevator}
+        </p>
+      </Card>
+
+      <Section title="Walkthrough script">
+        <ol className="space-y-2">
+          {d.demo_script.map((s, i) => (
+            <li key={i} className="flex gap-3 rounded-lg border border-border bg-panel2 p-3">
+              <span className="mt-0.5 font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
+              <div>
+                <div className="text-sm font-semibold">{s.beat}</div>
+                <p className="mt-0.5 text-sm text-muted">“{s.say}”</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </Section>
+
+      <Section title="Objections &amp; answers">
+        <div className="space-y-2">
+          {d.objections.map((o, i) => (
+            <Card key={i} className="p-4">
+              <div className="text-sm font-semibold text-warn">“{o.objection}”</div>
+              <p className="mt-1 text-sm text-fg/90">{o.response}</p>
+            </Card>
+          ))}
+        </div>
+      </Section>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Section title="Proof points">
+          <Card className="p-4">
+            <Bullets items={d.proof_points} />
+          </Card>
+        </Section>
+        <Section title="Why now">
+          <Card className="flex h-full flex-col p-4">
+            <p className="flex-1 text-sm text-fg/90">{d.why_now}</p>
+          </Card>
+        </Section>
+      </div>
+
+      <Card className="border-accent/40 bg-accent/5 p-5">
+        <div className="font-mono text-xs uppercase tracking-[0.18em] text-accent">The ask</div>
+        <p className="mt-1.5 text-base font-medium">{d.call_to_action}</p>
+      </Card>
     </div>
   );
 }

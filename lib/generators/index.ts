@@ -10,7 +10,7 @@ import {
   setVersionRevenue,
   setVersionScore,
 } from "../db";
-import { Generator, GenContext } from "./shared";
+import { Generator, GenContext, steerContext } from "./shared";
 import { validationGenerator } from "./validation";
 import { marketGenerator } from "./market";
 import { financialsGenerator } from "./financials";
@@ -18,6 +18,7 @@ import { planGenerator } from "./plan";
 import { brandGenerator } from "./brand";
 import { logoGenerator } from "./logo";
 import { marketingGenerator } from "./marketing";
+import { customerPitchGenerator } from "./customer_pitch";
 import { pitchGenerator } from "./pitch";
 
 export const GENERATORS: Record<ArtifactKind, Generator> = {
@@ -28,6 +29,7 @@ export const GENERATORS: Record<ArtifactKind, Generator> = {
   brand: brandGenerator,
   logo: logoGenerator,
   marketing: marketingGenerator,
+  customer_pitch: customerPitchGenerator,
   pitch: pitchGenerator,
 };
 
@@ -39,8 +41,9 @@ export const KIND_ORDER: ArtifactKind[] = [
   "plan",
   "brand",
   "logo",
-  "marketing",
+  "customer_pitch",
   "pitch",
+  "marketing",
 ];
 
 export type GeneratorMeta = {
@@ -67,7 +70,8 @@ export function generatorMeta(): GeneratorMeta[] {
 /** Run one generator for a version, persist the artifact, and return it. */
 export async function runGenerator(
   versionId: string,
-  kind: ArtifactKind
+  kind: ArtifactKind,
+  opts?: { steer?: string | null }
 ): Promise<Artifact> {
   const version = getVersion(versionId);
   if (!version) throw new Error("Version not found");
@@ -85,14 +89,17 @@ export async function runGenerator(
     prior,
     context: version.context,
     goal: idea.goal ? { bucket: idea.goal, detail: idea.goal_detail } : null,
+    steer: opts?.steer ?? null,
   };
 
+  // Steer is appended generically so it works for every generator without each
+  // one having to opt in.
   const { data, sources, model, usage } = await generateStructured(def.schema, {
     role: def.role,
     grounded: def.grounded,
     maxTokens: def.maxTokens,
     system: def.system,
-    prompt: def.buildPrompt(ctx),
+    prompt: def.buildPrompt(ctx) + steerContext(ctx),
   });
 
   // Cache the headline validation score + obtainable-revenue forecast onto the version.
