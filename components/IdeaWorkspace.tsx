@@ -6,6 +6,7 @@ import type { Artifact, ArtifactKind, Idea, Version } from "@/lib/db";
 import type { GeneratorMeta } from "@/lib/generators";
 import NameStage from "./NameStage";
 import SellStage from "./SellStage";
+import GenerationProgress from "./GenerationProgress";
 import type { Refinement } from "@/lib/generators/refine";
 import {
   BrandView,
@@ -1363,12 +1364,11 @@ export default function IdeaWorkspace({
 
             {/* active panel */}
             {busy.has(bk(activeVersionId, activeTab)) ? (
-              <div className="grid place-items-center rounded-xl border border-border bg-panel py-16 text-sm text-muted">
-                <div className="animate-pulse">
-                  Generating {activeMeta.label}
-                  {activeMeta.grounded ? " (searching the web)" : ""}…
-                </div>
-              </div>
+              <GenerationProgress
+                key={bk(activeVersionId, activeTab)}
+                label={activeMeta.label}
+                grounded={activeMeta.grounded}
+              />
             ) : activeArtifact ? (
               <div>
                 <SafeArtifact
