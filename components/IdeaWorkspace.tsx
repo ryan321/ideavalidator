@@ -216,6 +216,7 @@ export default function IdeaWorkspace({
   // which pitch the founder leads with ("customer" | "investor"); marks Pitch done
   const [chosenPitch, setChosenPitch] = useState<string | null>(idea.chosen_pitch);
   const [statementExpanded, setStatementExpanded] = useState(false);
+  const [comparing, setComparing] = useState(false); // side-by-side version compare
   // per-deliverable steer drafts, keyed by version:kind so each tab keeps its own
   const [steerDrafts, setSteerDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<Set<string>>(new Set());
@@ -760,7 +761,69 @@ export default function IdeaWorkspace({
               </button>
             );
           })}
+          {versions.length > 1 && (
+            <button
+              onClick={() => setComparing((c) => !c)}
+              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+                comparing ? "border-accent2 bg-accent2/10 text-accent2" : "border-border text-muted hover:text-fg"
+              }`}
+              title="Compare every version side by side"
+            >
+              ⇄ Compare
+            </button>
+          )}
         </div>
+
+        {/* side-by-side version comparison */}
+        {comparing && versions.length > 1 && (
+          <div className="mb-5 overflow-x-auto rounded-xl border border-border bg-panel">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
+                  <th className="px-3 py-2 font-medium">Version</th>
+                  <th className="px-3 py-2 font-medium">Score</th>
+                  <th className="px-3 py-2 font-medium">Revenue/yr</th>
+                  <th className="px-3 py-2 font-medium">Statement</th>
+                  <th className="px-3 py-2 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {versions.map((v) => {
+                  const val = artifacts[v.id]?.validation?.data as { verdict?: string } | undefined;
+                  return (
+                    <tr key={v.id} className={`border-b border-border/60 last:border-0 ${v.id === activeVersionId ? "bg-panel2/50" : ""}`}>
+                      <td className="px-3 py-2 align-top">
+                        <span className="font-mono font-semibold">v{v.n}</span>
+                        {v.id === chosenVersionId && <span className="ml-1 text-good" title="chosen">✓</span>}
+                        {v.score != null && v.score === bestScore && <span className="ml-1" title="best">★</span>}
+                        <div className="text-[11px] text-muted">{v.label ?? v.origin}</div>
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        {v.score != null ? (
+                          <span className="font-mono font-bold" style={{ color: scoreColor(v.score) }}>{v.score}</span>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                        {val?.verdict && <div className="text-[11px] text-muted">{val.verdict}</div>}
+                      </td>
+                      <td className="px-3 py-2 align-top font-mono text-xs text-accent2">{v.revenue ?? "—"}</td>
+                      <td className="px-3 py-2 align-top text-xs text-muted">
+                        <span className="line-clamp-3">{v.statement}</span>
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        {v.id !== activeVersionId && (
+                          <button onClick={() => switchVersion(v.id)} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-panel2">
+                            View
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* header */}
         <div className="mb-5 rounded-xl border border-border bg-panel p-4">
