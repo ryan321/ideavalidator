@@ -5,6 +5,7 @@ import {
   founderContext,
   goalContext,
   ideaHeader,
+  priorContext,
 } from "./shared";
 
 const Signal = z.object({
@@ -170,7 +171,12 @@ export const validationGenerator: Generator<Validation> = {
     "evidence; never pick a target overall number and back-fill. The overall score is COMPUTED by the " +
     "system from your criteria (demand-weighted). Judge RELATIVE TO the founder's stated goal — the same " +
     "idea can be a GO for a lifestyle business and a NO-GO for venture scale.",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}${goalContext(ctx)}${founderContext(ctx)}
+  buildPrompt: (ctx) => `${ideaHeader(ctx)}${goalContext(ctx)}${founderContext(ctx)}${priorContext(ctx, ["market"])}
+
+If a MARKET & COMPETITION analysis is provided above, treat it as completed DUE-DILIGENCE evidence: use its
+real competitors, customer sentiment, switching costs, sizing, and demand signals to ground and SHARPEN the
+scores (especially Competitive Position, Differentiation, Demand Strength, Willingness to Pay) and the
+obtainable-revenue math — don't contradict its figures.
 
 Validate this idea. You MUST issue web searches before answering and base every figure (market size,
 CAGR, competitor funding, pricing, thread/upvote counts) on a result you actually retrieved. Name the

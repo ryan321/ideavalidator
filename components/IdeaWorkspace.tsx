@@ -169,6 +169,16 @@ const STAGES: {
 ];
 const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
 
+// One "Validate" pass produces these four analyses; the report presents them as one
+// navigable surface (the verdict, then the evidence), not four generator tabs.
+const VALIDATE_KINDS: ArtifactKind[] = ["market", "validation", "financials", "plan"];
+const VALIDATE_SECTIONS: { kind: ArtifactKind; id: string; title: string }[] = [
+  { kind: "validation", id: "verdict", title: "Verdict" },
+  { kind: "market", id: "market", title: "Market & competition" },
+  { kind: "financials", id: "money", title: "Money" },
+  { kind: "plan", id: "plan", title: "Plan" },
+];
+
 type ArtMap = Record<string, Record<string, Artifact>>;
 const bk = (vid: string, kind: string) => `${vid}:${kind}`;
 
@@ -476,6 +486,22 @@ export default function IdeaWorkspace({
     }
   }
 
+  // One button: run the whole Validate analysis in dependency order — market first
+  // so the verdict is grounded in real competition, then the verdict, then the money
+  // and plan that follow from it.
+  async function runValidate() {
+    setError(null);
+    const v = activeVersionId;
+    for (const kind of VALIDATE_KINDS) {
+      try {
+        await generate(kind, v);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Analysis failed");
+        break;
+      }
+    }
+  }
+
   async function createVersionFrom(
     statement: string,
     origin: "manual" | "ai" | "context",
@@ -737,6 +763,7 @@ export default function IdeaWorkspace({
   );
   const steerKey = bk(activeVersionId, activeTab);
   const steerVal = steerDrafts[steerKey] ?? "";
+  const hasValidate = VALIDATE_SECTIONS.some((s) => activeArtifacts[s.kind]);
 
   return (
     <div>
@@ -974,15 +1001,6 @@ export default function IdeaWorkspace({
               {/* validation / idea-changing actions only belong on the Validate stage */}
               {currentStage === "validate" && (
                 <>
-                  <button
-                    title="Generate every deliverable (market, financials, plan, pitch…) for this version at once."
-                    onClick={generateAll}
-                    disabled={anyBusy}
-                    className="rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-white shadow-sm shadow-accent/20 transition hover:brightness-110 disabled:opacity-50"
-                  >
-                    {anyBusy ? "Working…" : "Generate all"}
-                  </button>
-
                   {/* improve the idea — grouped */}
                   <div className="flex items-center overflow-hidden rounded-lg border border-accent/30">
                     <span className="px-2 font-mono text-[10px] uppercase tracking-wider text-accent/70">Improve</span>
@@ -1305,6 +1323,112 @@ export default function IdeaWorkspace({
             onCost={(d) => setCost((c) => c + d)}
             onApplyLearnings={applyLearnings}
           />
+        ) : currentStage === "validate" ? (
+          <div>
+            {/* one button → the whole analysis */}
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-panel p-4">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">Full analysis</div>
+                <div className="mt-0.5 max-w-md text-xs text-muted">
+                  One pass — market &amp; competition, the verdict, the money, and the plan. The verdict is
+                  grounded in the market research.
+                </div>
+              </div>
+              <button
+                onClick={runValidate}
+                disabled={anyBusy}
+                className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm shadow-accent/20 transition hover:brightness-110 disabled:opacity-50"
+              >
+                {anyBusy ? "Analyzing…" : hasValidate ? "Re-run analysis" : "Validate"}
+              </button>
+            </div>
+
+            {/* jump nav across the report */}
+            {hasValidate && (
+              <nav className="no-print sticky top-0 z-10 -mx-1 mb-6 flex flex-wrap gap-1 border-b border-border bg-bg/85 px-1 py-2 backdrop-blur">
+                {VALIDATE_SECTIONS.filter((s) => activeArtifacts[s.kind]).map((s) => (
+                  <a key={s.id} href={`#${s.id}`} className="rounded-md px-2.5 py-1 text-xs text-muted transition hover:bg-panel2 hover:text-fg">
+                    {s.title}
+                  </a>
+                ))}
+              </nav>
+            )}
+
+            <div className="space-y-10">
+              {VALIDATE_SECTIONS.map((s) => {
+                const art = activeArtifacts[s.kind];
+                const m = metaByKind[s.kind];
+                const sectionBusy = busy.has(bk(activeVersionId, s.kind));
+                if (!art && !sectionBusy && !hasValidate) return null; // pre-first-run: nothing but the CTA
+                return (
+                  <section key={s.id} id={s.id} className="scroll-mt-16">
+                    <div className="mb-3 flex items-center justify-between border-b border-border pb-2">
+                      <h2 className="font-display text-lg font-semibold">{s.title}</h2>
+                      {art && !sectionBusy && (
+                        <button
+                          onClick={() => generate(s.kind, activeVersionId)}
+                          disabled={anyBusy}
+                          className="rounded-md border border-border px-2 py-1 text-xs text-muted transition hover:bg-panel2 disabled:opacity-50"
+                        >
+                          Regenerate
+                        </button>
+                      )}
+                    </div>
+                    {sectionBusy ? (
+                      <GenerationProgress label={m?.label ?? s.title} grounded={!!m?.grounded} />
+                    ) : art ? (
+                      <div>
+                        <SafeArtifact
+                          key={`${activeVersionId}:${s.kind}`}
+                          kind={s.kind}
+                          data={art.data}
+                          onRegenerate={() => generate(s.kind, activeVersionId)}
+                        />
+                        <SourcesList sources={art.sources} />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted">
+                        Not run yet.{" "}
+                        <button
+                          onClick={() => generate(s.kind, activeVersionId)}
+                          disabled={anyBusy}
+                          className="text-accent hover:underline disabled:opacity-50"
+                        >
+                          Run just this
+                        </button>
+                      </p>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+
+            {/* edges to test — derived from the verdict */}
+            {activeArtifacts.validation && activeAlphas.length > 0 && (
+              <div className="mt-10 rounded-xl border border-accent/30 bg-accent/5 p-4">
+                <div className="mb-1 text-sm font-semibold text-accent">✨ Possible alpha — test a different edge</div>
+                <p className="mb-3 text-xs text-muted">
+                  Differentiators this idea could pursue. Re-validate positioned around one to see how it moves
+                  the forecast.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {activeAlphas.map((a, i) => (
+                    <div key={i} className="flex flex-col rounded-lg border border-border bg-panel2 p-3">
+                      <div className="text-sm font-medium">{a.alpha}</div>
+                      <p className="mt-1 flex-1 text-xs leading-relaxed text-muted">{a.rationale}</p>
+                      <button
+                        onClick={() => revalidateWithAlpha(a.alpha, a.rationale)}
+                        disabled={anyBusy}
+                        className="mt-2 self-start rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                      >
+                        Re-validate with this alpha →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <>
             {/* Pitch stage: which pitch are you leading with? Picking marks Pitch done. */}

@@ -39,6 +39,8 @@ export async function proposeRefinement(
 
   const validation = getArtifact(versionId, "validation")?.data as ValidationLike | undefined;
   const market = getArtifact(versionId, "market")?.data;
+  const financials = getArtifact(versionId, "financials")?.data;
+  const plan = getArtifact(versionId, "plan")?.data;
 
   const evidence = validation
     ? `Current overall score: ${validation.score ?? "?"}/100.
@@ -62,8 +64,16 @@ Already-recommended actions (build on these, don't just repeat them): ${(validat
         .join("; ")}`
     : "No validation has been run yet; refine for clarity, focus, and defensibility.";
 
+  // Once due diligence is done, iteration should weigh ALL of it — the real
+  // competition, the unit economics, and the plan — not just the validation.
   const marketCtx = market
-    ? `\n\nMarket context (competitors/gaps) for reference:\n${JSON.stringify(market).slice(0, 2500)}`
+    ? `\n\nMarket & competition (use the real competitors, sentiment, and gaps):\n${JSON.stringify(market).slice(0, 2500)}`
+    : "";
+  const financialsCtx = financials
+    ? `\n\nFinancials (respect these unit economics / pricing — don't propose changes the numbers can't support):\n${JSON.stringify(financials).slice(0, 1500)}`
+    : "";
+  const planCtx = plan
+    ? `\n\nPlan (build on this, don't contradict the milestones/team reality):\n${JSON.stringify(plan).slice(0, 1200)}`
     : "";
 
   const { data, usage, model } = await generateStructured(RefinementSchema, {
@@ -102,7 +112,7 @@ Already-recommended actions (build on these, don't just repeat them): ${(validat
 Current statement (v${version.n}): ${version.statement}
 
 Validation evidence to improve against:
-${evidence}${marketCtx}
+${evidence}${marketCtx}${financialsCtx}${planCtx}
 
 Rewrite the idea statement to raise the overall validation score and reduce the top risks, while
 keeping the same core idea. Ask yourself: what ALPHA (differentiator/niche/angle/positioning) would most

@@ -356,19 +356,8 @@ export function ValidationView({ d }: { d: Validation }) {
         </details>
       )}
 
-      <Section title="Visual Overview">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <Card>
-            <CriteriaRadar criteria={d.criteria} />
-          </Card>
-          <FactorBars criteria={d.criteria} />
-        </div>
-      </Section>
-
-      <ValidationSummary go={d.go_signals} stop={d.stop_signals} />
-      <ValidationScorecard validations={d.validations} criteria={d.criteria} />
+      {/* What to do — kept up front */}
       <ActionPlan steps={d.action_plan} />
-      <RiskMatrix risks={d.risk_matrix} />
       {d.clarifying_questions && d.clarifying_questions.length > 0 && (
         <Section title="Open questions from the validator">
           <Card className="border-accent2/30 bg-accent2/5">
@@ -379,6 +368,27 @@ export function ValidationView({ d }: { d: Validation }) {
           </Card>
         </Section>
       )}
+
+      {/* The evidence behind the verdict — collapsed by default to keep the verdict scannable */}
+      <details className="group rounded-xl border border-border bg-panel">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-medium text-muted hover:text-fg">
+          <span className="transition group-open:rotate-90">▸</span>
+          Full scorecard, signals &amp; risk — the evidence behind the score
+        </summary>
+        <div className="space-y-6 border-t border-border p-5">
+          <Section title="Visual Overview">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <Card>
+                <CriteriaRadar criteria={d.criteria} />
+              </Card>
+              <FactorBars criteria={d.criteria} />
+            </div>
+          </Section>
+          <ValidationSummary go={d.go_signals} stop={d.stop_signals} />
+          <ValidationScorecard validations={d.validations} criteria={d.criteria} />
+          <RiskMatrix risks={d.risk_matrix} />
+        </div>
+      </details>
     </div>
   );
 }
