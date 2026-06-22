@@ -249,6 +249,18 @@ export function ValidationView({ d }: { d: Validation }) {
           <div className="space-y-5 border-t border-border p-5">
             {d.demand && (
               <DetailRow title="Demand & pricing">
+                {d.demand.math && (
+                  <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-accent2/20 bg-accent2/5 px-3 py-2 font-mono text-xs">
+                    <span title="customers you can realistically reach">{d.demand.math.reachable}</span>
+                    <span className="text-muted">reach ×</span>
+                    <span title="share/conversion you'd win">{d.demand.math.capture}</span>
+                    <span className="text-muted">win ×</span>
+                    <span title="annual revenue per customer">{d.demand.math.price}</span>
+                    <span className="text-muted">each ≈</span>
+                    <span className="font-bold text-accent2">{d.demand.obtainable_revenue}</span>
+                    <span className="text-muted">/yr</span>
+                  </div>
+                )}
                 <p className="text-sm">
                   <span className="text-muted">Willingness to pay: </span>
                   {d.demand.willingness_to_pay}
@@ -629,7 +641,41 @@ export function CustomerPitchView({ d }: { d: CustomerPitch }) {
         <div className="font-mono text-xs uppercase tracking-[0.18em] text-accent">The ask</div>
         <p className="mt-1.5 text-base font-medium">{d.call_to_action}</p>
       </Card>
+
+      {d.claim_check && d.claim_check.length > 0 && <ClaimCheck items={d.claim_check} />}
     </div>
+  );
+}
+
+const CLAIM_TONE: Record<string, { color: string; label: string }> = {
+  grounded: { color: "var(--color-good)", label: "Grounded" },
+  assumption: { color: "var(--color-warn)", label: "Assumption" },
+  aspirational: { color: "var(--color-bad)", label: "Aspirational" },
+};
+
+function ClaimCheck({ items }: { items: { claim: string; basis: string; note: string }[] }) {
+  return (
+    <Section title="Reality check — before you say it out loud">
+      <div className="space-y-2">
+        {items.map((c, i) => {
+          const t = CLAIM_TONE[c.basis] ?? CLAIM_TONE.assumption;
+          return (
+            <Card key={i} className="flex items-start gap-3 p-3">
+              <span
+                className="mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                style={{ color: t.color, borderColor: `color-mix(in srgb, ${t.color} 40%, transparent)` }}
+              >
+                {t.label}
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm text-fg/90">{c.claim}</div>
+                {c.note && <div className="mt-0.5 text-xs text-muted">{c.note}</div>}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </Section>
   );
 }
 

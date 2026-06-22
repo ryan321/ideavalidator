@@ -373,6 +373,7 @@ export default function IdeaWorkspace({
   const [target, setTarget] = useState(80);
   const [maxRounds, setMaxRounds] = useState(5);
   const [iterLog, setIterLog] = useState<string[]>([]);
+  const [iterBest, setIterBest] = useState<{ id: string; n: number; score: number } | null>(null);
 
   const metaByKind = useMemo(() => Object.fromEntries(meta.map((m) => [m.kind, m])), [meta]);
   const activeVersion = versions.find((v) => v.id === activeVersionId) ?? versions[0];
@@ -674,6 +675,7 @@ export default function IdeaWorkspace({
       }
       log(`Done. Best version: v${bestN} at ${best}/100.`);
       switchVersion(bestId);
+      setIterBest({ id: bestId, n: bestN, score: best });
     } catch (e) {
       const m = e instanceof Error ? e.message : "Iteration failed";
       setError(m);
@@ -681,6 +683,34 @@ export default function IdeaWorkspace({
     } finally {
       setIterating(false);
     }
+  }
+
+  // After auto-iterate, drop the intermediate AI versions (keep the original, the
+  // best, the chosen, and whatever you're viewing) so the switcher stays legible.
+  async function cleanupVersions() {
+    if (!iterBest) return;
+    const removable = versions.filter(
+      (v) =>
+        v.origin === "ai" &&
+        v.n !== 1 &&
+        v.id !== iterBest.id &&
+        v.id !== chosenVersionId &&
+        v.id !== activeVersionId
+    );
+    const removedIds = new Set<string>();
+    for (const v of removable) {
+      const res = await fetch(`/api/versions/${v.id}`, { method: "DELETE" });
+      if (res.ok) removedIds.add(v.id);
+    }
+    if (removedIds.size) {
+      setVersions((prev) => prev.filter((v) => !removedIds.has(v.id)));
+      setArtifacts((prev) => {
+        const n = { ...prev };
+        for (const id of removedIds) delete n[id];
+        return n;
+      });
+    }
+    setIterBest(null);
   }
 
   async function remove() {
@@ -1158,6 +1188,23 @@ export default function IdeaWorkspace({
                 {iterLog.join("\n")}
               </pre>
             )}
+            {iterBest &&
+              versions.filter(
+                (v) => v.origin === "ai" && v.n !== 1 && v.id !== iterBest.id && v.id !== chosenVersionId && v.id !== activeVersionId
+              ).length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-sm">
+                  <span>
+                    Best is <b className="font-mono">v{iterBest.n}</b> at {iterBest.score}/100. Clear the
+                    intermediate tries?
+                  </span>
+                  <button onClick={cleanupVersions} className="ml-auto rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white">
+                    Keep best, remove the rest
+                  </button>
+                  <button onClick={() => setIterBest(null)} className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-panel2">
+                    Keep all
+                  </button>
+                </div>
+              )}
           </div>
         )}
 

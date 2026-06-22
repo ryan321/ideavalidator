@@ -98,6 +98,14 @@ export const ValidationSchema = z.object({
       willingness_to_pay: z.string(), // what target customers would realistically pay
       obtainable_revenue: z.string(), // realistic annual $ THIS founder could capture
       reasoning: z.string(), // demand x WTP x capturable share, judged against the goal
+      // The visible arithmetic behind obtainable_revenue (optional for older results).
+      math: z
+        .object({
+          reachable: z.string(), // customers you can realistically reach (the touchable SOM slice)
+          capture: z.string(), // share/conversion of those you can win
+          price: z.string(), // annual revenue per customer
+        })
+        .optional(),
     })
     .optional(),
 
@@ -175,7 +183,10 @@ can realistically EXPECT, then how to improve it." Assess, in order: (1) how bad
 this (from real demand signals), (2) what they would realistically pay, (3) given competitors + switching
 costs + the alpha, what SHARE this founder could capture. Synthesize into "demand": { strength
 (Weak/Moderate/Strong), willingness_to_pay, obtainable_revenue (realistic ANNUAL DOLLARS this founder could
-capture — NOT the TAM), reasoning }. What matters is the absolute obtainable dollars judged against the GOAL:
+capture — NOT the TAM), reasoning, and "math": { reachable (how many customers this founder can realistically
+REACH — the touchable slice, not the whole market), capture (the share/conversion of those they'd actually
+win, e.g. "~3%"), price (annual revenue per customer) } — the three numbers must multiply to roughly the
+obtainable_revenue so the headline number is traceable }. What matters is the absolute obtainable dollars judged against the GOAL:
 a small slice of a huge market can beat a large slice of a tiny one. Make the "summary" lead with what the
 founder can realistically expect (the obtainable revenue vs their goal), then the verdict.
 

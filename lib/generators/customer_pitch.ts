@@ -14,6 +14,16 @@ export const CustomerPitchSchema = z.object({
   proof_points: z.array(z.string()).min(2), // why a skeptic should believe it
   why_now: z.string(),
   call_to_action: z.string(), // the specific ask to start a paid pilot/trial
+  // Honesty check on the boldest claims (optional for older results).
+  claim_check: z
+    .array(
+      z.object({
+        claim: z.string(),
+        basis: z.enum(["grounded", "assumption", "aspirational"]).catch("assumption"),
+        note: z.string().catch(""),
+      })
+    )
+    .optional(),
 });
 
 export type CustomerPitch = z.infer<typeof CustomerPitchSchema>;
@@ -50,6 +60,8 @@ Return JSON:
   "objections": [ {"objection": string, "response": string} ],   // the 3-5 most likely buyer pushbacks
   "proof_points": [string],               // why a skeptical buyer should believe it works, drawn from the artifacts
   "why_now": string,                      // why act now instead of next quarter
-  "call_to_action": string                // the specific next step you ask for to start a paid pilot or trial
+  "call_to_action": string,               // the specific next step you ask for to start a paid pilot or trial
+  "claim_check": [ {"claim": string, "basis": "grounded"|"assumption"|"aspirational", "note": string} ]
+                                          // the 3-5 boldest claims in this pitch, each labeled: grounded = backed by the validation/market artifacts; assumption = reasonable but untested; aspirational = a goal you can't yet prove. Be honest — this keeps the founder from overselling.
 }`,
 };

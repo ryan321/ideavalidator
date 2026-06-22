@@ -134,6 +134,18 @@ function init(): Database.Database {
       updated_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_prospects_idea ON prospects(idea_id);
+    CREATE TABLE IF NOT EXISTS price_tests (
+      id         TEXT PRIMARY KEY,
+      idea_id    TEXT NOT NULL,
+      offer      TEXT,
+      audience   TEXT,
+      asked      INTEGER,
+      willing    INTEGER,
+      notes      TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_price_idea ON price_tests(idea_id);
   `);
 
   return db;
@@ -369,6 +381,7 @@ export function deleteIdea(id: string): void {
     ).run(id);
     db.prepare("DELETE FROM usage_log WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM prospects WHERE idea_id = ?").run(id);
+    db.prepare("DELETE FROM price_tests WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM versions WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM ideas WHERE id = ?").run(id);
   });
@@ -451,6 +464,67 @@ export function deleteProspect(id: string): void {
   db.prepare("DELETE FROM prospects WHERE id = ?").run(id);
 }
 
+// ---- pricing experiments -----------------------------------------------------
+export type PriceTest = {
+  id: string;
+  idea_id: string;
+  offer: string | null; // e.g. "$199/mo" or "one-time $2k"
+  audience: string | null;
+  asked: number | null; // how many prospects you put this price to
+  willing: number | null; // how many said yes / would pay
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function listPriceTests(ideaId: string): PriceTest[] {
+  return db
+    .prepare("SELECT * FROM price_tests WHERE idea_id = ? ORDER BY created_at ASC")
+    .all(ideaId) as PriceTest[];
+}
+
+export function createPriceTest(ideaId: string, offer: string): PriceTest {
+  const now = new Date().toISOString();
+  const t: PriceTest = {
+    id: crypto.randomUUID(),
+    idea_id: ideaId,
+    offer,
+    audience: null,
+    asked: null,
+    willing: null,
+    notes: null,
+    created_at: now,
+    updated_at: now,
+  };
+  db.prepare(
+    `INSERT INTO price_tests (id, idea_id, offer, audience, asked, willing, notes, created_at, updated_at)
+     VALUES (@id, @idea_id, @offer, @audience, @asked, @willing, @notes, @created_at, @updated_at)`
+  ).run(t);
+  return t;
+}
+
+const PRICE_FIELDS = ["offer", "audience", "asked", "willing", "notes"] as const;
+
+export function updatePriceTest(
+  id: string,
+  fields: Partial<Pick<PriceTest, (typeof PRICE_FIELDS)[number]>>
+): void {
+  const sets: string[] = [];
+  const vals: Record<string, unknown> = { id, updated_at: new Date().toISOString() };
+  for (const f of PRICE_FIELDS) {
+    if (f in fields) {
+      sets.push(`${f} = @${f}`);
+      vals[f] = (fields as Record<string, unknown>)[f];
+    }
+  }
+  if (!sets.length) return;
+  db.prepare(`UPDATE price_tests SET ${sets.join(", ")}, updated_at = @updated_at WHERE id = @id`).run(vals);
+}
+
+export function deletePriceTest(id: string): void {
+  db.prepare("DELETE FROM price_tests WHERE id = ?").run(id);
+}
+
 export function payingCount(ideaId: string): number {
   const r = db
     .prepare("SELECT COUNT(*) AS n FROM prospects WHERE idea_id = ? AND status = 'paying'")
@@ -474,6 +548,23 @@ export function getVersion(versionId: string): Version | undefined {
   return db.prepare("SELECT * FROM versions WHERE id = ?").get(versionId) as
     | Version
     | undefined;
+}
+
+// Delete a version and everything keyed to it. Refuses to delete the original (n=1)
+// or a version the founder has chosen, so cleanup can't nuke important history.
+export function deleteVersion(versionId: string): boolean {
+  const v = getVersion(versionId);
+  if (!v || v.n === 1) return false;
+  const idea = getIdea(v.idea_id);
+  if (idea?.chosen_version_id === versionId) return false;
+  const tx = db.transaction(() => {
+    db.prepare("DELETE FROM artifacts WHERE version_id = ?").run(versionId);
+    db.prepare("DELETE FROM messages WHERE version_id = ?").run(versionId);
+    db.prepare("DELETE FROM usage_log WHERE version_id = ?").run(versionId);
+    db.prepare("DELETE FROM versions WHERE id = ?").run(versionId);
+  });
+  tx();
+  return true;
 }
 
 export function createVersion(
