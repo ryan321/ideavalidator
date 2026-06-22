@@ -255,7 +255,12 @@ export default function NameStage({
                       </div>
                     )}
 
-                    {/* social handles */}
+                    {/* social handles — only meaningful once a candidate has been checked */}
+                    {!c.handles && !c.intel ? (
+                      <div className="mt-1.5 text-[11px] text-muted/70">
+                        Social &amp; trademark checks not run for this name — regenerate to populate.
+                      </div>
+                    ) : (
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {SOCIALS.map((s) => {
                         const { status, note } = handleState(c, s);
@@ -282,6 +287,7 @@ export default function NameStage({
                         );
                       })}
                     </div>
+                    )}
                   </div>
 
                   {/* actions */}

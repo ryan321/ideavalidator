@@ -99,7 +99,8 @@ export async function runGenerator(
     grounded: def.grounded,
     maxTokens: def.maxTokens,
     system: def.system,
-    prompt: def.buildPrompt(ctx) + steerContext(ctx),
+    // pass the current draft of this kind so a steer is a targeted edit, not a regen
+    prompt: def.buildPrompt(ctx) + steerContext(ctx, prior[kind]),
   });
 
   // Cache the headline validation score + obtainable-revenue forecast onto the version.

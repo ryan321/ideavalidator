@@ -90,10 +90,21 @@ export function ideaHeader(ctx: GenContext): string {
 
 // Per-regeneration steer: how the founder wants THIS deliverable adjusted. Applied
 // generically on top of any generator's prompt so steering works on every stage.
-export function steerContext(ctx: GenContext): string {
+export function steerContext(ctx: GenContext, currentDraft?: unknown): string {
   const s = ctx.steer?.trim();
   if (!s) return "";
-  return `\n\nFOUNDER STEER — the founder has reviewed the current draft of this deliverable and wants it adjusted. Treat the following as a direct instruction for emphasis, framing, and content, and revise the output accordingly. IMPORTANT: the steer may change wording, focus, and which points you lead with, but it must NOT override this task's analytical rules — keep every scoring number, verdict/banding rule, and required schema field governed by the system instructions, and stay grounded in the artifacts above without inventing or contradicting their figures. If the steer asks for something the evidence doesn't support (e.g. a higher score than warranted), reflect that honestly rather than fabricating it:\n"""\n${s}\n"""`;
+  // Anchor the revision to the existing draft so "adjust this" is a targeted edit,
+  // not a blind regenerate that lands in the same place.
+  const draftBlock = currentDraft
+    ? `\n\nCURRENT DRAFT you are revising (preserve everything the instruction does NOT ask to change; apply the requested change clearly):\n${JSON.stringify(currentDraft).slice(0, 8000)}`
+    : "";
+  return `\n\n=== FOUNDER STEER (highest priority — this is why you are regenerating) ===
+The founder reviewed the current draft and wants it changed as described below. Apply this instruction directly and make the change clearly visible in the new output; rewrite as much as needed to satisfy it. Stay grounded in the artifacts above (don't invent or contradict their figures), and for any analytical task keep the scoring/verdict rules from the system message intact — but otherwise the founder's instruction takes precedence over your default choices.${draftBlock}
+
+FOUNDER'S INSTRUCTION:
+"""
+${s}
+"""`;
 }
 
 // Authoritative founder clarifications, injected into analysis prompts when present.
