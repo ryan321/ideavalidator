@@ -24,7 +24,10 @@ function handleState(c: NameCandidate, s: { key: string; aliases: string[] }): {
     const p = h.platform.toLowerCase().trim();
     return s.aliases.some((a) => p === a || p.startsWith(a));
   });
-  if (fromIntel) return { status: fromIntel.likely_taken ? "taken" : "available", note: fromIntel.note };
+  if (fromIntel) {
+    const lt = fromIntel.likely_taken;
+    return { status: lt === undefined ? "unknown" : lt ? "taken" : "available", note: fromIntel.note };
+  }
   return { status: "unknown" };
 }
 
