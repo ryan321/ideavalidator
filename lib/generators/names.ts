@@ -14,11 +14,19 @@ import { checkHandles, type HandleStatus } from "../social";
 import { nameIntel, type NameIntel } from "./name_intel";
 import { DEFAULT_TLDS } from "../tlds";
 
-const MAX_CANDIDATES = 6;
+const MAX_CANDIDATES = 6; // how many we deep-check + show
+const POOL = 12; // how many raw ideas we ask for, then cheaply pre-filter
 
 const NamesSchema = z.object({
-  names: z.array(z.object({ name: z.string(), rationale: z.string() })).min(4).max(10),
+  names: z.array(z.object({ name: z.string(), rationale: z.string() })).min(4).max(20),
 });
+
+const riskRank = (r?: string) => (r === "low" ? 0 : r === "medium" ? 1 : r === "high" ? 2 : 3);
+// Prefer names whose domains are actually obtainable (a taken .com usually means an
+// existing company → high collision risk), so we spend grounded $ on the ownable ones.
+const availScore = (domains: Record<string, DomainStatus>) =>
+  (domains[".com"] === "available" ? 2 : 0) +
+  (Object.values(domains).some((s) => s === "available") ? 1 : 0);
 
 export type NameFeedback = "up" | "down" | null;
 
@@ -58,6 +66,11 @@ function steerFromHistory(prior: NameCandidate[], instructions?: string | null):
     );
   if (seen.length)
     parts.push(`Do NOT repeat any name already shown: ${seen.join(", ")}.`);
+  const collided = prior.filter((c) => c.intel?.overall_risk === "high").map((c) => c.name);
+  if (collided.length)
+    parts.push(
+      `These earlier names turned out to be already taken / high collision risk: ${collided.join(", ")}. They were too close to real words or existing companies — lean HARDER into invented, coined words so the domain and trademark are actually available.`
+    );
   if (instructions?.trim())
     parts.push(`Additional founder instructions (follow these closely): "${instructions.trim()}".`);
   return parts.length ? `\n${parts.join("\n")}` : "";
@@ -85,30 +98,35 @@ export async function generateNames(
   const { data, usage, model } = await generateStructured(NamesSchema, {
     role: "writing",
     grounded: false,
-    maxTokens: 1500,
+    maxTokens: 2200,
     system:
-      "You are a startup brand-namer. Propose distinctive, pronounceable, .com-plausible brand names — " +
-      "short (ideally 1-2 syllables, <= 12 letters), memorable, and ownable, not generic or descriptive. " +
-      "Avoid hyphens, numbers, and obvious trademark clashes. Each entry is one real candidate name.",
+      "You are a startup brand-namer. The #1 goal is an OWNABLE name: the .com and the trademark should be " +
+      "realistically obtainable, so favor INVENTED / COINED words and unexpected blends (think Vercel, Twilio, " +
+      "Stripe, Notion, Figma, Heroku) over real dictionary words, common technical/medical jargon, or anything " +
+      "that is obviously already a product. Names must be short (<= 12 letters), pronounceable, memorable, and " +
+      "free of hyphens and numbers. A slightly abstract coined word that nobody else owns beats a clever real " +
+      "word that ten companies already use. Each entry is one candidate name.",
     prompt: `Idea: "${idea.title}" — ${version?.statement ?? idea.prompt ?? ""}
 ${brand ? `Brand context (match this voice/archetype): ${JSON.stringify(brand).slice(0, 1500)}` : ""}${steerFromHistory(prior, opts?.instructions)}
-Propose ${MAX_CANDIDATES} brand-name candidates. Return JSON: { "names": [{"name": string, "rationale": string (one line)}] }`,
+Propose ${POOL} candidate names, leaning coined/invented so the domain and trademark are actually available. Avoid real English words and names of existing companies. Return JSON: { "names": [{"name": string, "rationale": string (one line)}] }`,
   });
 
   logUsage({ ideaId, versionId: version?.id ?? null, kind: "names", model, usage });
 
-  // Only enrich names we haven't shown before — hard dedup so a returned duplicate
-  // can never overwrite an existing candidate's feedback.
-  const freshNames = data.names
-    .filter((n) => !seen.has(n.name.trim().toLowerCase()))
-    .slice(0, MAX_CANDIDATES);
+  // Cheaply check domains for the whole pool (free RDAP), drop names already shown,
+  // then keep the most OWNABLE ones — so the expensive grounded checks are spent on
+  // names that can actually be had, not on guaranteed collisions.
+  const pool = data.names.filter((n) => !seen.has(n.name.trim().toLowerCase()));
+  const withDomains = await Promise.all(
+    pool.map(async (n) => ({ n, slug: slugify(n.name), domains: await checkDomains(n.name, tlds) }))
+  );
+  withDomains.sort((a, b) => availScore(b.domains) - availScore(a.domains));
+  const shortlist = withDomains.slice(0, MAX_CANDIDATES);
 
-  // For each fresh candidate, run checks in parallel: domains + (live-site if the .com
-  // is registered) + handles + web-grounded due diligence. Intel runs for every one.
+  // Deep-check only the shortlist: live-site (if .com registered) + handles + grounded
+  // due diligence. Reuses the domains already fetched above.
   const enriched: NameCandidate[] = await Promise.all(
-    freshNames.map(async (n): Promise<NameCandidate> => {
-      const slug = slugify(n.name);
-      const domains = await checkDomains(n.name, tlds);
+    shortlist.map(async ({ n, slug, domains }): Promise<NameCandidate> => {
       const [site, handles, intelResult] = await Promise.all([
         domains[".com"] === "taken" ? checkSite(`${slug}.com`) : Promise.resolve(null),
         checkHandles(slug),
@@ -131,6 +149,13 @@ Propose ${MAX_CANDIDATES} brand-name candidates. Return JSON: { "names": [{"name
         cost: intelResult.cost,
       };
     })
+  );
+
+  // Surface the most promising first: lowest risk, then best domain availability.
+  enriched.sort(
+    (a, b) =>
+      riskRank(a.intel?.overall_risk) - riskRank(b.intel?.overall_risk) ||
+      availScore(b.domains) - availScore(a.domains)
   );
 
   // Keep the founder's up-voted names (with their prior checks + vote), then add the
