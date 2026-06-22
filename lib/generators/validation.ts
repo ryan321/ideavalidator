@@ -154,19 +154,22 @@ export const validationGenerator: Generator<Validation> = {
   system:
     "You are a brutally honest startup analyst. Validate ideas against real market evidence from web " +
     "search, not hype. Be specific and quantitative, never generic.\n" +
-    "CALIBRATE EACH OF THE 9 CRITERIA HONESTLY on this 0-100 scale and DEFAULT LOW when evidence is thin: " +
-    "0-30 = no evidence / fatal flaw; 35-50 = weak or unproven; 55-70 = real but unproven signal; " +
-    "75-85 = strong, corroborated evidence; 90-100 = proven (reserve for demonstrated paying demand). A " +
-    "criterion with NO concrete web evidence MUST score below 50.\n" +
-    "CRITICAL — SPREAD THE SCORES. Every real idea has clear strengths AND clear weaknesses, so the 9 " +
-    "criteria should range widely (commonly 30 to 85), NOT huddle in a 70-80 comfort band. If you notice " +
-    "your scores clustering in the 70s, you are being lazy and optimistic — drive the weak criteria down to " +
-    "where the evidence actually is and lift only the genuinely strong ones. Score each criterion " +
-    "independently on its OWN evidence; do NOT pick a target overall number and back-fill to hit it.\n" +
-    "The overall score is COMPUTED by the system from your criteria (demand-weighted), so two different " +
-    "ideas — and two versions of the same idea — should almost never come out the same. Judge the idea " +
-    "RELATIVE TO the founder's stated goal — the same idea can be a GO for a lifestyle business and a NO-GO " +
-    "for venture scale.",
+    "CALIBRATE EACH OF THE 9 CRITERIA TO THE EVIDENCE on this 0-100 scale: 0-30 = the problem barely " +
+    "matters, or a fatal flaw; 40-55 = a plausible but unvalidated signal; 60-75 = a real, evidenced " +
+    "signal; 80-90 = strong and well-corroborated; 90-100 = directly demonstrated. Score HIGH where the " +
+    "evidence is strong and LOW only where it is genuinely absent — do NOT be stingy with criteria that " +
+    "ARE well-supported.\n" +
+    "CRUCIAL — established competitors PROFITABLY doing largely what this idea proposes is the STRONGEST " +
+    "demand signal there is: it proves customers exist and pay. When that's true, score Demand Strength, " +
+    "Willingness to Pay, and Problem-Solution Fit HIGH (80+), and concentrate any weakness where it " +
+    "actually belongs — Competitive Position and Differentiation / Moat (a crowded field with no clear " +
+    "edge) — NOT across the whole board. A 'proven demand, unclear edge' idea should land solid overall " +
+    "with its weakness isolated to competition, not a mediocre score everywhere.\n" +
+    "Let the 9 scores DIFFER and track the evidence — they should not all huddle in one band, but do NOT " +
+    "manufacture a weakness the evidence doesn't support. Score each criterion independently on its OWN " +
+    "evidence; never pick a target overall number and back-fill. The overall score is COMPUTED by the " +
+    "system from your criteria (demand-weighted). Judge RELATIVE TO the founder's stated goal — the same " +
+    "idea can be a GO for a lifestyle business and a NO-GO for venture scale.",
   buildPrompt: (ctx) => `${ideaHeader(ctx)}${goalContext(ctx)}${founderContext(ctx)}
 
 Validate this idea. You MUST issue web searches before answering and base every figure (market size,
@@ -196,9 +199,10 @@ obtainable_revenue so the headline number is traceable }. What matters is the ab
 a small slice of a huge market can beat a large slice of a tiny one. Make the "summary" lead with what the
 founder can realistically expect (the obtainable revenue vs their goal), then the verdict.
 
-Score these 9 criteria 0-100, where HIGHER ALWAYS MEANS MORE FAVORABLE (no inverted axes). SPREAD them — a
-typical idea has a couple of strong criteria (75-85), several middling (50-70), and at least one genuinely
-weak (below 45); resist scoring everything in the 70s. Output ALL 9 —
+Score these 9 criteria 0-100, where HIGHER ALWAYS MEANS MORE FAVORABLE (no inverted axes). Let them TRACK
+THE EVIDENCE and differ — well-validated criteria (e.g. demand proven by profitable competitors) belong at
+80-90, genuinely unproven ones lower; resist huddling everything in the 70s, but don't invent a weakness the
+evidence doesn't show. Output ALL 9 —
 never fewer, never renamed, never merged (the radar maps these exact names). Use EXACTLY these names and groups:
 - group "demand" (will people buy?):
   - Demand Strength — how badly the target customer wants this, from real signals
