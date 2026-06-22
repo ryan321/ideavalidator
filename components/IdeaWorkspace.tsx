@@ -3,8 +3,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Artifact, ArtifactKind, Idea, Version } from "@/lib/db";
-import type { NameCandidate } from "@/lib/generators/names";
 import type { GeneratorMeta } from "@/lib/generators";
+import NameStage from "./NameStage";
 import type { Refinement } from "@/lib/generators/refine";
 import {
   BrandView,
@@ -351,45 +351,6 @@ export default function IdeaWorkspace({
   function choosePitch(which: "customer" | "investor") {
     setChosenPitch(which);
     patchIdea({ chosenPitch: which });
-  }
-
-  // --- naming stage -----------------------------------------------------------
-  const [nameData, setNameData] = useState<NameCandidate[] | null>(null);
-  const [chosenName, setChosenName] = useState<string | null>(null);
-  const [nameLoading, setNameLoading] = useState(false);
-  const [nameLoaded, setNameLoaded] = useState(false);
-
-  useEffect(() => {
-    if (currentStage !== "name" || nameLoaded) return;
-    setNameLoaded(true);
-    fetch(`/api/ideas/${idea.id}/names`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (Array.isArray(j.candidates)) setNameData(j.candidates);
-        setChosenName(j.chosen_name ?? null);
-      })
-      .catch(() => {});
-  }, [currentStage, nameLoaded, idea.id]);
-
-  async function generateNames() {
-    setNameLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/ideas/${idea.id}/names`, { method: "POST" });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Could not generate names");
-      setNameData(j.candidates);
-      setCost((c) => c + (j.cost ?? 0));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not generate names");
-    } finally {
-      setNameLoading(false);
-    }
-  }
-
-  function chooseName(name: string) {
-    setChosenName(name);
-    patchIdea({ chosenName: name });
   }
 
   // auto-iterate
@@ -1151,89 +1112,7 @@ export default function IdeaWorkspace({
             )}
           </div>
         ) : currentStage === "name" ? (
-          <div className="rounded-xl border border-border bg-panel p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-bold">Name it</h3>
-                <p className="mt-1 text-sm text-muted">
-                  Brand-name ideas with live domain availability (.com / .io / .co). Pick one to lock the name.
-                </p>
-              </div>
-              <button
-                onClick={generateNames}
-                disabled={nameLoading}
-                className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {nameLoading ? "Generating…" : nameData ? "Regenerate" : "Generate names"}
-              </button>
-            </div>
-            {chosenName && (
-              <div className="mt-3 rounded-lg border border-good/30 bg-good/5 px-3 py-2 text-sm">
-                <span className="text-muted">Chosen name: </span>
-                <span className="font-semibold text-good">{chosenName}</span>
-              </div>
-            )}
-            {nameLoading && !nameData && (
-              <div className="mt-4 animate-pulse text-sm text-muted">
-                Generating names &amp; checking domains…
-              </div>
-            )}
-            {nameData && (
-              <div className="mt-4 space-y-2">
-                {nameData.map((c, i) => {
-                  const isChosen = c.name === chosenName;
-                  const slug = c.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-                  return (
-                    <div
-                      key={i}
-                      className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 ${
-                        isChosen ? "border-good bg-good/5" : "border-border"
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold">{c.name}</div>
-                        <p className="mt-0.5 text-xs text-muted">{c.rationale}</p>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {Object.entries(c.domains || {}).map(([tld, status]) => (
-                            <span
-                              key={tld}
-                              title={status}
-                              className="rounded-md border px-1.5 py-0.5 font-mono text-[11px]"
-                              style={{
-                                color:
-                                  status === "available" ? "var(--color-good)" : "var(--color-muted)",
-                                borderColor:
-                                  status === "available"
-                                    ? "color-mix(in srgb, var(--color-good) 40%, transparent)"
-                                    : "var(--color-border)",
-                                textDecoration: status === "taken" ? "line-through" : "none",
-                              }}
-                            >
-                              {slug}
-                              {tld}
-                              {status === "available" ? " ✓" : status === "unknown" ? " ?" : ""}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => chooseName(c.name)}
-                        disabled={isChosen}
-                        className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
-                          isChosen ? "bg-good/15 text-good" : "bg-accent text-white hover:opacity-90"
-                        }`}
-                      >
-                        {isChosen ? "✓ Chosen" : "Choose"}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {!nameData && !nameLoading && (
-              <p className="mt-4 text-sm text-muted">No names yet — generate some.</p>
-            )}
-          </div>
+          <NameStage ideaId={idea.id} onCost={(d) => setCost((c) => c + d)} />
         ) : (
           <>
             {/* Pitch stage: which pitch are you leading with? Picking marks Pitch done. */}
