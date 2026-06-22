@@ -183,6 +183,51 @@ export default function IdeaWorkspace({
   const [suggesting, setSuggesting] = useState(false);
   const [responding, setResponding] = useState(false);
   const [responseDraft, setResponseDraft] = useState("");
+  const [chatting, setChatting] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ role: string; text: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+
+  async function openChat() {
+    setProposal(null);
+    setResponding(false);
+    setEditing(false);
+    setChatting(true);
+    try {
+      const res = await fetch(`/api/versions/${activeVersionId}/ask`);
+      const msgs = await res.json();
+      if (Array.isArray(msgs))
+        setChatMessages(msgs.map((m: { role: string; text: string }) => ({ role: m.role, text: m.text })));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function sendQuestion() {
+    const q = chatInput.trim();
+    if (!q || chatLoading) return;
+    setChatInput("");
+    setChatMessages((p) => [...p, { role: "user", text: q }]);
+    setChatLoading(true);
+    try {
+      const res = await fetch(`/api/versions/${activeVersionId}/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Could not answer");
+      setChatMessages((p) => [...p, { role: "assistant", text: j.answer }]);
+      setCost((c) => c + (j.cost ?? 0));
+    } catch (e) {
+      setChatMessages((p) => [
+        ...p,
+        { role: "assistant", text: `(error: ${e instanceof Error ? e.message : "failed"})` },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  }
   const [goalBucket, setGoalBucket] = useState(idea.goal ?? "unsure");
   const [goalDetail, setGoalDetail] = useState(idea.goal_detail ?? "");
   const [editingGoal, setEditingGoal] = useState(false);
@@ -226,6 +271,8 @@ export default function IdeaWorkspace({
     setProposal(null);
     setEditing(false);
     setResponding(false);
+    setChatting(false);
+    setChatMessages([]);
     const first = artifacts[id] ? Object.keys(artifacts[id])[0] : undefined;
     setActiveTab((first as ArtifactKind) ?? "validation");
   }
@@ -645,6 +692,13 @@ export default function IdeaWorkspace({
               >
                 💬 Respond to validator
               </button>
+              <button
+                onClick={() => (chatting ? setChatting(false) : openChat())}
+                disabled={anyBusy}
+                className="rounded-lg border border-accent2/40 px-3 py-1.5 text-sm text-accent2 hover:bg-accent2/10 disabled:opacity-50"
+              >
+                ❓ Ask about this
+              </button>
               <button onClick={suggest} disabled={anyBusy} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 disabled:opacity-50">
                 {suggesting ? "Thinking…" : "✨ Suggest improvement"}
               </button>
@@ -662,6 +716,59 @@ export default function IdeaWorkspace({
             </div>
           )}
         </div>
+
+        {/* ask-about-this chat */}
+        {chatting && (
+          <div className="mb-5 rounded-xl border border-accent2/40 bg-accent2/5 p-4">
+            <div className="mb-1 flex items-center justify-between">
+              <div className="text-sm font-semibold text-accent2">❓ Ask about this analysis</div>
+              <button onClick={() => setChatting(false)} className="text-xs text-muted hover:text-fg">
+                close
+              </button>
+            </div>
+            <p className="mb-2 text-xs text-muted">
+              Ask anything about the research &amp; analysis for v{activeVersion.n} — competitors, the
+              revenue math, risks, the score. Answers are grounded in what's been generated.
+            </p>
+            <div className="max-h-80 space-y-3 overflow-auto rounded-lg bg-bg/40 p-3">
+              {chatMessages.length === 0 && (
+                <p className="text-xs text-muted">
+                  No questions yet — e.g. “Why only Moderate demand?” or “What's the fastest path to first revenue?”
+                </p>
+              )}
+              {chatMessages.map((m, i) => (
+                <div key={i} className={m.role === "user" ? "text-right" : ""}>
+                  <div
+                    className={`inline-block max-w-[85%] whitespace-pre-wrap rounded-lg px-3 py-2 text-left text-sm leading-relaxed ${
+                      m.role === "user" ? "bg-accent text-white" : "bg-panel2 text-fg/90"
+                    }`}
+                  >
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              {chatLoading && <div className="animate-pulse text-xs text-muted">thinking…</div>}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") sendQuestion();
+                }}
+                placeholder="Ask a question…"
+                className="flex-1 rounded-lg border border-border bg-panel2 px-3 py-2 text-sm outline-none focus:border-accent2"
+              />
+              <button
+                onClick={sendQuestion}
+                disabled={chatLoading || !chatInput.trim()}
+                className="rounded-lg bg-accent2 px-4 py-2 text-sm font-medium text-bg disabled:opacity-50"
+              >
+                Ask
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* respond-to-validator panel */}
         {responding && (

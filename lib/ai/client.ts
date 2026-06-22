@@ -186,3 +186,40 @@ export async function generateStructured<T>(
     `Model output failed validation after retry (model=${model}, finish=${lastFinish}, len=${lastLen})${hint}: ${lastErr}`
   );
 }
+
+/** Plain free-text generation (no JSON) — for the "ask about this analysis" chat. */
+export async function generateText(opts: {
+  role?: ModelRole;
+  system: string;
+  prompt: string;
+  grounded?: boolean;
+  maxTokens?: number;
+}): Promise<{ text: string; usage: Usage; model: string }> {
+  const model = resolveModel(opts.role ?? "writing");
+  const body: Record<string, unknown> = {
+    model,
+    messages: [
+      { role: "system", content: opts.system },
+      { role: "user", content: opts.prompt },
+    ],
+    temperature: 0.4,
+    max_tokens: opts.maxTokens ?? 1200,
+    usage: { include: true },
+  };
+  if (opts.grounded) body.plugins = [{ id: "web", max_results: 5 }];
+  const completion = await client().chat.completions.create(body as never);
+  const data = completion as {
+    choices: { message: RawMessage }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
+  };
+  const u = data.usage ?? {};
+  return {
+    text: data.choices[0]?.message?.content ?? "",
+    usage: {
+      prompt_tokens: u.prompt_tokens ?? 0,
+      completion_tokens: u.completion_tokens ?? 0,
+      cost: u.cost ?? 0,
+    },
+    model,
+  };
+}

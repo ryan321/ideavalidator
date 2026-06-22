@@ -101,6 +101,14 @@ function init(): Database.Database {
       created_at        TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_usage_idea ON usage_log(idea_id);
+    CREATE TABLE IF NOT EXISTS messages (
+      id         TEXT PRIMARY KEY,
+      version_id TEXT NOT NULL,
+      role       TEXT NOT NULL,
+      text       TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_messages_version ON messages(version_id);
   `);
 
   return db;
@@ -290,6 +298,9 @@ export function deleteIdea(id: string): void {
     db.prepare(
       "DELETE FROM artifacts WHERE version_id IN (SELECT id FROM versions WHERE idea_id = ?)"
     ).run(id);
+    db.prepare(
+      "DELETE FROM messages WHERE version_id IN (SELECT id FROM versions WHERE idea_id = ?)"
+    ).run(id);
     db.prepare("DELETE FROM usage_log WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM versions WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM ideas WHERE id = ?").run(id);
@@ -443,4 +454,33 @@ export function getArtifact(versionId: string, kind: ArtifactKind): Artifact | u
     .prepare("SELECT * FROM artifacts WHERE version_id = ? AND kind = ?")
     .get(versionId, kind) as ArtifactRow | undefined;
   return row ? rowToArtifact(row) : undefined;
+}
+
+// ---- chat (ask about the analysis) ------------------------------------------
+export type Message = {
+  id: string;
+  version_id: string;
+  role: "user" | "assistant";
+  text: string;
+  created_at: string;
+};
+
+export function addMessage(versionId: string, role: "user" | "assistant", text: string): Message {
+  const m: Message = {
+    id: crypto.randomUUID(),
+    version_id: versionId,
+    role,
+    text,
+    created_at: new Date().toISOString(),
+  };
+  db.prepare(
+    "INSERT INTO messages (id, version_id, role, text, created_at) VALUES (@id, @version_id, @role, @text, @created_at)"
+  ).run(m);
+  return m;
+}
+
+export function getMessages(versionId: string): Message[] {
+  return db
+    .prepare("SELECT * FROM messages WHERE version_id = ? ORDER BY created_at ASC")
+    .all(versionId) as Message[];
 }
