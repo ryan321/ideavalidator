@@ -203,9 +203,18 @@ function VerdictMeter({ score }: { score: number }) {
 }
 
 export function ValidationView({ d }: { d: Validation }) {
+  const navLink = "rounded-md px-2.5 py-1 text-xs text-muted transition hover:bg-panel2 hover:text-fg";
   return (
     <div className="space-y-8">
-      <div className="space-y-4">
+      {/* jump nav across the one analysis */}
+      <nav className="no-print sticky top-0 z-10 -mx-1 flex flex-wrap gap-1 border-b border-border bg-bg/85 px-1 py-2 backdrop-blur">
+        <a href="#verdict" className={navLink}>Verdict</a>
+        {d.market && <a href="#market" className={navLink}>Market &amp; competition</a>}
+        {d.financials && <a href="#money" className={navLink}>Money</a>}
+        {d.plan && <a href="#plan" className={navLink}>Plan</a>}
+      </nav>
+
+      <div id="verdict" className="space-y-4 scroll-mt-16">
         {/* primary instrument — the verdict readout, rail tinted to the verdict */}
         <div
           className="overflow-hidden rounded-xl border border-border bg-panel"
@@ -389,6 +398,103 @@ export function ValidationView({ d }: { d: Validation }) {
           <RiskMatrix risks={d.risk_matrix} />
         </div>
       </details>
+
+      {/* MARKET & COMPETITION */}
+      {d.market && (
+        <section id="market" className="scroll-mt-16">
+          <Section title="Market & competition">
+            {(d.market.tam || d.market.sam || d.market.som) && (
+              <div className="mb-3 grid grid-cols-3 gap-3">
+                <StatTile label="TAM" value={d.market.tam || "—"} hint="Total market" />
+                <StatTile label="SAM" value={d.market.sam || "—"} hint="Serviceable segment you target" />
+                <StatTile label="SOM" value={d.market.som || "—"} hint="Realistically obtainable slice" />
+              </div>
+            )}
+            {d.market.sizing_basis && <p className="mb-3 text-xs text-muted">{d.market.sizing_basis}</p>}
+            <div className="space-y-2">
+              {(d.market.competitors ?? []).map((c, i) => (
+                <Card key={i} className="p-4">
+                  <div className="text-sm font-semibold">{c.name}</div>
+                  {c.note && <p className="mt-1 text-sm text-muted">{c.note}</p>}
+                  {c.your_edge && (
+                    <p className="mt-1.5 text-xs">
+                      <span className="font-semibold text-accent">Your edge: </span>
+                      <span className="text-fg/85">{c.your_edge}</span>
+                    </p>
+                  )}
+                </Card>
+              ))}
+            </div>
+          </Section>
+        </section>
+      )}
+
+      {/* MONEY */}
+      {d.financials && (
+        <section id="money" className="scroll-mt-16">
+          <Section title="Money">
+            <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatTile label="Startup cost" value={d.financials.startup_cost || "—"} />
+              <StatTile label="CAC" value={d.financials.unit_economics?.cac || "—"} hint="Cost to acquire a customer" />
+              <StatTile label="LTV" value={d.financials.unit_economics?.ltv || "—"} hint="Lifetime value of a customer" />
+              <StatTile label="Payback" value={d.financials.unit_economics?.payback || "—"} hint="Time to recoup acquisition cost" />
+            </div>
+            {d.financials.revenue_model && <p className="mb-3 text-sm text-muted">{d.financials.revenue_model}</p>}
+            {(d.financials.projections ?? []).length > 0 && (
+              <Card className="overflow-x-auto p-0">
+                <table className="w-full min-w-[28rem] text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
+                      <th className="px-3 py-2 font-medium">Year</th>
+                      <th className="px-3 py-2 font-medium">Revenue</th>
+                      <th className="px-3 py-2 font-medium">Customers</th>
+                      <th className="px-3 py-2 font-medium">Note</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.financials.projections.map((p, i) => (
+                      <tr key={i} className="border-b border-border/60 last:border-0">
+                        <td className="px-3 py-2 align-top font-mono text-accent2">{p.year}</td>
+                        <td className="px-3 py-2 align-top font-mono font-bold">{p.revenue}</td>
+                        <td className="px-3 py-2 align-top text-muted">{p.customers}</td>
+                        <td className="px-3 py-2 align-top text-xs text-muted">{p.note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
+            )}
+          </Section>
+        </section>
+      )}
+
+      {/* PLAN */}
+      {d.plan && (
+        <section id="plan" className="scroll-mt-16">
+          <Section title="Plan">
+            <ol className="space-y-2">
+              {(d.plan.milestones ?? []).map((m, i) => (
+                <li key={i} className="flex gap-3 rounded-lg border border-border bg-panel2 p-3">
+                  <span className="mt-0.5 font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
+                  <div>
+                    <div className="text-sm font-semibold">{m.title}</div>
+                    <div className="mt-0.5 text-xs text-muted">
+                      {m.when}
+                      {m.metric ? ` · ${m.metric}` : ""}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            {d.plan.team_and_ops && (
+              <p className="mt-3 text-sm text-muted">
+                <span className="font-medium text-fg/80">Team &amp; ops: </span>
+                {d.plan.team_and_ops}
+              </p>
+            )}
+          </Section>
+        </section>
+      )}
     </div>
   );
 }

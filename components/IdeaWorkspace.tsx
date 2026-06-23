@@ -160,7 +160,7 @@ const STAGES: {
   optional?: boolean;
   needsChosen?: boolean; // gated until a version is chosen in Decide
 }[] = [
-  { key: "validate", label: "Validate", blurb: "Is there real, paying demand?", kinds: ["validation", "market", "financials", "plan"] },
+  { key: "validate", label: "Validate", blurb: "Is there real, paying demand?", kinds: ["validation"] },
   { key: "decide", label: "Decide", blurb: "Commit to the version you'll build on.", kinds: [], special: true },
   { key: "pitch", label: "Pitch", blurb: "Say why they'll buy — pick a customer or investor pitch.", kinds: ["customer_pitch", "pitch", "marketing"], needsChosen: true },
   { key: "sell", label: "Sell", blurb: "Land your first 5 paying customers.", kinds: ["outreach"], special: true, needsChosen: true },
@@ -168,16 +168,6 @@ const STAGES: {
   { key: "brand", label: "Branding", blurb: "Optional — make it pretty once you have traction.", kinds: ["brand", "logo"], needsChosen: true, optional: true },
 ];
 const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
-
-// One "Validate" pass produces these four analyses; the report presents them as one
-// navigable surface (the verdict, then the evidence), not four generator tabs.
-const VALIDATE_KINDS: ArtifactKind[] = ["market", "validation", "financials", "plan"];
-const VALIDATE_SECTIONS: { kind: ArtifactKind; id: string; title: string }[] = [
-  { kind: "validation", id: "verdict", title: "Verdict" },
-  { kind: "market", id: "market", title: "Market & competition" },
-  { kind: "financials", id: "money", title: "Money" },
-  { kind: "plan", id: "plan", title: "Plan" },
-];
 
 type ArtMap = Record<string, Record<string, Artifact>>;
 const bk = (vid: string, kind: string) => `${vid}:${kind}`;
@@ -486,19 +476,13 @@ export default function IdeaWorkspace({
     }
   }
 
-  // One button: run the whole Validate analysis in dependency order — market first
-  // so the verdict is grounded in real competition, then the verdict, then the money
-  // and plan that follow from it.
+  // One button → the single comprehensive analysis (verdict + market + money + plan).
   async function runValidate() {
     setError(null);
-    const v = activeVersionId;
-    for (const kind of VALIDATE_KINDS) {
-      try {
-        await generate(kind, v);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Analysis failed");
-        break;
-      }
+    try {
+      await generate("validation", activeVersionId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Analysis failed");
     }
   }
 
@@ -763,7 +747,7 @@ export default function IdeaWorkspace({
   );
   const steerKey = bk(activeVersionId, activeTab);
   const steerVal = steerDrafts[steerKey] ?? "";
-  const hasValidate = VALIDATE_SECTIONS.some((s) => activeArtifacts[s.kind]);
+  const hasValidate = !!activeArtifacts.validation;
 
   return (
     <div>
@@ -1330,8 +1314,8 @@ export default function IdeaWorkspace({
               <div className="min-w-0">
                 <div className="text-sm font-semibold">Full analysis</div>
                 <div className="mt-0.5 max-w-md text-xs text-muted">
-                  One pass — market &amp; competition, the verdict, the money, and the plan. The verdict is
-                  grounded in the market research.
+                  One grounded pass — the verdict, the market &amp; competition, the money, and the plan, all
+                  in a single consistent analysis.
                 </div>
               </div>
               <button
@@ -1343,65 +1327,41 @@ export default function IdeaWorkspace({
               </button>
             </div>
 
-            {/* jump nav across the report */}
-            {hasValidate && (
-              <nav className="no-print sticky top-0 z-10 -mx-1 mb-6 flex flex-wrap gap-1 border-b border-border bg-bg/85 px-1 py-2 backdrop-blur">
-                {VALIDATE_SECTIONS.filter((s) => activeArtifacts[s.kind]).map((s) => (
-                  <a key={s.id} href={`#${s.id}`} className="rounded-md px-2.5 py-1 text-xs text-muted transition hover:bg-panel2 hover:text-fg">
-                    {s.title}
-                  </a>
-                ))}
-              </nav>
+            {/* the one comprehensive analysis */}
+            {busy.has(bk(activeVersionId, "validation")) ? (
+              <GenerationProgress label="the full analysis" grounded />
+            ) : activeArtifacts.validation ? (
+              <div>
+                <SafeArtifact
+                  key={`${activeVersionId}:validation`}
+                  kind="validation"
+                  data={activeArtifacts.validation.data}
+                  onRegenerate={() => generate("validation", activeVersionId)}
+                />
+                <SourcesList sources={activeArtifacts.validation.sources} />
+                <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
+                  <span>
+                    Model: {activeArtifacts.validation.model ?? "—"}
+                    {activeArtifacts.validation.cost != null ? ` · ${fmtCost(activeArtifacts.validation.cost)}` : ""}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="grid place-items-center rounded-xl border border-dashed border-border bg-panel/50 py-16 text-center">
+                <div className="max-w-sm">
+                  <div className="text-sm text-muted">
+                    One grounded pass scores the idea and works out the market, money, and plan.
+                  </div>
+                  <button
+                    onClick={runValidate}
+                    disabled={anyBusy}
+                    className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    Validate this idea 🌐
+                  </button>
+                </div>
+              </div>
             )}
-
-            <div className="space-y-10">
-              {VALIDATE_SECTIONS.map((s) => {
-                const art = activeArtifacts[s.kind];
-                const m = metaByKind[s.kind];
-                const sectionBusy = busy.has(bk(activeVersionId, s.kind));
-                if (!art && !sectionBusy && !hasValidate) return null; // pre-first-run: nothing but the CTA
-                return (
-                  <section key={s.id} id={s.id} className="scroll-mt-16">
-                    <div className="mb-3 flex items-center justify-between border-b border-border pb-2">
-                      <h2 className="font-display text-lg font-semibold">{s.title}</h2>
-                      {art && !sectionBusy && (
-                        <button
-                          onClick={() => generate(s.kind, activeVersionId)}
-                          disabled={anyBusy}
-                          className="rounded-md border border-border px-2 py-1 text-xs text-muted transition hover:bg-panel2 disabled:opacity-50"
-                        >
-                          Regenerate
-                        </button>
-                      )}
-                    </div>
-                    {sectionBusy ? (
-                      <GenerationProgress label={m?.label ?? s.title} grounded={!!m?.grounded} />
-                    ) : art ? (
-                      <div>
-                        <SafeArtifact
-                          key={`${activeVersionId}:${s.kind}`}
-                          kind={s.kind}
-                          data={art.data}
-                          onRegenerate={() => generate(s.kind, activeVersionId)}
-                        />
-                        <SourcesList sources={art.sources} />
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted">
-                        Not run yet.{" "}
-                        <button
-                          onClick={() => generate(s.kind, activeVersionId)}
-                          disabled={anyBusy}
-                          className="text-accent hover:underline disabled:opacity-50"
-                        >
-                          Run just this
-                        </button>
-                      </p>
-                    )}
-                  </section>
-                );
-              })}
-            </div>
 
             {/* edges to test — derived from the verdict */}
             {activeArtifacts.validation && activeAlphas.length > 0 && (

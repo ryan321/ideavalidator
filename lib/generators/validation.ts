@@ -5,7 +5,6 @@ import {
   founderContext,
   goalContext,
   ideaHeader,
-  priorContext,
 } from "./shared";
 
 const Signal = z.object({
@@ -140,6 +139,69 @@ export const ValidationSchema = z.object({
     .array(z.object({ alpha: z.string(), rationale: z.string() }))
     .max(5)
     .default([]),
+
+  // ---- Comprehensive analysis (one call covers it all) -----------------------
+  // Every field below is optional + .catch so a partial/older result still renders.
+
+  // MARKET & COMPETITION
+  market: z
+    .object({
+      tam: z.string().catch(""), // total market, with a figure + source
+      sam: z.string().catch(""), // serviceable segment you target
+      som: z.string().catch(""), // realistically obtainable slice
+      sizing_basis: z.string().catch(""), // one line on how these were derived
+      competitors: z
+        .array(
+          z.object({
+            name: z.string().catch(""),
+            note: z.string().catch(""), // what they do + how happy their customers are
+            your_edge: z.string().catch(""), // your angle vs them
+          })
+        )
+        .catch([]),
+    })
+    .optional(),
+
+  // MONEY
+  financials: z
+    .object({
+      startup_cost: z.string().catch(""),
+      unit_economics: z
+        .object({
+          cac: z.string().catch(""),
+          ltv: z.string().catch(""),
+          payback: z.string().catch(""),
+        })
+        .catch({ cac: "", ltv: "", payback: "" }),
+      revenue_model: z.string().catch(""), // pricing + how money is made
+      projections: z
+        .array(
+          z.object({
+            year: z.string().catch(""),
+            revenue: z.string().catch(""),
+            customers: z.string().catch(""),
+            note: z.string().catch(""),
+          })
+        )
+        .catch([]),
+    })
+    .optional(),
+
+  // PLAN
+  plan: z
+    .object({
+      milestones: z
+        .array(
+          z.object({
+            title: z.string().catch(""),
+            when: z.string().catch(""), // e.g. "Month 1-2"
+            metric: z.string().catch(""), // how you'll know it's done
+          })
+        )
+        .catch([]),
+      team_and_ops: z.string().catch(""), // who/what it takes to run
+    })
+    .optional(),
 });
 
 export type Validation = z.infer<typeof ValidationSchema>;
@@ -151,7 +213,7 @@ export const validationGenerator: Generator<Validation> = {
   role: "scoring",
   grounded: true,
   schema: ValidationSchema,
-  maxTokens: 9000,
+  maxTokens: 16000, // one comprehensive analysis: verdict + market + money + plan
   system:
     "You are a brutally honest startup analyst. Validate ideas against real market evidence from web " +
     "search, not hype. Be specific and quantitative, never generic.\n" +
@@ -171,12 +233,10 @@ export const validationGenerator: Generator<Validation> = {
     "evidence; never pick a target overall number and back-fill. The overall score is COMPUTED by the " +
     "system from your criteria (demand-weighted). Judge RELATIVE TO the founder's stated goal — the same " +
     "idea can be a GO for a lifestyle business and a NO-GO for venture scale.",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}${goalContext(ctx)}${founderContext(ctx)}${priorContext(ctx, ["market"])}
+  buildPrompt: (ctx) => `${ideaHeader(ctx)}${goalContext(ctx)}${founderContext(ctx)}
 
-If a MARKET & COMPETITION analysis is provided above, treat it as completed DUE-DILIGENCE evidence: use its
-real competitors, customer sentiment, switching costs, sizing, and demand signals to ground and SHARPEN the
-scores (especially Competitive Position, Differentiation, Demand Strength, Willingness to Pay) and the
-obtainable-revenue math — don't contradict its figures.
+This is the SINGLE comprehensive analysis — it must cover the verdict AND the market/competition, the money,
+and the plan, all consistent with each other (reuse the same figures across sections; don't contradict yourself).
 
 Validate this idea. You MUST issue web searches before answering and base every figure (market size,
 CAGR, competitor funding, pricing, thread/upvote counts) on a result you actually retrieved. Name the
@@ -239,6 +299,9 @@ Also produce:
 - "acquisition": { difficulty (Easy/Moderate/Hard), reasoning (2–3 sentences; weigh the category-education tax — an established category buyers understand is EASIER, creating a category is HARDER; competitors can make selling easier) }.
 - "downside": { capital_at_risk (1–2 sentences, LEAD with the figure, e.g. "<$15K to MVP; main risk is foregone salary"), liability (1–2 sentences), if_it_fails (1–2 sentences) }.
 - "possible_alphas": 2-4 concrete differentiators/angles this idea COULD pursue to improve its odds — each { alpha (short, specific — a niche to own, a positioning as the alternative to a dominant player, a workflow/data edge, an underserved segment), rationale (1-2 sentences on why it would raise the obtainable revenue / lower risk for the goal) }. These are TESTABLE directions distinct from the current positioning.
+- "market": the deeper market & competition read — { tam, sam, som (each a figure with a cited source), sizing_basis (one line on how you derived them), competitors: 2-4 of [{ name (a REAL, currently-operating company), note (what they do + how satisfied their customers are, from real signals), your_edge (your angle vs them) }] }. Keep these CONSISTENT with the scores and obtainable_revenue above.
+- "financials": the money — { startup_cost (a figure to a usable MVP), unit_economics { cac, ltv, payback (each short) }, revenue_model (pricing + how money is made, one line), projections: 3 years of [{ year, revenue, customers, note }] where revenue ≈ customers × blended price each year and Year-1 is consistent with obtainable_revenue and the sales difficulty }.
+- "plan": the path — { milestones: 3-5 of [{ title, when (e.g. "Month 1-2"), metric (how you know it's done) }] ordered earliest-first, team_and_ops (one line: who/what it takes to build and run) }.
 
 Return JSON exactly matching:
 {
@@ -255,6 +318,9 @@ Return JSON exactly matching:
   "operating": {"effort_level": "Low"|"Medium"|"High", "description": string},
   "downside": {"capital_at_risk": string, "liability": string, "if_it_fails": string},
   "acquisition": {"difficulty": "Easy"|"Moderate"|"Hard", "reasoning": string},
-  "possible_alphas": [{"alpha": string, "rationale": string}]
+  "possible_alphas": [{"alpha": string, "rationale": string}],
+  "market": {"tam": string, "sam": string, "som": string, "sizing_basis": string, "competitors": [{"name": string, "note": string, "your_edge": string}]},
+  "financials": {"startup_cost": string, "unit_economics": {"cac": string, "ltv": string, "payback": string}, "revenue_model": string, "projections": [{"year": string, "revenue": string, "customers": string, "note": string}]},
+  "plan": {"milestones": [{"title": string, "when": string, "metric": string}], "team_and_ops": string}
 }`,
 };
