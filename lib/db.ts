@@ -146,6 +146,14 @@ function init(): Database.Database {
       updated_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_price_idea ON price_tests(idea_id);
+    CREATE TABLE IF NOT EXISTS jobs (
+      version_id TEXT NOT NULL,
+      kind       TEXT NOT NULL,
+      status     TEXT NOT NULL, -- 'running' | 'done' | 'error'
+      error      TEXT,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (version_id, kind)
+    );
   `);
 
   return db;
@@ -382,6 +390,7 @@ export function deleteIdea(id: string): void {
     db.prepare("DELETE FROM usage_log WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM prospects WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM price_tests WHERE idea_id = ?").run(id);
+    db.prepare("DELETE FROM jobs WHERE version_id IN (SELECT id FROM versions WHERE idea_id = ?)").run(id);
     db.prepare("DELETE FROM versions WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM ideas WHERE id = ?").run(id);
   });
@@ -523,6 +532,35 @@ export function updatePriceTest(
 
 export function deletePriceTest(id: string): void {
   db.prepare("DELETE FROM price_tests WHERE id = ?").run(id);
+}
+
+// ---- background jobs (so a long analysis survives leaving the page) ----------
+export type JobStatus = "running" | "done" | "error";
+export type Job = { version_id: string; kind: string; status: JobStatus; error: string | null; updated_at: string };
+
+export function setJob(versionId: string, kind: string, status: JobStatus, error: string | null = null): void {
+  db.prepare(
+    `INSERT INTO jobs (version_id, kind, status, error, updated_at) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(version_id, kind) DO UPDATE SET status = excluded.status, error = excluded.error, updated_at = excluded.updated_at`
+  ).run(versionId, kind, status, error, new Date().toISOString());
+}
+
+export function getJob(versionId: string, kind: string): Job | undefined {
+  return db.prepare("SELECT * FROM jobs WHERE version_id = ? AND kind = ?").get(versionId, kind) as Job | undefined;
+}
+
+/** Versions of this idea with a RECENT running job (so the client can resume polling).
+ * Older "running" rows are treated as stale (e.g. the server restarted mid-job). */
+export function runningJobsForIdea(ideaId: string): { version_id: string; kind: string }[] {
+  const rows = db
+    .prepare(
+      `SELECT j.version_id, j.kind, j.updated_at FROM jobs j
+       JOIN versions v ON v.id = j.version_id
+       WHERE v.idea_id = ? AND j.status = 'running'`
+    )
+    .all(ideaId) as { version_id: string; kind: string; updated_at: string }[];
+  const cutoff = new Date(Date.now() - 8 * 60 * 1000).toISOString();
+  return rows.filter((r) => r.updated_at > cutoff).map(({ version_id, kind }) => ({ version_id, kind }));
 }
 
 export function payingCount(ideaId: string): number {

@@ -3,10 +3,12 @@ import {
   deleteIdea,
   getArtifactsByVersion,
   getIdea,
+  getIdeaCost,
   getNameData,
   listVersions,
   payingCount,
   prospectCount,
+  runningJobsForIdea,
   setChosenName,
   setChosenPitch,
   setIdeaGoal,
@@ -72,6 +74,8 @@ export async function GET(
     artifactsByVersion,
     chosenName: name.chosen_name,
     stageStatus,
+    cost: getIdeaCost(id),
+    runningJobs: runningJobsForIdea(id),
   });
 }
 

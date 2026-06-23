@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Artifact, ArtifactKind, Idea, Version } from "@/lib/db";
 import type { GeneratorMeta } from "@/lib/generators";
@@ -476,13 +476,95 @@ export default function IdeaWorkspace({
     }
   }
 
-  // One button → the single comprehensive analysis (verdict + market + money + plan).
+  // --- background jobs: a long analysis survives leaving the page ------------
+  const mountedRef = useRef(true);
+  const pollingRef = useRef<Set<string>>(new Set());
+
+  // Pull the latest artifacts/versions/cost from the server (after a job finishes).
+  async function refreshArtifacts() {
+    try {
+      const j = await (await fetch(`/api/ideas/${idea.id}`)).json();
+      if (j.artifactsByVersion) {
+        const m: ArtMap = {};
+        for (const [vid, arr] of Object.entries(j.artifactsByVersion as Record<string, Artifact[]>)) {
+          m[vid] = Object.fromEntries(arr.map((a) => [a.kind, a]));
+        }
+        setArtifacts(m);
+      }
+      if (Array.isArray(j.versions)) setVersions(j.versions);
+      if (typeof j.cost === "number") setCost(j.cost);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Poll a running job until it finishes, then load the result (or surface the error).
+  function pollJob(versionId: string, kind: ArtifactKind) {
+    const key = bk(versionId, kind);
+    if (pollingRef.current.has(key)) return;
+    pollingRef.current.add(key);
+    setBusyKey(key, true);
+    let attempts = 0;
+    const tick = async () => {
+      if (!mountedRef.current) return;
+      let job: { status?: string; error?: string } | null = null;
+      try {
+        job = (await (await fetch(`/api/generate/${kind}?versionId=${versionId}`)).json()).job;
+      } catch {
+        /* network hiccup — retry */
+      }
+      if (!mountedRef.current) return;
+      // give up after ~6 min of polling (the analysis runs ~1-2 min; this guards a
+      // server that died mid-job so we don't spin forever)
+      if (job && job.status === "running" && attempts++ < 90) {
+        setTimeout(tick, 4000);
+        return;
+      }
+      pollingRef.current.delete(key);
+      if (job?.status === "error") {
+        setBusyKey(key, false);
+        setError(job.error ?? "Analysis failed");
+        return;
+      }
+      await refreshArtifacts(); // load the result first, then drop the spinner (no flash)
+      setBusyKey(key, false);
+    };
+    setTimeout(tick, 2500);
+  }
+
+  // On mount, resume any job that's still running on the server (e.g. you navigated
+  // away and came back), so the progress + result show up without re-running.
+  useEffect(() => {
+    mountedRef.current = true;
+    fetch(`/api/ideas/${idea.id}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (Array.isArray(j.runningJobs))
+          for (const job of j.runningJobs) pollJob(job.version_id, job.kind as ArtifactKind);
+      })
+      .catch(() => {});
+    return () => {
+      mountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idea.id]);
+
+  // One button → the single comprehensive analysis (verdict + market + money + plan),
+  // run as a detached background job so navigating away can't interrupt it.
   async function runValidate() {
     setError(null);
+    const v = activeVersionId;
     try {
-      await generate("validation", activeVersionId);
+      const res = await fetch(`/api/generate/validation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: v, background: true }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Could not start the analysis");
+      pollJob(v, "validation");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Analysis failed");
+      setError(e instanceof Error ? e.message : "Could not start the analysis");
     }
   }
 
