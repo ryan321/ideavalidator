@@ -146,16 +146,33 @@ export const ValidationSchema = z.object({
   // MARKET & COMPETITION
   market: z
     .object({
-      tam: z.string().catch(""), // total market, with a figure + source
-      sam: z.string().catch(""), // serviceable segment you target
-      som: z.string().catch(""), // realistically obtainable slice
-      sizing_basis: z.string().catch(""), // one line on how these were derived
+      // sizing drives the TAM/SAM/SOM donut
+      sizing: z
+        .object({
+          tam: z.object({ value: z.string().catch(""), note: z.string().catch("") }).catch({ value: "", note: "" }),
+          sam: z.object({ value: z.string().catch(""), note: z.string().catch("") }).catch({ value: "", note: "" }),
+          som: z.object({ value: z.string().catch(""), note: z.string().catch("") }).catch({ value: "", note: "" }),
+          methodology: z.string().catch(""),
+        })
+        .catch({ tam: { value: "", note: "" }, sam: { value: "", note: "" }, som: { value: "", note: "" }, methodology: "" }),
+      cagr_pct: z.number().catch(0), // e.g. 18 — labels the donut
       competitors: z
         .array(
           z.object({
             name: z.string().catch(""),
             note: z.string().catch(""), // what they do + how happy their customers are
             your_edge: z.string().catch(""), // your angle vs them
+          })
+        )
+        .catch([]),
+      // real cited evidence of the pain — Reddit/X/forum posts, with links
+      demand_signals: z
+        .array(
+          z.object({
+            source: z.string().catch(""), // e.g. "Reddit r/saas", "X (Twitter)", "Hacker News"
+            quote: z.string().catch(""), // the pain, in their words
+            url: z.string().catch(""), // link to the post/thread
+            tag: z.string().catch(""), // PAIN POINT | FEATURE REQUEST | DISCUSSION
           })
         )
         .catch([]),
@@ -299,7 +316,7 @@ Also produce:
 - "acquisition": { difficulty (Easy/Moderate/Hard), reasoning (2–3 sentences; weigh the category-education tax — an established category buyers understand is EASIER, creating a category is HARDER; competitors can make selling easier) }.
 - "downside": { capital_at_risk (1–2 sentences, LEAD with the figure, e.g. "<$15K to MVP; main risk is foregone salary"), liability (1–2 sentences), if_it_fails (1–2 sentences) }.
 - "possible_alphas": 2-4 concrete differentiators/angles this idea COULD pursue to improve its odds — each { alpha (short, specific — a niche to own, a positioning as the alternative to a dominant player, a workflow/data edge, an underserved segment), rationale (1-2 sentences on why it would raise the obtainable revenue / lower risk for the goal) }. These are TESTABLE directions distinct from the current positioning.
-- "market": the deeper market & competition read — { tam, sam, som (each a figure with a cited source), sizing_basis (one line on how you derived them), competitors: 2-4 of [{ name (a REAL, currently-operating company), note (what they do + how satisfied their customers are, from real signals), your_edge (your angle vs them) }] }. Keep these CONSISTENT with the scores and obtainable_revenue above.
+- "market": the deeper market & competition read — { sizing: { tam: {value (a figure, e.g. "$4.2B"), note (one line)}, sam: {value, note}, som: {value, note}, methodology (one line on how you derived them) }, cagr_pct (number, e.g. 18), competitors: 2-4 of [{ name (a REAL, currently-operating company), note (what they do + how satisfied their customers are, from real signals), your_edge (your angle vs them) }], demand_signals: 3-5 REAL cited evidences of the pain you found via web search — each { source (e.g. "Reddit r/saas", "X (Twitter)", "Hacker News"), quote (the pain in the person's own words), url (a link to the actual post/thread), tag ("PAIN POINT"|"FEATURE REQUEST"|"DISCUSSION") }. Only include demand_signals you actually found; never fabricate a thread or URL. Keep all of this CONSISTENT with the scores and obtainable_revenue above.
 - "financials": the money — { startup_cost (a figure to a usable MVP), unit_economics { cac, ltv, payback (each short) }, revenue_model (pricing + how money is made, one line), projections: 3 years of [{ year, revenue, customers, note }] where revenue ≈ customers × blended price each year and Year-1 is consistent with obtainable_revenue and the sales difficulty }.
 - "plan": the path — { milestones: 3-5 of [{ title, when (e.g. "Month 1-2"), metric (how you know it's done) }] ordered earliest-first, team_and_ops (one line: who/what it takes to build and run) }.
 
@@ -319,7 +336,7 @@ Return JSON exactly matching:
   "downside": {"capital_at_risk": string, "liability": string, "if_it_fails": string},
   "acquisition": {"difficulty": "Easy"|"Moderate"|"Hard", "reasoning": string},
   "possible_alphas": [{"alpha": string, "rationale": string}],
-  "market": {"tam": string, "sam": string, "som": string, "sizing_basis": string, "competitors": [{"name": string, "note": string, "your_edge": string}]},
+  "market": {"sizing": {"tam": {"value": string, "note": string}, "sam": {"value": string, "note": string}, "som": {"value": string, "note": string}, "methodology": string}, "cagr_pct": number, "competitors": [{"name": string, "note": string, "your_edge": string}], "demand_signals": [{"source": string, "quote": string, "url": string, "tag": string}]},
   "financials": {"startup_cost": string, "unit_economics": {"cac": string, "ltv": string, "payback": string}, "revenue_model": string, "projections": [{"year": string, "revenue": string, "customers": string, "note": string}]},
   "plan": {"milestones": [{"title": string, "when": string, "metric": string}], "team_and_ops": string}
 }`,

@@ -401,31 +401,56 @@ export function ValidationView({ d }: { d: Validation }) {
 
       {/* MARKET & COMPETITION */}
       {d.market && (
-        <section id="market" className="scroll-mt-16">
-          <Section title="Market & competition">
-            {(d.market.tam || d.market.sam || d.market.som) && (
-              <div className="mb-3 grid grid-cols-3 gap-3">
-                <StatTile label="TAM" value={d.market.tam || "—"} hint="Total market" />
-                <StatTile label="SAM" value={d.market.sam || "—"} hint="Serviceable segment you target" />
-                <StatTile label="SOM" value={d.market.som || "—"} hint="Realistically obtainable slice" />
+        <section id="market" className="scroll-mt-16 space-y-6">
+          {d.market.sizing && (d.market.sizing.tam?.value || d.market.sizing.sam?.value || d.market.sizing.som?.value) && (
+            <MarketSizing sizing={d.market.sizing} cagrPct={d.market.cagr_pct ?? 0} />
+          )}
+
+          {(d.market.competitors ?? []).length > 0 && (
+            <Section title="Competitors">
+              <div className="space-y-2">
+                {d.market.competitors!.map((c, i) => (
+                  <Card key={i} className="p-4">
+                    <div className="text-sm font-semibold">{c.name}</div>
+                    {c.note && <p className="mt-1 text-sm text-muted">{c.note}</p>}
+                    {c.your_edge && (
+                      <p className="mt-1.5 text-xs">
+                        <span className="font-semibold text-accent">Your edge: </span>
+                        <span className="text-fg/85">{c.your_edge}</span>
+                      </p>
+                    )}
+                  </Card>
+                ))}
               </div>
-            )}
-            {d.market.sizing_basis && <p className="mb-3 text-xs text-muted">{d.market.sizing_basis}</p>}
-            <div className="space-y-2">
-              {(d.market.competitors ?? []).map((c, i) => (
-                <Card key={i} className="p-4">
-                  <div className="text-sm font-semibold">{c.name}</div>
-                  {c.note && <p className="mt-1 text-sm text-muted">{c.note}</p>}
-                  {c.your_edge && (
-                    <p className="mt-1.5 text-xs">
-                      <span className="font-semibold text-accent">Your edge: </span>
-                      <span className="text-fg/85">{c.your_edge}</span>
-                    </p>
-                  )}
-                </Card>
-              ))}
-            </div>
-          </Section>
+            </Section>
+          )}
+
+          {(d.market.demand_signals ?? []).length > 0 && (
+            <Section title="What people are actually saying">
+              <p className="mb-2 text-xs text-muted">Real posts found while researching — the pain in their own words.</p>
+              <div className="space-y-2">
+                {d.market.demand_signals!.map((s, i) => (
+                  <Card key={i} className="p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      {s.tag && (
+                        <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent2">
+                          {s.tag}
+                        </span>
+                      )}
+                      {s.url ? (
+                        <a href={s.url} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent2 hover:underline">
+                          {s.source || "source"} ↗
+                        </a>
+                      ) : (
+                        <span className="truncate text-xs text-muted">{s.source}</span>
+                      )}
+                    </div>
+                    {s.quote && <p className="mt-1.5 text-sm leading-relaxed text-fg/90">“{s.quote}”</p>}
+                  </Card>
+                ))}
+              </div>
+            </Section>
+          )}
         </section>
       )}
 
