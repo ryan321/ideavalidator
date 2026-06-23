@@ -1309,23 +1309,25 @@ export default function IdeaWorkspace({
           />
         ) : currentStage === "validate" ? (
           <div>
-            {/* one button → the whole analysis */}
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-panel p-4">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold">Full analysis</div>
-                <div className="mt-0.5 max-w-md text-xs text-muted">
-                  One grounded pass — the verdict, the market &amp; competition, the money, and the plan, all
-                  in a single consistent analysis.
+            {/* once there's a report, this header is the re-run control */}
+            {hasValidate && (
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-panel p-4">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">Full analysis</div>
+                  <div className="mt-0.5 max-w-md text-xs text-muted">
+                    One grounded pass — the verdict, the market &amp; competition, the money, and the plan, all
+                    in a single consistent analysis.
+                  </div>
                 </div>
+                <button
+                  onClick={runValidate}
+                  disabled={anyBusy}
+                  className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm shadow-accent/20 transition hover:brightness-110 disabled:opacity-50"
+                >
+                  {anyBusy ? "Analyzing…" : "Re-run analysis"}
+                </button>
               </div>
-              <button
-                onClick={runValidate}
-                disabled={anyBusy}
-                className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm shadow-accent/20 transition hover:brightness-110 disabled:opacity-50"
-              >
-                {anyBusy ? "Analyzing…" : hasValidate ? "Re-run analysis" : "Validate"}
-              </button>
-            </div>
+            )}
 
             {/* the one comprehensive analysis */}
             {busy.has(bk(activeVersionId, "validation")) ? (
