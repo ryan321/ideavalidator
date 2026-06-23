@@ -209,6 +209,7 @@ export function ValidationView({ d }: { d: Validation }) {
       {/* jump nav across the one analysis */}
       <nav className="no-print sticky top-0 z-10 -mx-1 flex flex-wrap gap-1 border-b border-border bg-bg/85 px-1 py-2 backdrop-blur">
         <a href="#verdict" className={navLink}>Verdict</a>
+        {d.risk_matrix?.length ? <a href="#risks" className={navLink}>Risks</a> : null}
         {d.market && <a href="#market" className={navLink}>Market &amp; competition</a>}
         {d.financials && <a href="#money" className={navLink}>Money</a>}
         {d.plan && <a href="#plan" className={navLink}>Plan</a>}
@@ -352,15 +353,6 @@ export function ValidationView({ d }: { d: Validation }) {
                 <p className="text-sm leading-relaxed text-fg/90">{d.acquisition.reasoning}</p>
               </DetailRow>
             )}
-            {d.downside && (
-              <DetailRow title="Downside / what's at risk">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <Field label="Capital at risk" value={d.downside.capital_at_risk} />
-                  <Field label="Liability" value={d.downside.liability} />
-                  <Field label="If it fails" value={d.downside.if_it_fails} />
-                </div>
-              </DetailRow>
-            )}
           </div>
         </details>
       )}
@@ -378,11 +370,28 @@ export function ValidationView({ d }: { d: Validation }) {
         </Section>
       )}
 
-      {/* The evidence behind the verdict — collapsed by default to keep the verdict scannable */}
+      {/* RISKS — its own section, not buried in the evidence */}
+      {d.risk_matrix?.length ? (
+        <section id="risks" className="scroll-mt-16">
+          <RiskMatrix risks={d.risk_matrix} />
+          {d.downside && (
+            <Card className="mt-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">What&apos;s at stake</div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Capital at risk" value={d.downside.capital_at_risk} />
+                <Field label="Liability" value={d.downside.liability} />
+                <Field label="If it fails" value={d.downside.if_it_fails} />
+              </div>
+            </Card>
+          )}
+        </section>
+      ) : null}
+
+      {/* The score's evidence — collapsed to keep the verdict scannable */}
       <details className="group rounded-xl border border-border bg-panel">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-medium text-muted hover:text-fg">
           <span className="transition group-open:rotate-90">▸</span>
-          Full scorecard, signals &amp; risk — the evidence behind the score
+          Full scorecard &amp; signals — the evidence behind the score
         </summary>
         <div className="space-y-6 border-t border-border p-5">
           <Section title="Visual Overview">
@@ -395,7 +404,6 @@ export function ValidationView({ d }: { d: Validation }) {
           </Section>
           <ValidationSummary go={d.go_signals} stop={d.stop_signals} />
           <ValidationScorecard validations={d.validations} criteria={d.criteria} />
-          <RiskMatrix risks={d.risk_matrix} />
         </div>
       </details>
 
