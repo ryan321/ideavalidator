@@ -64,9 +64,10 @@ export async function GET(
     validate: st(kinds.has("validation"), "validate"),
     decide: st(!!idea.chosen_version_id, "decide"),
     pitch: st(!!idea.chosen_pitch, "pitch"),
-    sell: paying > 0 ? "done" : hasProspects || idea.stage === "sell" ? "active" : "todo",
     name: st(!!name.chosen_name, "name"),
     brand: st(kinds.has("brand"), "brand"),
+    promote: st(kinds.has("promotion") || kinds.has("marketing"), "promote"),
+    sell: paying > 0 ? "done" : hasProspects || idea.stage === "sell" ? "active" : "todo",
   };
   return NextResponse.json({
     idea,

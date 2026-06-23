@@ -205,6 +205,7 @@ export type ArtifactKind =
   | "marketing"
   | "customer_pitch"
   | "pitch"
+  | "promotion"
   | "outreach";
 
 export type Idea = {

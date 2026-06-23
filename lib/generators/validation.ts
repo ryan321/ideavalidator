@@ -47,19 +47,7 @@ export const ValidationSchema = z.object({
     areas_of_concern: z.array(Signal).min(1),
   }),
 
-  action_plan: z
-    .array(
-      z.object({
-        title: z.string(),
-        rationale: z.string(),
-        type: z.enum(["VALIDATE", "BUILD", "DISTRIBUTE", "DE-RISK"]),
-        effort: z.enum(["Low", "Medium", "High"]),
-        horizon: z.enum(["This week", "This month", "This quarter"]),
-        success_metric: z.string(),
-        first_step: z.string(),
-      })
-    )
-    .min(3),
+  // (action plan removed — validation is the assessment; the journey is the plan)
 
   // Probability x Impact risk matrix (1-5 each).
   risk_matrix: z
@@ -307,7 +295,6 @@ Also produce:
 - "confidence" (0-100) = how much corroborating web evidence you actually found (lower it when you relied on assumption). Still output a "score" and "verdict", but know the system RECOMPUTES the overall score as a demand-weighted average of your 9 criteria and derives the verdict from it — so put your effort into scoring the 9 criteria honestly and distinctly, NOT into tuning the headline number. Add a 2-3 sentence evidence-based "summary" that leads with what the founder can realistically expect.
 - "validations": problem, solution, and market validation each with a 0-100 score and an evidence-based rationale.
 - "go_signals": positive_signals (why it has momentum) and key_strengths; "stop_signals": critical_risks and areas_of_concern. Each item is { text, category } where category is ONE of MARKET, DEMAND, DEFENSIBILITY, REVENUE, EXECUTION, TECH and "text" references something specific to THIS idea (a named competitor, a real number, or a cited signal) — no statement that could apply to any startup.
-- "action_plan": 4-6 prioritized next steps ordered by impact x ease, each with type (VALIDATE/BUILD/DISTRIBUTE/DE-RISK), effort (Low/Medium/High), horizon (This week/This month/This quarter), a measurable success_metric, and a concrete first_step.
 - "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation.
 - "clarifying_questions": 2-4 pointed questions whose answers would most change this assessment (e.g. exact target segment, what truly distinguishes this from the named competitors, pricing/distribution). If FOUNDER CONTEXT above already answered earlier questions, ask new ones (or fewer) — don't repeat answered ones.
 - "narrative": { who, pain, status_quo, cost_of_inaction, solution, after, verdict ("Painkiller"|"Vitamin"), why (1-2 sentences for the verdict) }. Each field 1-2 sentences, concrete to THIS idea.
@@ -327,7 +314,6 @@ Return JSON exactly matching:
   "validations": {"problem": {"score": number, "rationale": string}, "solution": {"score": number, "rationale": string}, "market": {"score": number, "rationale": string}},
   "go_signals": {"positive_signals": [{"text": string, "category": string}], "key_strengths": [{"text": string, "category": string}]},
   "stop_signals": {"critical_risks": [{"text": string, "category": string}], "areas_of_concern": [{"text": string, "category": string}]},
-  "action_plan": [{"title": string, "rationale": string, "type": "VALIDATE"|"BUILD"|"DISTRIBUTE"|"DE-RISK", "effort": "Low"|"Medium"|"High", "horizon": "This week"|"This month"|"This quarter", "success_metric": string, "first_step": string}],
   "risk_matrix": [{"title": string, "category": "tech"|"market"|"financial", "probability": number, "impact": number, "mitigation": string}],
   "clarifying_questions": [string],
   "narrative": {"who": string, "pain": string, "status_quo": string, "cost_of_inaction": string, "solution": string, "after": string, "verdict": "Painkiller"|"Vitamin", "why": string},

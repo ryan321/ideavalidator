@@ -10,13 +10,13 @@ import type { Marketing } from "@/lib/generators/marketing";
 import type { CustomerPitch } from "@/lib/generators/customer_pitch";
 import type { Pitch } from "@/lib/generators/pitch";
 import type { Outreach } from "@/lib/generators/outreach";
+import type { Promotion } from "@/lib/generators/promotion";
 
 // Report subcomponents (built as standalone files).
 import { CriteriaRadar } from "./report/CriteriaRadar";
 import { FactorBars } from "./report/FactorBars";
 import { ValidationSummary } from "./report/ValidationSummary";
 import { ValidationScorecard } from "./report/ValidationScorecard";
-import { ActionPlan } from "./report/ActionPlan";
 import { RiskMatrix } from "./report/RiskMatrix";
 import { MarketHeader } from "./report/MarketHeader";
 import { MarketSizing } from "./report/MarketSizing";
@@ -357,8 +357,7 @@ export function ValidationView({ d }: { d: Validation }) {
         </details>
       )}
 
-      {/* What to do — kept up front */}
-      <ActionPlan steps={d.action_plan} />
+      {/* open questions about the assessment (not a to-do list — the journey is the plan) */}
       {d.clarifying_questions && d.clarifying_questions.length > 0 && (
         <Section title="Open questions from the validator">
           <Card className="border-accent2/30 bg-accent2/5">
@@ -742,6 +741,61 @@ export function MarketingView({ d }: { d: Marketing }) {
               <div className="mt-1 text-xs">
                 <span className="text-accent">CTA:</span> {u.cta}
               </div>
+            </Card>
+          ))}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+export function PromotionView({ d }: { d: Promotion }) {
+  return (
+    <div className="space-y-5">
+      <Card className="border-accent2/40 bg-accent2/5 p-4">
+        <div className="font-mono text-xs uppercase tracking-[0.18em] text-accent2">Channel strategy</div>
+        <p className="mt-1.5 text-sm text-fg/90">{d.channel_strategy}</p>
+      </Card>
+
+      <Section title="Where to show up">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {d.channels.map((c, i) => (
+            <Card key={i} className="p-4">
+              <div className="text-sm font-semibold">{c.channel}</div>
+              <p className="mt-1 text-sm text-muted">{c.why}</p>
+              {c.first_move && (
+                <p className="mt-2 text-xs">
+                  <span className="font-semibold text-accent">First move: </span>
+                  <span className="text-fg/85">{c.first_move}</span>
+                </p>
+              )}
+            </Card>
+          ))}
+        </div>
+      </Section>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Section title="Stand this up">
+          <Card className="p-4">
+            <Bullets items={d.presence_checklist} />
+          </Card>
+        </Section>
+        <Section title="Get the word out">
+          <Card className="p-4">
+            <Bullets items={d.launch_tactics} />
+          </Card>
+        </Section>
+      </div>
+
+      <Section title="What to post">
+        <div className="space-y-2">
+          {d.content_plan.map((c, i) => (
+            <Card key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 p-3">
+              <span className="text-sm font-semibold">{c.theme}</span>
+              <span className="text-xs text-muted">{c.formats}</span>
+              <span className="ml-auto rounded-full border border-border bg-panel2 px-2 py-0.5 font-mono text-[11px] text-muted">
+                {c.cadence}
+              </span>
             </Card>
           ))}
         </div>

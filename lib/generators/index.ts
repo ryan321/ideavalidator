@@ -20,6 +20,7 @@ import { logoGenerator } from "./logo";
 import { marketingGenerator } from "./marketing";
 import { customerPitchGenerator } from "./customer_pitch";
 import { pitchGenerator } from "./pitch";
+import { promotionGenerator } from "./promotion";
 import { outreachGenerator } from "./outreach";
 
 export const GENERATORS: Record<ArtifactKind, Generator> = {
@@ -32,6 +33,7 @@ export const GENERATORS: Record<ArtifactKind, Generator> = {
   marketing: marketingGenerator,
   customer_pitch: customerPitchGenerator,
   pitch: pitchGenerator,
+  promotion: promotionGenerator,
   outreach: outreachGenerator,
 };
 
@@ -41,10 +43,11 @@ export const KIND_ORDER: ArtifactKind[] = [
   "market",
   "financials",
   "plan",
-  "brand",
-  "logo",
   "customer_pitch",
   "pitch",
+  "brand",
+  "logo",
+  "promotion",
   "marketing",
   "outreach",
 ];

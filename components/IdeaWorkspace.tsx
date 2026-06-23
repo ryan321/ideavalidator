@@ -18,6 +18,7 @@ import {
   OutreachView,
   PitchView,
   PlanView,
+  PromotionView,
   SourcesList,
   ValidationView,
 } from "./artifacts";
@@ -32,6 +33,7 @@ import { MarketingSchema } from "@/lib/generators/marketing";
 import { CustomerPitchSchema } from "@/lib/generators/customer_pitch";
 import { PitchSchema } from "@/lib/generators/pitch";
 import { OutreachSchema } from "@/lib/generators/outreach";
+import { PromotionSchema } from "@/lib/generators/promotion";
 
 // Validate persisted artifacts against the current schema so results saved under an
 // older schema show a regenerate prompt instead of crashing the render.
@@ -45,6 +47,7 @@ const SCHEMAS: Record<ArtifactKind, ZodType> = {
   marketing: MarketingSchema,
   customer_pitch: CustomerPitchSchema,
   pitch: PitchSchema,
+  promotion: PromotionSchema,
   outreach: OutreachSchema,
 };
 function isCurrent(kind: ArtifactKind, data: unknown): boolean {
@@ -61,6 +64,7 @@ const VIEWS: Record<ArtifactKind, React.ComponentType<{ d: never }>> = {
   marketing: MarketingView as never,
   customer_pitch: CustomerPitchView as never,
   pitch: PitchView as never,
+  promotion: PromotionView as never,
   outreach: OutreachView as never,
 };
 
@@ -150,7 +154,7 @@ const goalLabel = (k: string | null) =>
   GOAL_OPTIONS.find((o) => o.key === k)?.label ?? "Not set";
 
 // The journey: idea -> first paying customers. Each stage groups artifact kinds (or a special view).
-type StageKey = "validate" | "decide" | "pitch" | "sell" | "name" | "brand";
+type StageKey = "validate" | "decide" | "pitch" | "name" | "brand" | "promote" | "sell";
 const STAGES: {
   key: StageKey;
   label: string;
@@ -162,10 +166,11 @@ const STAGES: {
 }[] = [
   { key: "validate", label: "Validate", blurb: "Is there real, paying demand?", kinds: ["validation"] },
   { key: "decide", label: "Decide", blurb: "Commit to the version you'll build on.", kinds: [], special: true },
-  { key: "pitch", label: "Pitch", blurb: "Say why they'll buy — pick a customer or investor pitch.", kinds: ["customer_pitch", "pitch", "marketing"], needsChosen: true },
-  { key: "sell", label: "Sell", blurb: "Land your first 5 paying customers.", kinds: ["outreach"], special: true, needsChosen: true },
+  { key: "pitch", label: "Pitch", blurb: "Say why they'll buy — pick a customer or investor pitch.", kinds: ["customer_pitch", "pitch"], needsChosen: true },
   { key: "name", label: "Name", blurb: "Find a name you can actually own.", kinds: [], special: true, needsChosen: true },
-  { key: "brand", label: "Branding", blurb: "Optional — make it pretty once you have traction.", kinds: ["brand", "logo"], needsChosen: true, optional: true },
+  { key: "brand", label: "Branding", blurb: "Give it a feel, a voice, and a look.", kinds: ["brand", "logo"], needsChosen: true },
+  { key: "promote", label: "Promote", blurb: "Build your presence and get the word out.", kinds: ["promotion", "marketing"], needsChosen: true },
+  { key: "sell", label: "Acquire", blurb: "Land your first 5 paying customers.", kinds: ["outreach"], special: true, needsChosen: true },
 ];
 const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
 
@@ -1645,18 +1650,26 @@ export default function IdeaWorkspace({
             {/* forward step to keep the journey moving */}
             {currentStage === "pitch" && chosenPitch && (
               <button
-                onClick={() => goToStage("sell")}
+                onClick={() => goToStage("name")}
                 className="mt-6 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
               >
-                Continue to Sell →
+                Continue to Name →
               </button>
             )}
             {currentStage === "brand" && (
               <button
-                onClick={() => goToStage("name")}
-                className="mt-6 rounded-lg border border-border px-4 py-2 text-sm hover:bg-panel2"
+                onClick={() => goToStage("promote")}
+                className="mt-6 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
               >
-                Continue to Name →
+                Continue to Promote →
+              </button>
+            )}
+            {currentStage === "promote" && (
+              <button
+                onClick={() => goToStage("sell")}
+                className="mt-6 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
+              >
+                Continue to Acquire →
               </button>
             )}
           </>
