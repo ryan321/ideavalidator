@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Generator, ideaHeader, priorContext } from "./shared";
+import { founderProfile, Generator, ideaHeader, priorContext } from "./shared";
 
 export const OutreachSchema = z.object({
   channel_strategy: z.string(), // which 1-2 channels to lead with for THIS buyer, and why
@@ -34,7 +34,7 @@ export const outreachGenerator: Generator<Outreach> = {
     "reply, a 15-min call). No buzzwords, no 'hope this finds you well', no fake personalization. Recommend the " +
     "1-2 channels that actually fit this buyer (don't list every channel) and give a realistic plan to reach 5 " +
     "paying customers from a standing start.",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}${priorContext(ctx, ["validation", "market", "customer_pitch"])}
+  buildPrompt: (ctx) => `${ideaHeader(ctx)}${founderProfile(ctx)}${priorContext(ctx, ["validation", "market", "customer_pitch"])}
 
 Write first-touch OUTREACH to land the first 5 paying customers. Ground it in the validation narrative (who the
 buyer is and their acute pain) and the persona/competitor findings. Pick the channels that fit THIS buyer (e.g.

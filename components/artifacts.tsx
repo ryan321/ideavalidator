@@ -204,15 +204,29 @@ function VerdictMeter({ score }: { score: number }) {
 
 export function ValidationView({ d }: { d: Validation }) {
   const navLink = "rounded-md px-2.5 py-1 text-xs text-muted transition hover:bg-panel2 hover:text-fg";
+  // only show a section (and its nav link) when it actually has content — a partial
+  // analysis shouldn't leave a nav link that jumps to a blank section.
+  const m = d.market;
+  const showMarket = !!m && !!(
+    m.sizing?.tam?.value || m.sizing?.sam?.value || m.sizing?.som?.value ||
+    m.search_trend?.note || m.momentum || m.competitors?.length || m.demand_signals?.length
+  );
+  const f = d.financials;
+  const showMoney = !!f && !!(
+    f.startup_cost || f.revenue_model || f.unit_economics?.cac || f.unit_economics?.ltv ||
+    f.unit_economics?.payback || f.projections?.length
+  );
+  const p = d.plan;
+  const showPlan = !!p && !!(p.milestones?.length || p.team_and_ops);
   return (
     <div className="space-y-8">
       {/* jump nav across the one analysis */}
       <nav className="no-print sticky top-0 z-10 -mx-1 flex flex-wrap gap-1 border-b border-border bg-bg/85 px-1 py-2 backdrop-blur">
         <a href="#verdict" className={navLink}>Verdict</a>
         {d.risk_matrix?.length ? <a href="#risks" className={navLink}>Risks</a> : null}
-        {d.market && <a href="#market" className={navLink}>Market &amp; competition</a>}
-        {d.financials && <a href="#money" className={navLink}>Money</a>}
-        {d.plan && <a href="#plan" className={navLink}>Plan</a>}
+        {showMarket && <a href="#market" className={navLink}>Market &amp; competition</a>}
+        {showMoney && <a href="#money" className={navLink}>Money</a>}
+        {showPlan && <a href="#plan" className={navLink}>Plan</a>}
       </nav>
 
       <div id="verdict" className="space-y-4 scroll-mt-16">
@@ -422,7 +436,7 @@ export function ValidationView({ d }: { d: Validation }) {
       </details>
 
       {/* MARKET & COMPETITION */}
-      {d.market && (
+      {showMarket && d.market && (
         <section id="market" className="scroll-mt-16 space-y-6">
           {d.market.sizing && (d.market.sizing.tam?.value || d.market.sizing.sam?.value || d.market.sizing.som?.value) && (
             <MarketSizing sizing={d.market.sizing} cagrPct={d.market.cagr_pct ?? 0} />
@@ -514,7 +528,7 @@ export function ValidationView({ d }: { d: Validation }) {
       )}
 
       {/* MONEY */}
-      {d.financials && (
+      {showMoney && d.financials && (
         <section id="money" className="scroll-mt-16">
           <Section title="Money">
             <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -553,7 +567,7 @@ export function ValidationView({ d }: { d: Validation }) {
       )}
 
       {/* PLAN */}
-      {d.plan && (
+      {showPlan && d.plan && (
         <section id="plan" className="scroll-mt-16">
           <Section title="Plan">
             <ol className="space-y-2">

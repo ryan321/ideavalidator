@@ -236,7 +236,7 @@ export type Validation = z.infer<typeof ValidationSchema>;
 export const validationGenerator: Generator<Validation> = {
   kind: "validation",
   label: "Validation",
-  blurb: "Scored GO / NO-GO with radar, signals, scorecard, action plan & risk matrix.",
+  blurb: "One grounded pass: scored verdict + market, money, plan & risks.",
   role: "scoring",
   grounded: true,
   schema: ValidationSchema,

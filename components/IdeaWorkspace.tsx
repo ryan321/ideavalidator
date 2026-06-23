@@ -325,6 +325,13 @@ export default function IdeaWorkspace({
   const [goalDetail, setGoalDetail] = useState(idea.goal_detail ?? "");
   const [editingGoal, setEditingGoal] = useState(false);
 
+  // If the goal flips to lifestyle/side-hustle while the investor pitch tab is active,
+  // that tab gets hidden — fall back to the customer pitch so the panel isn't orphaned.
+  useEffect(() => {
+    const hide = currentStage === "pitch" && (goalBucket === "lifestyle" || goalBucket === "side_hustle");
+    if (hide && activeTab === "pitch") setActiveTab("customer_pitch");
+  }, [currentStage, goalBucket, activeTab]);
+
   async function saveGoal() {
     try {
       await fetch(`/api/ideas/${idea.id}`, {
@@ -486,21 +493,18 @@ export default function IdeaWorkspace({
   const pollingRef = useRef<Set<string>>(new Set());
 
   // Pull the latest artifacts/versions/cost from the server (after a job finishes).
+  // throws on failure so the caller (pollJob) can surface it instead of leaving a blank.
   async function refreshArtifacts() {
-    try {
-      const j = await (await fetch(`/api/ideas/${idea.id}`)).json();
-      if (j.artifactsByVersion) {
-        const m: ArtMap = {};
-        for (const [vid, arr] of Object.entries(j.artifactsByVersion as Record<string, Artifact[]>)) {
-          m[vid] = Object.fromEntries(arr.map((a) => [a.kind, a]));
-        }
-        setArtifacts(m);
+    const j = await (await fetch(`/api/ideas/${idea.id}`)).json();
+    if (j.artifactsByVersion) {
+      const m: ArtMap = {};
+      for (const [vid, arr] of Object.entries(j.artifactsByVersion as Record<string, Artifact[]>)) {
+        m[vid] = Object.fromEntries(arr.map((a) => [a.kind, a]));
       }
-      if (Array.isArray(j.versions)) setVersions(j.versions);
-      if (typeof j.cost === "number") setCost(j.cost);
-    } catch {
-      /* ignore */
+      setArtifacts(m);
     }
+    if (Array.isArray(j.versions)) setVersions(j.versions);
+    if (typeof j.cost === "number") setCost(j.cost);
   }
 
   // Poll a running job until it finishes, then load the result (or surface the error).
@@ -531,7 +535,11 @@ export default function IdeaWorkspace({
         setError(job.error ?? "Analysis failed");
         return;
       }
-      await refreshArtifacts(); // load the result first, then drop the spinner (no flash)
+      try {
+        await refreshArtifacts(); // load the result first, then drop the spinner (no flash)
+      } catch {
+        setError("The analysis finished but couldn't load — refresh the page.");
+      }
       setBusyKey(key, false);
     };
     setTimeout(tick, 2500);
@@ -616,7 +624,7 @@ export default function IdeaWorkspace({
     }
   }
 
-  // --- re-validate in light of what real prospects told you (Sell stage) ------
+  // --- re-validate in light of what real prospects told you (Acquire stage) ------
   async function applyLearnings(context: string) {
     setError(null);
     try {
@@ -1383,7 +1391,15 @@ export default function IdeaWorkspace({
             )}
           </div>
         ) : currentStage === "name" ? (
-          <NameStage ideaId={idea.id} onCost={(d) => setCost((c) => c + d)} />
+          <div>
+            <NameStage ideaId={idea.id} onCost={(d) => setCost((c) => c + d)} />
+            <button
+              onClick={() => goToStage("brand")}
+              className="mt-6 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
+            >
+              Continue to Branding →
+            </button>
+          </div>
         ) : currentStage === "acquire" ? (
           <SellStage
             ideaId={idea.id}
@@ -1408,10 +1424,10 @@ export default function IdeaWorkspace({
                 </div>
                 <button
                   onClick={runValidate}
-                  disabled={anyBusy}
+                  disabled={busy.has(bk(activeVersionId, "validation")) || iterating}
                   className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm shadow-accent/20 transition hover:brightness-110 disabled:opacity-50"
                 >
-                  {anyBusy ? "Analyzing…" : "Re-run analysis"}
+                  {busy.has(bk(activeVersionId, "validation")) ? "Analyzing…" : "Re-run analysis"}
                 </button>
               </div>
             )}

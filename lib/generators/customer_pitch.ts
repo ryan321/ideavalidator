@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Generator, ideaHeader, priorContext } from "./shared";
+import { founderProfile, Generator, ideaHeader, priorContext } from "./shared";
 
 export const CustomerPitchSchema = z.object({
   one_liner: z.string(), // positioning: "<product> helps <who> <outcome> without <pain>"
@@ -43,7 +43,7 @@ export const customerPitchGenerator: Generator<CustomerPitch> = {
     "then present the product as the obvious painkiller. Use plain, specific, conversational language a real " +
     "person would say out loud: no buzzwords, no hype, no invented metrics. Every claim must trace to the " +
     "provided artifacts; if you lack a hard number, speak to the outcome qualitatively rather than inventing a figure.",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}${priorContext(ctx, ["validation", "market"])}
+  buildPrompt: (ctx) => `${ideaHeader(ctx)}${founderProfile(ctx)}${priorContext(ctx, ["validation", "market"])}
 
 Write a customer-facing sales pitch to win the FIRST FEW PAYING CUSTOMERS. Write ONLY for the single specific
 buyer persona named in the validation/market artifacts — their exact role/title and segment; do not pitch to a

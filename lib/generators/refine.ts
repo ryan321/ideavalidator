@@ -23,7 +23,6 @@ type ValidationLike = {
     areas_of_concern?: { text: string }[];
   };
   risk_matrix?: { title: string; probability: number; impact: number }[];
-  action_plan?: { title: string; first_step?: string }[];
 };
 
 /**
@@ -58,9 +57,6 @@ Top risk-matrix items: ${(validation.risk_matrix ?? [])
         .sort((a, b) => b.probability * b.impact - a.probability * a.impact)
         .slice(0, 3)
         .map((r) => r.title)
-        .join("; ")}
-Already-recommended actions (build on these, don't just repeat them): ${(validation.action_plan ?? [])
-        .map((a) => a.title)
         .join("; ")}`
     : "No validation has been run yet; refine for clarity, focus, and defensibility.";
 
