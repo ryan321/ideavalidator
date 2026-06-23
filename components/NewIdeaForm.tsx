@@ -15,6 +15,9 @@ export default function NewIdeaForm() {
   const [prompt, setPrompt] = useState("");
   const [goal, setGoal] = useState("unsure");
   const [goalDetail, setGoalDetail] = useState("");
+  const [insider, setInsider] = useState("");
+  const [builder, setBuilder] = useState("");
+  const [network, setNetwork] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,11 +25,18 @@ export default function NewIdeaForm() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    const founderFit = [
+      insider && `market knowledge: ${insider}`,
+      builder && `built software before: ${builder}`,
+      network && `warm intros to buyers: ${network}`,
+    ]
+      .filter(Boolean)
+      .join("; ");
     try {
       const res = await fetch("/api/ideas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, goal, goalDetail }),
+        body: JSON.stringify({ prompt, goal, goalDetail, founderFit }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to create idea");
@@ -73,6 +83,39 @@ export default function NewIdeaForm() {
           placeholder="Optional: time, effort & budget — e.g. “~$200k/yr, solo, nights & weekends, bootstrap only”"
           className="mt-2 w-full rounded-lg border border-border bg-panel px-3 py-2 text-sm outline-none placeholder:text-muted focus:border-accent"
         />
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted">
+          About you <span className="font-normal normal-case text-muted/70">— optional, sharpens the scoring</span>
+        </div>
+        <div className="space-y-2">
+          {(
+            [
+              { label: "Know this market?", value: insider, set: setInsider, opts: ["Insider", "Some", "Outsider"] },
+              { label: "Built software before?", value: builder, set: setBuilder, opts: ["Yes", "No"] },
+              { label: "Warm intros to buyers?", value: network, set: setNetwork, opts: ["Yes", "Some", "None"] },
+            ] as const
+          ).map((row) => (
+            <div key={row.label} className="flex flex-wrap items-center gap-2">
+              <span className="w-44 shrink-0 text-sm text-muted">{row.label}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {row.opts.map((o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => row.set(row.value === o ? "" : o)}
+                    className={`rounded-md border px-2.5 py-1 text-xs transition ${
+                      row.value === o ? "border-accent bg-accent/15 text-accent" : "border-border text-muted hover:text-fg"
+                    }`}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {error && <div className="mt-2 text-sm text-bad">{error}</div>}

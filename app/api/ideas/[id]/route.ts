@@ -67,7 +67,7 @@ export async function GET(
     name: st(!!name.chosen_name, "name"),
     brand: st(kinds.has("brand"), "brand"),
     promote: st(kinds.has("promotion") || kinds.has("marketing"), "promote"),
-    sell: paying > 0 ? "done" : hasProspects || idea.stage === "sell" ? "active" : "todo",
+    acquire: paying > 0 ? "done" : hasProspects || idea.stage === "acquire" ? "active" : "todo",
   };
   return NextResponse.json({
     idea,

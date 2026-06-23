@@ -154,7 +154,7 @@ const goalLabel = (k: string | null) =>
   GOAL_OPTIONS.find((o) => o.key === k)?.label ?? "Not set";
 
 // The journey: idea -> first paying customers. Each stage groups artifact kinds (or a special view).
-type StageKey = "validate" | "decide" | "pitch" | "name" | "brand" | "promote" | "sell";
+type StageKey = "validate" | "decide" | "pitch" | "name" | "brand" | "promote" | "acquire";
 const STAGES: {
   key: StageKey;
   label: string;
@@ -170,7 +170,7 @@ const STAGES: {
   { key: "name", label: "Name", blurb: "Find a name you can actually own.", kinds: [], special: true, needsChosen: true },
   { key: "brand", label: "Branding", blurb: "Give it a feel, a voice, and a look.", kinds: ["brand", "logo"], needsChosen: true },
   { key: "promote", label: "Promote", blurb: "Build your presence and get the word out.", kinds: ["promotion", "marketing"], needsChosen: true },
-  { key: "sell", label: "Acquire", blurb: "Land your first 5 paying customers.", kinds: ["outreach"], special: true, needsChosen: true },
+  { key: "acquire", label: "Acquire", blurb: "Land your first 5 paying customers.", kinds: ["outreach"], special: true, needsChosen: true },
 ];
 const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
 
@@ -1384,7 +1384,7 @@ export default function IdeaWorkspace({
           </div>
         ) : currentStage === "name" ? (
           <NameStage ideaId={idea.id} onCost={(d) => setCost((c) => c + d)} />
-        ) : currentStage === "sell" ? (
+        ) : currentStage === "acquire" ? (
           <SellStage
             ideaId={idea.id}
             chosenVersionId={chosenVersionId}
@@ -1666,7 +1666,7 @@ export default function IdeaWorkspace({
             )}
             {currentStage === "promote" && (
               <button
-                onClick={() => goToStage("sell")}
+                onClick={() => goToStage("acquire")}
                 className="mt-6 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
               >
                 Continue to Acquire →

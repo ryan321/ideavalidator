@@ -96,6 +96,7 @@ export async function runGenerator(
     context: version.context,
     goal: idea.goal ? { bucket: idea.goal, detail: idea.goal_detail } : null,
     steer: opts?.steer ?? null,
+    founderFit: idea.founder_fit,
   };
 
   // Steer is appended generically so it works for every generator without each

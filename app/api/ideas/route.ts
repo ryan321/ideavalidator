@@ -8,7 +8,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { prompt, goal, goalDetail } = await req.json();
+  const { prompt, goal, goalDetail, founderFit } = await req.json();
   if (typeof prompt !== "string" || prompt.trim().length < 8) {
     return NextResponse.json(
       { error: "Describe your idea in at least a sentence." },
@@ -21,7 +21,8 @@ export async function POST(req: Request) {
     title,
     clean,
     typeof goal === "string" && goal ? goal : null,
-    typeof goalDetail === "string" && goalDetail.trim() ? goalDetail.trim() : null
+    typeof goalDetail === "string" && goalDetail.trim() ? goalDetail.trim() : null,
+    typeof founderFit === "string" && founderFit.trim() ? founderFit.trim() : null
   );
   return NextResponse.json({ ...idea, version }, { status: 201 });
 }

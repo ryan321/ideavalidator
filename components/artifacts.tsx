@@ -267,6 +267,21 @@ export function ValidationView({ d }: { d: Validation }) {
 
         {/* the read, in plain words */}
         <p className="text-sm leading-relaxed text-fg/90">{d.summary}</p>
+
+        {d.goal_fit_note && (
+          <div className="rounded-lg border border-warn/30 bg-warn/5 p-3 text-sm">
+            <span className="font-semibold text-warn">Goal fit · </span>
+            <span className="text-fg/90">{d.goal_fit_note}</span>
+          </div>
+        )}
+
+        {d.demand?.sensitivity && (d.demand.sensitivity.conservative || d.demand.sensitivity.optimistic) && (
+          <div className="grid grid-cols-3 gap-3">
+            <StatTile label="Conservative" value={d.demand.sensitivity.conservative || "—"} hint="If it goes worse than expected" />
+            <StatTile label="Base" value={d.demand.sensitivity.base || d.demand.obtainable_revenue || "—"} color="var(--color-accent2)" hint="The headline estimate" />
+            <StatTile label="Optimistic" value={d.demand.sensitivity.optimistic || "—"} hint="If it goes well" />
+          </div>
+        )}
       </div>
 
       {d.narrative && (
@@ -413,6 +428,37 @@ export function ValidationView({ d }: { d: Validation }) {
             <MarketSizing sizing={d.market.sizing} cagrPct={d.market.cagr_pct ?? 0} />
           )}
 
+          {((d.market.search_trend && d.market.search_trend.note) || d.market.momentum) && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {d.market.search_trend && d.market.search_trend.note && (
+                <Card className="p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">Search interest</div>
+                  <div
+                    className="mt-1 text-sm font-medium"
+                    style={{
+                      color:
+                        d.market.search_trend.direction === "Rising"
+                          ? "var(--color-good)"
+                          : d.market.search_trend.direction === "Falling"
+                            ? "var(--color-bad)"
+                            : "var(--color-fg)",
+                    }}
+                  >
+                    {d.market.search_trend.direction === "Rising" ? "↗ " : d.market.search_trend.direction === "Falling" ? "↘ " : "→ "}
+                    {d.market.search_trend.note}
+                  </div>
+                  {d.market.search_trend.keyword && <div className="mt-0.5 font-mono text-[11px] text-muted">“{d.market.search_trend.keyword}”</div>}
+                </Card>
+              )}
+              {d.market.momentum && (
+                <Card className="p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">Recent momentum</div>
+                  <p className="mt-1 text-sm text-fg/90">{d.market.momentum}</p>
+                </Card>
+              )}
+            </div>
+          )}
+
           {(d.market.competitors ?? []).length > 0 && (
             <Section title="Competitors">
               <div className="space-y-2">
@@ -420,8 +466,14 @@ export function ValidationView({ d }: { d: Validation }) {
                   <Card key={i} className="p-4">
                     <div className="text-sm font-semibold">{c.name}</div>
                     {c.note && <p className="mt-1 text-sm text-muted">{c.note}</p>}
-                    {c.your_edge && (
+                    {c.complaint_theme && (
                       <p className="mt-1.5 text-xs">
+                        <span className="font-semibold text-warn">Customers complain: </span>
+                        <span className="text-fg/85">{c.complaint_theme}</span>
+                      </p>
+                    )}
+                    {c.your_edge && (
+                      <p className="mt-1 text-xs">
                         <span className="font-semibold text-accent">Your edge: </span>
                         <span className="text-fg/85">{c.your_edge}</span>
                       </p>

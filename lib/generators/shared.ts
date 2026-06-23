@@ -13,6 +13,8 @@ export type GenContext = {
   goal?: { bucket: string; detail: string | null } | null;
   /** Per-regeneration steer: how the founder wants THIS deliverable adjusted. */
   steer?: string | null;
+  /** Founder's market knowledge / build experience / network (sharpens scoring). */
+  founderFit?: string | null;
 };
 
 // Goal/ambition buckets. "Good idea" is judged relative to the founder's goal, not a generic VC lens.
@@ -105,6 +107,14 @@ FOUNDER'S INSTRUCTION:
 """
 ${s}
 """`;
+}
+
+// Who the founder is — used to ground Feasibility, Acquisition Ease, and the demand
+// read on the actual person, not a generic stranger.
+export function founderProfile(ctx: GenContext): string {
+  const f = ctx.founderFit?.trim();
+  if (!f) return "";
+  return `\n\nFOUNDER PROFILE — score Feasibility, Acquisition Ease, and demand credibility for THIS founder, not a generic one: "${f}". An insider who has lived the pain is more credible (raise Demand/Feasibility confidence); warm intros make early acquisition easier and should be the #1 channel when present; no prior building experience raises execution risk. Reflect this in the relevant criteria and say so in the explanations.`;
 }
 
 // Authoritative founder clarifications, injected into analysis prompts when present.

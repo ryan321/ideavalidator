@@ -3,6 +3,7 @@ import {
   COMPETITION_GUIDANCE,
   Generator,
   founderContext,
+  founderProfile,
   goalContext,
   ideaHeader,
 } from "./shared";
@@ -17,6 +18,9 @@ export const ValidationSchema = z.object({
   score: z.number().min(0).max(100),
   confidence: z.number().min(0).max(100),
   summary: z.string(),
+  // Explicit effort/capital/time vs the founder's goal; for goal="unsure", the
+  // lifestyle-vs-venture read. (optional for older results)
+  goal_fit_note: z.string().catch("").optional(),
 
   // Radar + Demand/Build factor bars + detailed explanations all read from this.
   criteria: z
@@ -94,6 +98,14 @@ export const ValidationSchema = z.object({
           price: z.string(), // annual revenue per customer
         })
         .optional(),
+      // Range, so the founder sees the downside, not just a point estimate.
+      sensitivity: z
+        .object({
+          conservative: z.string().catch(""), // if it goes worse than expected
+          base: z.string().catch(""), // the headline
+          optimistic: z.string().catch(""), // if it goes well
+        })
+        .optional(),
     })
     .optional(),
 
@@ -144,11 +156,21 @@ export const ValidationSchema = z.object({
         })
         .catch({ tam: { value: "", note: "" }, sam: { value: "", note: "" }, som: { value: "", note: "" }, methodology: "" }),
       cagr_pct: z.number().catch(0), // e.g. 18 — labels the donut
+      // search/SEO demand trend (external evidence the interest is real & rising)
+      search_trend: z
+        .object({
+          keyword: z.string().catch(""),
+          direction: z.enum(["Rising", "Flat", "Falling"]).catch("Flat"),
+          note: z.string().catch(""), // e.g. "+85% YoY interest in 'X'"
+        })
+        .optional(),
+      momentum: z.string().catch("").optional(), // a recent funding/exit/shift in the category
       competitors: z
         .array(
           z.object({
             name: z.string().catch(""),
             note: z.string().catch(""), // what they do + how happy their customers are
+            complaint_theme: z.string().catch(""), // the top thing their customers complain about
             your_edge: z.string().catch(""), // your angle vs them
           })
         )
@@ -238,7 +260,7 @@ export const validationGenerator: Generator<Validation> = {
     "evidence; never pick a target overall number and back-fill. The overall score is COMPUTED by the " +
     "system from your criteria (demand-weighted). Judge RELATIVE TO the founder's stated goal — the same " +
     "idea can be a GO for a lifestyle business and a NO-GO for venture scale.",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}${goalContext(ctx)}${founderContext(ctx)}
+  buildPrompt: (ctx) => `${ideaHeader(ctx)}${goalContext(ctx)}${founderProfile(ctx)}${founderContext(ctx)}
 
 This is the SINGLE comprehensive analysis — it must cover the verdict AND the market/competition, the money,
 and the plan, all consistent with each other (reuse the same figures across sections; don't contradict yourself).
@@ -298,18 +320,19 @@ Also produce:
 - "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation.
 - "clarifying_questions": 2-4 pointed questions whose answers would most change this assessment (e.g. exact target segment, what truly distinguishes this from the named competitors, pricing/distribution). If FOUNDER CONTEXT above already answered earlier questions, ask new ones (or fewer) — don't repeat answered ones.
 - "narrative": { who, pain, status_quo, cost_of_inaction, solution, after, verdict ("Painkiller"|"Vitamin"), why (1-2 sentences for the verdict) }. Each field 1-2 sentences, concrete to THIS idea.
-- "demand": { strength (Weak/Moderate/Strong), willingness_to_pay (a SHORT figure ONLY, e.g. "$200–600/team/mo" — NO prose), obtainable_revenue (a SHORT headline figure ONLY, e.g. "$120K–360K/yr" — realistic annual dollars THIS founder could capture given competition + goal, NOT the TAM, NO prose), reasoning (2–4 sentences: the pricing basis and the demand × capturable-share math) }.
+- "demand": { strength (Weak/Moderate/Strong), willingness_to_pay (a SHORT figure ONLY, e.g. "$200–600/team/mo" — NO prose), obtainable_revenue (a SHORT headline figure ONLY, e.g. "$120K–360K/yr" — realistic annual dollars THIS founder could capture given competition + goal, NOT the TAM, NO prose), reasoning (2–4 sentences: the pricing basis and the demand × capturable-share math), sensitivity { conservative, base, optimistic } (each a SHORT annual-$ figure — the downside, the headline, and the upside, so the founder sees the range not just a point) }.
+- "goal_fit_note": 1-2 sentences stating the EFFORT/CAPITAL/TIME this idea needs vs the founder's stated goal — call out a mismatch plainly (e.g. "needs a full-time team + ~$300K; that contradicts a nights-and-weekends side hustle"). If the goal is "unsure", give the lifestyle-vs-venture split explicitly (e.g. "a solid lifestyle GO; a venture NO-GO because the SOM caps out below fund-returnable scale").
 - "operating": { effort_level (Low/Medium/High), description (2–3 sentences on what the founder would actually spend time DOING — e.g. "mostly async remote support" vs "high-touch outbound sales + in-person demos") }.
 - "acquisition": { difficulty (Easy/Moderate/Hard), reasoning (2–3 sentences; weigh the category-education tax — an established category buyers understand is EASIER, creating a category is HARDER; competitors can make selling easier) }.
 - "downside": { capital_at_risk (1–2 sentences, LEAD with the figure, e.g. "<$15K to MVP; main risk is foregone salary"), liability (1–2 sentences), if_it_fails (1–2 sentences) }.
 - "possible_alphas": 2-4 concrete differentiators/angles this idea COULD pursue to improve its odds — each { alpha (short, specific — a niche to own, a positioning as the alternative to a dominant player, a workflow/data edge, an underserved segment), rationale (1-2 sentences on why it would raise the obtainable revenue / lower risk for the goal) }. These are TESTABLE directions distinct from the current positioning.
-- "market": the deeper market & competition read — { sizing: { tam: {value (a figure, e.g. "$4.2B"), note (one line)}, sam: {value, note}, som: {value, note}, methodology (one line on how you derived them) }, cagr_pct (number, e.g. 18), competitors: 2-4 of [{ name (a REAL, currently-operating company), note (what they do + how satisfied their customers are, from real signals), your_edge (your angle vs them) }], demand_signals: 3-5 REAL cited evidences of the pain you found via web search — each { source (e.g. "Reddit r/saas", "X (Twitter)", "Hacker News"), quote (the pain in the person's own words), url (a link to the actual post/thread), tag ("PAIN POINT"|"FEATURE REQUEST"|"DISCUSSION") }. Only include demand_signals you actually found; never fabricate a thread or URL. Keep all of this CONSISTENT with the scores and obtainable_revenue above.
+- "market": the deeper market & competition read — { sizing: { tam: {value (a figure, e.g. "$4.2B"), note (one line)}, sam: {value, note}, som: {value, note}, methodology (one line on how you derived them) }, cagr_pct (number, e.g. 18), search_trend { keyword (the core search term), direction ("Rising"|"Flat"|"Falling"), note (e.g. "+85% YoY interest, per Google Trends") }, momentum (one line on a recent funding/exit/shift in the category, if you found one — else ""), competitors: 2-4 of [{ name (a REAL, currently-operating company), note (what they do + how satisfied their customers are, from real signals), complaint_theme (the single biggest thing their customers complain about — from real reviews/threads), your_edge (your angle vs them) }], demand_signals: 3-5 REAL cited evidences of the pain you found via web search — each { source (e.g. "Reddit r/saas", "X (Twitter)", "Hacker News"), quote (the pain in the person's own words), url (a link to the actual post/thread), tag ("PAIN POINT"|"FEATURE REQUEST"|"DISCUSSION") }. Only include search_trend/momentum/demand_signals you actually found; never fabricate a figure, a thread, or a URL. Keep all of this CONSISTENT with the scores and obtainable_revenue above.
 - "financials": the money — { startup_cost (a figure to a usable MVP), unit_economics { cac, ltv, payback (each short) }, revenue_model (pricing + how money is made, one line), projections: 3 years of [{ year, revenue, customers, note }] where revenue ≈ customers × blended price each year and Year-1 is consistent with obtainable_revenue and the sales difficulty }.
 - "plan": the path — { milestones: 3-5 of [{ title, when (e.g. "Month 1-2"), metric (how you know it's done) }] ordered earliest-first, team_and_ops (one line: who/what it takes to build and run) }.
 
 Return JSON exactly matching:
 {
-  "verdict": "GO"|"MAYBE"|"NO-GO", "score": number, "confidence": number, "summary": string,
+  "verdict": "GO"|"MAYBE"|"NO-GO", "score": number, "confidence": number, "summary": string, "goal_fit_note": string,
   "criteria": [{"name": string, "score": number, "group": "demand"|"build", "category": string, "explanation": string}],
   "validations": {"problem": {"score": number, "rationale": string}, "solution": {"score": number, "rationale": string}, "market": {"score": number, "rationale": string}},
   "go_signals": {"positive_signals": [{"text": string, "category": string}], "key_strengths": [{"text": string, "category": string}]},
@@ -317,12 +340,12 @@ Return JSON exactly matching:
   "risk_matrix": [{"title": string, "category": "tech"|"market"|"financial", "probability": number, "impact": number, "mitigation": string}],
   "clarifying_questions": [string],
   "narrative": {"who": string, "pain": string, "status_quo": string, "cost_of_inaction": string, "solution": string, "after": string, "verdict": "Painkiller"|"Vitamin", "why": string},
-  "demand": {"strength": "Weak"|"Moderate"|"Strong", "willingness_to_pay": string, "obtainable_revenue": string, "reasoning": string},
+  "demand": {"strength": "Weak"|"Moderate"|"Strong", "willingness_to_pay": string, "obtainable_revenue": string, "reasoning": string, "sensitivity": {"conservative": string, "base": string, "optimistic": string}},
   "operating": {"effort_level": "Low"|"Medium"|"High", "description": string},
   "downside": {"capital_at_risk": string, "liability": string, "if_it_fails": string},
   "acquisition": {"difficulty": "Easy"|"Moderate"|"Hard", "reasoning": string},
   "possible_alphas": [{"alpha": string, "rationale": string}],
-  "market": {"sizing": {"tam": {"value": string, "note": string}, "sam": {"value": string, "note": string}, "som": {"value": string, "note": string}, "methodology": string}, "cagr_pct": number, "competitors": [{"name": string, "note": string, "your_edge": string}], "demand_signals": [{"source": string, "quote": string, "url": string, "tag": string}]},
+  "market": {"sizing": {"tam": {"value": string, "note": string}, "sam": {"value": string, "note": string}, "som": {"value": string, "note": string}, "methodology": string}, "cagr_pct": number, "search_trend": {"keyword": string, "direction": "Rising"|"Flat"|"Falling", "note": string}, "momentum": string, "competitors": [{"name": string, "note": string, "complaint_theme": string, "your_edge": string}], "demand_signals": [{"source": string, "quote": string, "url": string, "tag": string}]},
   "financials": {"startup_cost": string, "unit_economics": {"cac": string, "ltv": string, "payback": string}, "revenue_model": string, "projections": [{"year": string, "revenue": string, "customers": string, "note": string}]},
   "plan": {"milestones": [{"title": string, "when": string, "metric": string}], "team_and_ops": string}
 }`,

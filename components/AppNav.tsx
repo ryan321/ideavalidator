@@ -11,7 +11,7 @@ const STAGES = [
   { key: "name", label: "Name", needsChosen: true },
   { key: "brand", label: "Branding", needsChosen: true },
   { key: "promote", label: "Promote", needsChosen: true },
-  { key: "sell", label: "Acquire", needsChosen: true },
+  { key: "acquire", label: "Acquire", needsChosen: true },
 ];
 
 type IdeaLite = { id: string; title: string };
