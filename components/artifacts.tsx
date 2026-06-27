@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import { Bullets, Card, Field, Prose, Section } from "./ui";
 import type { Source } from "@/lib/ai/client";
 import type { Validation } from "@/lib/generators/validation";
@@ -144,8 +146,8 @@ function Metric({ label, value, color, hint }: { label: string; value: string; c
 function SectionHead({ n, title, id, hint }: { n: string; title: string; id?: string; hint?: string }) {
   return (
     <div id={id} className="mb-5 flex items-center gap-3 scroll-mt-20">
-      <span className="font-mono text-xs font-semibold tabular-nums text-accent2">{n}</span>
-      <h2 className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-fg/90">{title}</h2>
+      <span className="font-mono text-sm font-semibold tabular-nums text-accent2">{n}</span>
+      <h2 className="font-display text-xl font-semibold uppercase tracking-[0.06em] text-fg">{title}</h2>
       <div className="h-px flex-1 bg-border" />
       {hint && <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-muted sm:block">{hint}</span>}
     </div>
@@ -172,7 +174,7 @@ function MiniSignals({ tone, label, items }: { tone: "good" | "warn"; label: str
   if (!items.length) return null;
   return (
     <div>
-      <div className={`mb-2.5 font-mono text-[11px] uppercase tracking-[0.16em] ${cls}`}>{label}</div>
+      <div className={`mb-2.5 font-mono text-sm uppercase tracking-[0.1em] ${cls}`}>{label}</div>
       <ul className="space-y-2.5">
         {items.map((s, i) => (
           <li key={i} className="flex gap-2.5 text-sm leading-snug">
@@ -256,6 +258,26 @@ function VerdictMeter({ score }: { score: number }) {
           ? `${toGo} point${toGo === 1 ? "" : "s"} below the GO line`
           : `clears the GO line`}
       </div>
+    </div>
+  );
+}
+
+// Lead with the gist: clamp long prose to three lines and keep the rest one
+// click away, so the report doesn't open as a wall of text.
+function ClampText({ text, className = "" }: { text: string; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 170;
+  return (
+    <div className={className}>
+      <p className={open || !long ? "leading-relaxed" : "line-clamp-3 leading-relaxed"}>{text}</p>
+      {long && (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="mt-1 font-mono text-[11px] uppercase tracking-wide text-accent2 hover:underline"
+        >
+          {open ? "− Less" : "+ More"}
+        </button>
+      )}
     </div>
   );
 }
@@ -348,11 +370,11 @@ export function ValidationView({ d }: { d: Validation }) {
                   <b className="text-fg/80">{band.label}.</b> {band.hint}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="font-mono text-3xl font-bold leading-none text-accent2 [overflow-wrap:anywhere] sm:text-4xl">
+              <div className="max-w-[15rem] text-right">
+                <div className="font-mono text-2xl font-bold leading-tight text-accent2 [overflow-wrap:anywhere] sm:text-3xl">
                   {d.demand?.obtainable_revenue ?? "—"}
                 </div>
-                <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">obtainable / yr</div>
+                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">obtainable / yr</div>
               </div>
             </div>
 
@@ -365,9 +387,9 @@ export function ValidationView({ d }: { d: Validation }) {
           <DimensionStrip dims={dims} />
         </div>
 
-        {/* the read, in plain words */}
+        {/* the read, in plain words — clamped so the verdict stays above the fold */}
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <p className="max-w-2xl text-[15px] leading-relaxed text-fg/90">{d.summary}</p>
+          <ClampText text={d.summary} className="max-w-2xl text-[15px] text-fg/90" />
           {d.narrative && <PainkillerTag verdict={d.narrative.verdict} />}
         </div>
       </section>
@@ -376,26 +398,17 @@ export function ValidationView({ d }: { d: Validation }) {
       <section id="brief" className="scroll-mt-20">
         <SectionHead n="01" title="The brief" hint="what you need to know" />
         <div className="space-y-8">
-          {narrativeRows.length > 0 && (
-            <div>
-              <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Why they&apos;ll buy</div>
-              <div className="grid gap-x-6 gap-y-2.5 text-sm sm:grid-cols-[140px_1fr]">
-                {narrativeRows.map(([label, text, cls]) => (
-                  <React.Fragment key={label}>
-                    <div className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted sm:pt-0.5">{label}</div>
-                    <div className={`leading-relaxed ${cls}`}>{text}</div>
-                  </React.Fragment>
-                ))}
-              </div>
-              {d.narrative?.why && (
-                <p className="mt-3 border-t border-border pt-3 text-sm text-muted">
-                  <b className="text-fg/80">{d.narrative.verdict}: </b>
-                  {d.narrative.why}
-                </p>
-              )}
-            </div>
+          {/* thesis — the one-line painkiller read, always visible */}
+          {d.narrative?.why && (
+            <p className="max-w-3xl text-sm leading-relaxed text-fg/90">
+              <b style={{ color: d.narrative.verdict === "Painkiller" ? "var(--color-good)" : "var(--color-warn)" }}>
+                {d.narrative.verdict}:
+              </b>{" "}
+              {d.narrative.why}
+            </p>
           )}
 
+          {/* the actionable core, scannable — leads the brief */}
           {(strengths.length > 0 || risks.length > 0) && (
             <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
               <div className="sm:pr-6"><MiniSignals tone="good" label="What's working" items={strengths} /></div>
@@ -405,7 +418,7 @@ export function ValidationView({ d }: { d: Validation }) {
 
           {d.demand && (
             <div>
-              <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">The number</div>
+              <div className="mb-3 font-mono text-sm uppercase tracking-[0.1em] text-muted">The number</div>
               {d.demand.math && (
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted">
                   <span className="text-fg/80" title="customers you can realistically reach">{d.demand.math.reachable}</span>
@@ -425,22 +438,38 @@ export function ValidationView({ d }: { d: Validation }) {
                   <Metric label="Optimistic" value={sens!.optimistic || "—"} hint="If it goes well" />
                 </div>
               )}
-              {d.demand.reasoning && (
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">{d.demand.reasoning}</p>
-              )}
+              {d.demand.reasoning && <ClampText text={d.demand.reasoning} className="mt-3 max-w-2xl text-sm text-muted" />}
             </div>
+          )}
+
+          {/* full pain → solution breakdown — the heaviest block, collapsed by default */}
+          {narrativeRows.length > 0 && (
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
+                <span className="transition group-open:rotate-90">▸</span>
+                Why they&apos;ll buy — full pain → solution breakdown
+              </summary>
+              <div className="mt-4 grid max-w-3xl gap-x-6 gap-y-2.5 text-sm sm:grid-cols-[130px_minmax(0,1fr)]">
+                {narrativeRows.map(([label, text, cls]) => (
+                  <React.Fragment key={label}>
+                    <div className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted sm:pt-0.5">{label}</div>
+                    <div className={`leading-relaxed ${cls}`}>{text}</div>
+                  </React.Fragment>
+                ))}
+              </div>
+            </details>
           )}
 
           {d.goal_fit_note && (
             <div className="rounded-r-lg border-l-2 border-warn/50 bg-warn/5 px-4 py-3 text-sm">
-              <span className="font-mono text-[11px] uppercase tracking-wide text-warn">Goal fit · </span>
+              <span className="font-mono text-[13px] uppercase tracking-wide text-warn">Goal fit · </span>
               <span className="text-fg/90">{d.goal_fit_note}</span>
             </div>
           )}
 
           {d.clarifying_questions && d.clarifying_questions.length > 0 && (
             <div className="rounded-r-lg border-l-2 border-accent2/50 bg-accent2/5 px-4 py-3">
-              <div className="mb-1.5 font-mono text-[11px] uppercase tracking-wide text-accent2">Open questions</div>
+              <div className="mb-1.5 font-mono text-[13px] uppercase tracking-wide text-accent2">Open questions</div>
               <p className="mb-2 text-xs text-muted">Answer these via “💬 Discuss → Respond” to sharpen the next pass.</p>
               <ul className="space-y-1.5">
                 {d.clarifying_questions.map((q, i) => (
@@ -455,7 +484,7 @@ export function ValidationView({ d }: { d: Validation }) {
 
           {(d.operating || d.acquisition) && (
             <details className="group">
-              <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted hover:text-fg">
+              <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
                 <span className="transition group-open:rotate-90">▸</span>
                 How it runs &amp; how you sell
               </summary>
@@ -520,7 +549,7 @@ export function ValidationView({ d }: { d: Validation }) {
 
             {(d.market.competitors ?? []).length > 0 && (
               <div>
-                <div className="mb-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Competitors</div>
+                <div className="mb-2.5 font-mono text-sm uppercase tracking-[0.1em] text-muted">Competitors</div>
                 <div className="space-y-2">
                   {d.market.competitors!.map((c, i) => (
                     <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-4">
@@ -546,7 +575,7 @@ export function ValidationView({ d }: { d: Validation }) {
 
             {(d.market.demand_signals ?? []).length > 0 && (
               <div>
-                <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">What people are actually saying</div>
+                <div className="mb-1 font-mono text-sm uppercase tracking-[0.1em] text-muted">What people are actually saying</div>
                 <p className="mb-2.5 text-xs text-muted">Real posts found while researching — the pain in their own words.</p>
                 <div className="space-y-2">
                   {d.market.demand_signals!.map((s, i) => (
@@ -657,7 +686,7 @@ export function ValidationView({ d }: { d: Validation }) {
 
       {/* ===================== full scorecard (the deep dive) ===================== */}
       <details className="group rounded-xl border border-border bg-panel/40">
-        <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted hover:text-fg">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
           <span className="transition group-open:rotate-90">▸</span>
           Full scorecard &amp; signals — the evidence behind the score
         </summary>
