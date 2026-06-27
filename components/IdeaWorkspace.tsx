@@ -1420,8 +1420,8 @@ export default function IdeaWorkspace({
             </div>
           </div>
         ) : currentStage === "decide" ? (
-          <div className="rounded-xl border border-border bg-panel p-5">
-            <h3 className="text-base font-bold">Decide — which version are you betting on?</h3>
+          <div className="rounded-xl border border-border/70 bg-panel/40 p-5">
+            <h3 className="font-display text-xl font-semibold">Which version are you betting on?</h3>
             <p className="mt-1 text-sm text-muted">
               Pick the idea version to build the rest of the journey on. You can change it anytime — the
               others stay as research.

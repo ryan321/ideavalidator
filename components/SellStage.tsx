@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { PriceTest, Prospect, ProspectStatus } from "@/lib/db";
 import type { Outreach } from "@/lib/generators/outreach";
 import { OutreachView } from "./artifacts";
+import { SectionHead } from "./ui";
 
 const STATUSES: { key: ProspectStatus; label: string }[] = [
   { key: "lead", label: "Lead" },
@@ -128,26 +129,26 @@ export default function SellStage({
   const outreachData = outreach as Outreach | undefined;
 
   return (
-    <div className="space-y-6">
-      {/* progress to 5 paying customers */}
-      <div className="rounded-xl border border-border bg-panel p-5">
+    <div className="space-y-10">
+      {/* the climax of the journey — a hero readout, mirroring the verdict hero */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-panel2 to-panel p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h3 className="text-base font-bold">First 5 paying customers</h3>
-            <p className="mt-1 text-sm text-muted">
+            <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">First 5 paying customers</div>
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
               Track real prospects from first touch to paying. This is the whole point — everything before
               was preparation.
             </p>
           </div>
           <div className="text-right">
-            <div className="font-mono text-3xl font-bold" style={{ color: paying >= 5 ? "var(--color-good)" : "var(--color-fg)" }}>
+            <div className="font-mono text-4xl font-bold leading-none" style={{ color: paying >= 5 ? "var(--color-good)" : "var(--color-fg)" }}>
               {paying}
               <span className="text-lg text-muted">/5</span>
             </div>
-            <div className="text-xs text-muted">paying · {active} active</div>
+            <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">paying · {active} active</div>
           </div>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-panel2">
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-panel2">
           <div
             className="h-full rounded-full bg-good transition-all"
             style={{ width: `${Math.min(100, (paying / 5) * 100)}%` }}
@@ -156,10 +157,8 @@ export default function SellStage({
       </div>
 
       {/* pipeline */}
-      <div className="rounded-xl border border-border bg-panel p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">Pipeline</h3>
-        </div>
+      <section>
+        <SectionHead title="Pipeline" />
 
         <div className="mb-3 flex gap-2">
           <input
@@ -294,16 +293,14 @@ export default function SellStage({
             )}
           </div>
         )}
-      </div>
+      </section>
 
       {/* pricing experiments */}
-      <div className="rounded-xl border border-border bg-panel p-5">
-        <div className="mb-1">
-          <h3 className="text-base font-bold">Pricing experiments</h3>
-          <p className="mt-1 text-sm text-muted">
-            Stop guessing the price — put real offers to real prospects and log who&apos;d actually pay.
-          </p>
-        </div>
+      <section>
+        <SectionHead title="Pricing experiments" />
+        <p className="-mt-2 mb-3 text-sm text-muted">
+          Stop guessing the price — put real offers to real prospects and log who&apos;d actually pay.
+        </p>
         <div className="my-3 flex gap-2">
           <input
             value={newOffer}
@@ -380,25 +377,25 @@ export default function SellStage({
             })}
           </div>
         )}
-      </div>
+      </section>
 
       {/* outreach openers */}
-      <div className="rounded-xl border border-border bg-panel p-5">
-        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 className="text-base font-bold">Outreach</h3>
-            <p className="mt-1 text-sm text-muted">Cold openers + a plan to land the first 5 — built from your validation &amp; customer pitch.</p>
-          </div>
-          {chosenVersionId && (
-            <button
-              onClick={onGenerateOutreach}
-              disabled={outreachBusy}
-              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {outreachBusy ? "Writing…" : outreachData ? "Regenerate" : "Generate outreach"}
-            </button>
-          )}
-        </div>
+      <section>
+        <SectionHead
+          title="Outreach"
+          right={
+            chosenVersionId ? (
+              <button
+                onClick={onGenerateOutreach}
+                disabled={outreachBusy}
+                className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {outreachBusy ? "Writing…" : outreachData ? "Regenerate" : "Generate outreach"}
+              </button>
+            ) : undefined
+          }
+        />
+        <p className="-mt-2 mb-3 text-sm text-muted">Cold openers + a plan to land the first 5 — built from your validation &amp; customer pitch.</p>
         {!chosenVersionId ? (
           <p className="mt-3 text-sm text-muted">Choose a version in Decide first.</p>
         ) : outreachBusy ? (
@@ -410,7 +407,7 @@ export default function SellStage({
         ) : (
           <p className="mt-3 text-sm text-muted">No openers yet — generate them to start reaching out.</p>
         )}
-      </div>
+      </section>
     </div>
   );
 }

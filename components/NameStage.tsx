@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { NameCandidate, NameFeedback } from "@/lib/generators/names";
 import { ALL_TLDS, DEFAULT_TLDS } from "@/lib/tlds";
+import { SectionHead } from "./ui";
 
 const fmtCost = (n: number) => (n < 0.01 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`);
 const slugify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -130,23 +131,23 @@ export default function NameStage({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-panel p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-base font-bold">Name it</h3>
-          <p className="mt-1 max-w-xl text-sm text-muted">
-            Brand-name ideas with live domain, social-handle, and trademark/company checks. 👍/👎 to teach
-            the next round; pick one to lock the name.
-          </p>
-        </div>
-        <button
-          onClick={generate}
-          disabled={loading}
-          className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {loading ? "Researching…" : data ? "Regenerate" : "Generate names"}
-        </button>
-      </div>
+    <div>
+      <SectionHead
+        title="Name it"
+        right={
+          <button
+            onClick={generate}
+            disabled={loading}
+            className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {loading ? "Researching…" : data ? "Regenerate" : "Generate names"}
+          </button>
+        }
+      />
+      <p className="-mt-2 mb-4 max-w-xl text-sm text-muted">
+        Brand-name ideas with live domain, social-handle, and trademark/company checks. 👍/👎 to teach the
+        next round; pick one to lock the name.
+      </p>
 
       {/* generation controls */}
       <div className="mt-3 space-y-2">
@@ -202,7 +203,7 @@ export default function NameStage({
             return (
               <div
                 key={i}
-                className={`rounded-lg border p-3 ${isChosen ? "border-good bg-good/5" : "border-border"}`}
+                className={`rounded-lg border p-3 ${isChosen ? "border-good bg-good/5" : "border-border/70 bg-panel/40"}`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">

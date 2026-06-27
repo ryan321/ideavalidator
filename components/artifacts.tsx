@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Bullets, Card, Field, Prose, Section } from "./ui";
+import { Bullets, Card, Eyebrow, Field, Metric, Panel, Prose, Section, SectionHead, Tag } from "./ui";
 import type { Source } from "@/lib/ai/client";
 import type { Validation } from "@/lib/generators/validation";
 import type { Market } from "@/lib/generators/market";
@@ -123,35 +123,6 @@ function tone3(value: string, good: string, mid: string): string {
     : value === mid
       ? "var(--color-warn)"
       : "var(--color-bad)";
-}
-
-// A borderless metric cell — sits inside a gap-px hairline grid so the report
-// reads as instrument panels, not a stack of equally-weighted bordered cards.
-function Metric({ label, value, color, hint }: { label: string; value: string; color?: string; hint?: string }) {
-  return (
-    <div className="bg-panel px-3.5 py-3" title={hint}>
-      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{label}</div>
-      <div
-        className="mt-1 text-sm font-semibold leading-snug [overflow-wrap:anywhere]"
-        style={color ? { color } : undefined}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-// The editorial spine: a numbered eyebrow + a hairline rule. Replaces bordered
-// section cards so the eye gets anchors, not boxes.
-function SectionHead({ n, title, id, hint }: { n: string; title: string; id?: string; hint?: string }) {
-  return (
-    <div id={id} className="mb-5 flex items-center gap-3 scroll-mt-20">
-      <span className="font-mono text-sm font-semibold tabular-nums text-accent2">{n}</span>
-      <h2 className="font-display text-xl font-semibold uppercase tracking-[0.06em] text-fg">{title}</h2>
-      <div className="h-px flex-1 bg-border" />
-      {hint && <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-muted sm:block">{hint}</span>}
-    </div>
-  );
 }
 
 // The headline reads, as one divided instrument strip (not four cards).
@@ -743,23 +714,28 @@ export function PlanView({ d }: { d: Plan }) {
     ["Risks & mitigations", d.risks_and_mitigations],
   ];
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
       {sections.map(([title, body]) => (
-        <Section key={title} title={title}>
+        <section key={title}>
+          <SectionHead title={title} />
           <Prose>{body}</Prose>
-        </Section>
+        </section>
       ))}
-      <Section title="Financials">
-        <Card className="p-4">
+      <section>
+        <SectionHead title="Financials" />
+        <Panel>
           <Prose>{d.financials.summary}</Prose>
           <div className="mt-3">
             <Field label="Year 1 revenue" value={d.financials.year1_revenue} />
           </div>
-          <div className="mt-3 text-xs font-medium text-muted">Assumptions</div>
-          <Bullets items={d.financials.assumptions} />
-        </Card>
-      </Section>
-      <Section title="Milestones">
+          <Eyebrow className="mt-4">Assumptions</Eyebrow>
+          <div className="mt-1.5">
+            <Bullets items={d.financials.assumptions} />
+          </div>
+        </Panel>
+      </section>
+      <section>
+        <SectionHead title="Milestones" />
         <div className="space-y-2">
           {d.milestones.map((m, i) => (
             <div key={i} className="flex gap-3 text-sm">
@@ -768,65 +744,70 @@ export function PlanView({ d }: { d: Plan }) {
             </div>
           ))}
         </div>
-      </Section>
+      </section>
     </div>
   );
 }
 
 export function BrandView({ d }: { d: Brand }) {
   return (
-    <div>
-      <Card className="mb-6 p-5">
-        <div className="text-xs uppercase tracking-wide text-muted">Archetype</div>
-        <div className="text-xl font-bold text-accent">{d.archetype.name}</div>
+    <div className="space-y-10">
+      <Card className="border-accent/30 bg-accent/5">
+        <Eyebrow tone="accent">Archetype</Eyebrow>
+        <div className="mt-1 font-display text-xl font-bold text-accent">{d.archetype.name}</div>
         <p className="mt-1 text-sm text-muted">{d.archetype.why}</p>
       </Card>
-      <div className="grid gap-6 sm:grid-cols-2">
-        <Field label="Mission" value={d.mission} />
-        <Field label="Vision" value={d.vision} />
-      </div>
-      <div className="mt-6">
-        <Field label="Value proposition" value={d.value_proposition} />
-      </div>
-      <div className="mt-6">
-        <Field label="Positioning statement" value={d.positioning_statement} />
-      </div>
-      <Section title="Name ideas">
-        <div className="mt-3 flex flex-wrap gap-2">
+      <section>
+        <SectionHead title="Positioning" />
+        <div className="grid gap-6 sm:grid-cols-2">
+          <Field label="Mission" value={d.mission} />
+          <Field label="Vision" value={d.vision} />
+          <Field label="Value proposition" value={d.value_proposition} />
+          <Field label="Positioning statement" value={d.positioning_statement} />
+        </div>
+      </section>
+      <section>
+        <SectionHead title="Name ideas" />
+        <div className="flex flex-wrap gap-2">
           {d.name_ideas.map((n, i) => (
-            <span key={i} className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-xs text-accent">
-              {n}
-            </span>
+            <Tag key={i}>{n}</Tag>
           ))}
         </div>
-      </Section>
-      <Section title="Taglines">
+      </section>
+      <section>
+        <SectionHead title="Taglines" />
         <Bullets items={d.tagline_options} />
-      </Section>
-      <div className="grid gap-6 sm:grid-cols-2">
-        <Section title={`Voice — do (${d.tone})`}>
-          <Bullets items={d.voice_dos} />
-        </Section>
-        <Section title="Voice — don't">
-          <Bullets items={d.voice_donts} />
-        </Section>
-      </div>
+      </section>
+      <section>
+        <SectionHead title="Voice" />
+        <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
+          <div className="sm:pr-6">
+            <Eyebrow tone="good" className="mb-2.5">Do · {d.tone}</Eyebrow>
+            <Bullets items={d.voice_dos} />
+          </div>
+          <div className="sm:pl-6">
+            <Eyebrow tone="warn" className="mb-2.5">Don&apos;t</Eyebrow>
+            <Bullets items={d.voice_donts} />
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
 
 export function LogoView({ d }: { d: Logo }) {
   return (
-    <div>
+    <div className="space-y-10">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
         <SvgLogo svg={d.logo_svg} />
         <div className="flex-1">
-          <div className="text-lg font-semibold">{d.wordmark}</div>
+          <div className="font-display text-xl font-semibold">{d.wordmark}</div>
           <p className="mt-1 text-sm text-muted">{d.concept}</p>
         </div>
       </div>
-      <Section title="Palette">
-        <div className="mt-3 flex flex-wrap gap-3">
+      <section>
+        <SectionHead title="Palette" />
+        <div className="flex flex-wrap gap-3">
           {d.palette.map((c, i) => (
             <div key={i} className="w-32">
               <div className="h-16 rounded-lg border border-border" style={{ background: c.hex }} />
@@ -836,107 +817,108 @@ export function LogoView({ d }: { d: Logo }) {
             </div>
           ))}
         </div>
-      </Section>
-      <Section title="Typography">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Card className="p-4">
-            <div className="text-xs uppercase tracking-wide text-muted">Heading</div>
-            <div className="text-lg font-semibold">{d.typography.heading.font}</div>
-            <p className="text-xs text-muted">{d.typography.heading.note}</p>
-          </Card>
-          <Card className="p-4">
-            <div className="text-xs uppercase tracking-wide text-muted">Body</div>
-            <div className="text-lg font-semibold">{d.typography.body.font}</div>
-            <p className="text-xs text-muted">{d.typography.body.note}</p>
-          </Card>
+      </section>
+      <section>
+        <SectionHead title="Typography" />
+        <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
+          <div className="bg-panel p-4">
+            <Eyebrow>Heading</Eyebrow>
+            <div className="mt-1 text-lg font-semibold">{d.typography.heading.font}</div>
+            <p className="mt-0.5 text-xs text-muted">{d.typography.heading.note}</p>
+          </div>
+          <div className="bg-panel p-4">
+            <Eyebrow>Body</Eyebrow>
+            <div className="mt-1 text-lg font-semibold">{d.typography.body.font}</div>
+            <p className="mt-0.5 text-xs text-muted">{d.typography.body.note}</p>
+          </div>
         </div>
-      </Section>
-      <Section title="Usage notes">
+      </section>
+      <section>
+        <SectionHead title="Usage notes" />
         <Bullets items={d.usage_notes} />
-      </Section>
+      </section>
     </div>
   );
 }
 
 export function MarketingView({ d }: { d: Marketing }) {
   return (
-    <div>
-      <Section title="Ad creatives">
+    <div className="space-y-10">
+      <section>
+        <SectionHead title="Ad creatives" />
         <div className="grid gap-3 sm:grid-cols-2">
           {d.ads.map((a, i) => (
-            <Card key={i} className="p-4">
-              <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-xs text-accent">
-                {a.platform}
-              </span>
+            <Panel key={i}>
+              <Tag>{a.platform}</Tag>
               <div className="mt-2 text-sm font-semibold">{a.headline}</div>
               <p className="mt-1 text-sm text-muted">{a.primary_text}</p>
               <div className="mt-2 text-xs">
                 <span className="text-accent">CTA:</span> {a.cta}
               </div>
               <div className="mt-1 text-xs text-muted">Visual: {a.visual_idea}</div>
-            </Card>
+            </Panel>
           ))}
         </div>
-      </Section>
-      <Section title="Landing page copy">
-        <Card className="p-5">
-          <div className="text-xl font-bold">{d.landing_copy.hero_headline}</div>
+      </section>
+      <section>
+        <SectionHead title="Landing page copy" />
+        <Card>
+          <div className="font-display text-xl font-bold">{d.landing_copy.hero_headline}</div>
           <p className="mt-1 text-sm text-muted">{d.landing_copy.subheadline}</p>
           <div className="mt-3">
             <Bullets items={d.landing_copy.bullets} />
           </div>
-          <div className="mt-3 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white">
+          <div className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white">
             {d.landing_copy.cta}
           </div>
         </Card>
-      </Section>
-      <Section title="Email sequence">
+      </section>
+      <section>
+        <SectionHead title="Email sequence" />
         <div className="space-y-3">
           {d.email_sequence.map((e, i) => (
-            <Card key={i} className="p-4">
+            <Panel key={i}>
               <div className="flex items-center gap-2">
-                <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-xs text-accent">
-                  {e.stage}
-                </span>
+                <Tag>{e.stage}</Tag>
                 <span className="text-sm font-semibold">{e.subject}</span>
               </div>
               <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{e.body}</p>
-            </Card>
+            </Panel>
           ))}
         </div>
-      </Section>
-      <Section title="UGC scripts">
+      </section>
+      <section>
+        <SectionHead title="UGC scripts" />
         <div className="space-y-3">
           {d.ugc_scripts.map((u, i) => (
-            <Card key={i} className="p-4">
-              <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-xs text-accent">
-                {u.platform}
-              </span>
+            <Panel key={i}>
+              <Tag>{u.platform}</Tag>
               <div className="mt-2 text-sm font-semibold">Hook: {u.hook}</div>
               <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{u.script}</p>
               <div className="mt-1 text-xs">
                 <span className="text-accent">CTA:</span> {u.cta}
               </div>
-            </Card>
+            </Panel>
           ))}
         </div>
-      </Section>
+      </section>
     </div>
   );
 }
 
 export function PromotionView({ d }: { d: Promotion }) {
   return (
-    <div className="space-y-5">
-      <Card className="border-accent2/40 bg-accent2/5 p-4">
-        <div className="font-mono text-xs uppercase tracking-[0.18em] text-accent2">Channel strategy</div>
+    <div className="space-y-10">
+      <Card className="border-accent2/40 bg-accent2/5">
+        <Eyebrow tone="accent2">Channel strategy</Eyebrow>
         <p className="mt-1.5 text-sm text-fg/90">{d.channel_strategy}</p>
       </Card>
 
-      <Section title="Where to show up">
+      <section>
+        <SectionHead title="Where to show up" />
         <div className="grid gap-3 sm:grid-cols-2">
           {d.channels.map((c, i) => (
-            <Card key={i} className="p-4">
+            <Panel key={i}>
               <div className="text-sm font-semibold">{c.channel}</div>
               <p className="mt-1 text-sm text-muted">{c.why}</p>
               {c.first_move && (
@@ -945,57 +927,58 @@ export function PromotionView({ d }: { d: Promotion }) {
                   <span className="text-fg/85">{c.first_move}</span>
                 </p>
               )}
-            </Card>
+            </Panel>
           ))}
         </div>
-      </Section>
+      </section>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Section title="Stand this up">
-          <Card className="p-4">
+      <section>
+        <SectionHead title="Set up & launch" />
+        <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
+          <div className="sm:pr-6">
+            <Eyebrow className="mb-2.5">Stand this up</Eyebrow>
             <Bullets items={d.presence_checklist} />
-          </Card>
-        </Section>
-        <Section title="Get the word out">
-          <Card className="p-4">
+          </div>
+          <div className="sm:pl-6">
+            <Eyebrow className="mb-2.5">Get the word out</Eyebrow>
             <Bullets items={d.launch_tactics} />
-          </Card>
-        </Section>
-      </div>
+          </div>
+        </div>
+      </section>
 
-      <Section title="What to post">
+      <section>
+        <SectionHead title="What to post" />
         <div className="space-y-2">
           {d.content_plan.map((c, i) => (
-            <Card key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 p-3">
+            <Panel key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 p-3">
               <span className="text-sm font-semibold">{c.theme}</span>
               <span className="text-xs text-muted">{c.formats}</span>
               <span className="ml-auto rounded-full border border-border bg-panel2 px-2 py-0.5 font-mono text-[11px] text-muted">
                 {c.cadence}
               </span>
-            </Card>
+            </Panel>
           ))}
         </div>
-      </Section>
+      </section>
     </div>
   );
 }
 
 export function OutreachView({ d }: { d: Outreach }) {
   return (
-    <div className="space-y-5">
-      <Card className="border-accent2/40 bg-accent2/5 p-4">
-        <div className="font-mono text-xs uppercase tracking-[0.18em] text-accent2">Channel strategy</div>
+    <div className="space-y-10">
+      <Card className="border-accent2/40 bg-accent2/5">
+        <Eyebrow tone="accent2">Channel strategy</Eyebrow>
         <p className="mt-1.5 text-sm text-fg/90">{d.channel_strategy}</p>
       </Card>
 
-      <Section title="Cold openers">
+      <section>
+        <SectionHead title="Cold openers" />
         <div className="space-y-3">
           {d.openers.map((o, i) => (
-            <Card key={i} className="p-4">
+            <Panel key={i}>
               <div className="flex items-center justify-between gap-2">
-                <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-xs text-accent">
-                  {o.channel}
-                </span>
+                <Tag>{o.channel}</Tag>
                 {o.why && <span className="text-[11px] text-muted">{o.why}</span>}
               </div>
               {o.subject && (
@@ -1005,34 +988,33 @@ export function OutreachView({ d }: { d: Outreach }) {
                 </div>
               )}
               <p className="mt-1.5 whitespace-pre-wrap text-sm text-fg/90">{o.message}</p>
-            </Card>
+            </Panel>
           ))}
         </div>
-      </Section>
+      </section>
 
-      <Section title="Plan to first 5 paying customers">
-        <Card className="p-4">
-          <ol className="space-y-2">
-            {d.first_five_plan.map((step, i) => (
-              <li key={i} className="flex gap-3 text-sm">
-                <span className="font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
-                <span className="text-fg/90">{step}</span>
-              </li>
-            ))}
-          </ol>
-        </Card>
-      </Section>
+      <section>
+        <SectionHead title="Plan to first 5 paying customers" />
+        <ol className="space-y-2">
+          {d.first_five_plan.map((step, i) => (
+            <li key={i} className="flex gap-3 rounded-lg border border-border/70 bg-panel/40 p-3 text-sm">
+              <span className="font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
+              <span className="text-fg/90">{step}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }
 
 export function CustomerPitchView({ d }: { d: CustomerPitch }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-10">
       {/* the line you lead with */}
-      <Card className="p-5">
-        <div className="font-mono text-xs uppercase tracking-[0.18em] text-accent2">One-liner</div>
-        <p className="mt-1.5 text-lg font-semibold leading-snug">{d.one_liner}</p>
+      <Card>
+        <Eyebrow tone="accent2">One-liner</Eyebrow>
+        <p className="mt-1.5 font-display text-lg font-semibold leading-snug">{d.one_liner}</p>
         <p className="mt-3 border-t border-border pt-3 text-sm leading-relaxed text-fg/90">
           <span className="font-mono text-xs uppercase tracking-wide text-muted">Hook · </span>
           {d.hook}
@@ -1043,10 +1025,11 @@ export function CustomerPitchView({ d }: { d: CustomerPitch }) {
         </p>
       </Card>
 
-      <Section title="Walkthrough script">
+      <section>
+        <SectionHead title="Walkthrough script" />
         <ol className="space-y-2">
           {d.demo_script.map((s, i) => (
-            <li key={i} className="flex gap-3 rounded-lg border border-border bg-panel2 p-3">
+            <li key={i} className="flex gap-3 rounded-lg border border-border/70 bg-panel/40 p-3">
               <span className="mt-0.5 font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
               <div>
                 <div className="text-sm font-semibold">{s.beat}</div>
@@ -1055,34 +1038,36 @@ export function CustomerPitchView({ d }: { d: CustomerPitch }) {
             </li>
           ))}
         </ol>
-      </Section>
+      </section>
 
-      <Section title="Objections &amp; answers">
+      <section>
+        <SectionHead title="Objections & answers" />
         <div className="space-y-2">
           {d.objections.map((o, i) => (
-            <Card key={i} className="p-4">
+            <Panel key={i}>
               <div className="text-sm font-semibold text-warn">“{o.objection}”</div>
               <p className="mt-1 text-sm text-fg/90">{o.response}</p>
-            </Card>
+            </Panel>
           ))}
         </div>
-      </Section>
+      </section>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Section title="Proof points">
-          <Card className="p-4">
+      <section>
+        <SectionHead title="Proof & timing" />
+        <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
+          <div className="sm:pr-6">
+            <Eyebrow className="mb-2.5">Proof points</Eyebrow>
             <Bullets items={d.proof_points} />
-          </Card>
-        </Section>
-        <Section title="Why now">
-          <Card className="flex h-full flex-col p-4">
-            <p className="flex-1 text-sm text-fg/90">{d.why_now}</p>
-          </Card>
-        </Section>
-      </div>
+          </div>
+          <div className="sm:pl-6">
+            <Eyebrow className="mb-2.5">Why now</Eyebrow>
+            <p className="text-sm leading-relaxed text-fg/90">{d.why_now}</p>
+          </div>
+        </div>
+      </section>
 
-      <Card className="border-accent/40 bg-accent/5 p-5">
-        <div className="font-mono text-xs uppercase tracking-[0.18em] text-accent">The ask</div>
+      <Card className="border-accent/40 bg-accent/5">
+        <Eyebrow tone="accent">The ask</Eyebrow>
         <p className="mt-1.5 text-base font-medium">{d.call_to_action}</p>
       </Card>
 
@@ -1099,12 +1084,13 @@ const CLAIM_TONE: Record<string, { color: string; label: string }> = {
 
 function ClaimCheck({ items }: { items: { claim: string; basis: string; note: string }[] }) {
   return (
-    <Section title="Reality check — before you say it out loud">
+    <section>
+      <SectionHead title="Reality check" hint="before you say it out loud" />
       <div className="space-y-2">
         {items.map((c, i) => {
           const t = CLAIM_TONE[c.basis] ?? CLAIM_TONE.assumption;
           return (
-            <Card key={i} className="flex items-start gap-3 p-3">
+            <Panel key={i} className="flex items-start gap-3 p-3">
               <span
                 className="mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
                 style={{ color: t.color, borderColor: `color-mix(in srgb, ${t.color} 40%, transparent)` }}
@@ -1115,11 +1101,11 @@ function ClaimCheck({ items }: { items: { claim: string; basis: string; note: st
                 <div className="text-sm text-fg/90">{c.claim}</div>
                 {c.note && <div className="mt-0.5 text-xs text-muted">{c.note}</div>}
               </div>
-            </Card>
+            </Panel>
           );
         })}
       </div>
-    </Section>
+    </section>
   );
 }
 
@@ -1127,15 +1113,15 @@ export function PitchView({ d }: { d: Pitch }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {d.slides.map((s, i) => (
-        <Card key={i} className="flex flex-col p-5">
-          <div className="font-mono text-xs text-muted">Slide {i + 1}</div>
-          <div className="mt-1 text-base font-bold">{s.title}</div>
+        <Panel key={i} className="flex flex-col p-5">
+          <Eyebrow>Slide {i + 1}</Eyebrow>
+          <div className="mt-1 font-display text-base font-bold">{s.title}</div>
           <div className="text-sm text-accent2">{s.subtitle}</div>
           <div className="mt-3 flex-1">
             <Bullets items={s.bullets} />
           </div>
           <p className="mt-3 border-t border-border pt-2 text-xs italic text-muted">{s.speaker_notes}</p>
-        </Card>
+        </Panel>
       ))}
     </div>
   );
