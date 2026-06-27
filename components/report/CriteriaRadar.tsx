@@ -81,7 +81,7 @@ export function CriteriaRadar({ criteria }: { criteria: Criterion[] }) {
             <PolarGrid stroke="#bbbbbb" />
             <PolarAngleAxis dataKey="name" tick={{ fill: "#444444", fontSize: 11 }} />
             <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-            <Radar dataKey="score" stroke="#6366f1" fill="#6366f1" fillOpacity={0.35} />
+            <Radar dataKey="score" stroke="#5a8fcf" fill="#5a8fcf" fillOpacity={0.35} />
           </RadarChart>
         </div>
       </Card>

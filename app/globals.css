@@ -1,17 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #080a0f;
-  --color-panel: #11141b;
-  --color-panel2: #181c25;
-  --color-border: #232a37;
-  --color-fg: #e9edf5;
-  --color-muted: #8b95a7;
-  --color-accent: #6366f1;
-  --color-accent2: #29d2ec;
-  --color-good: #34d399;
-  --color-warn: #fbbf24;
-  --color-bad: #f87171;
+  /* Graphite chassis — cool, near-black, a faint blue undertone so the ink accent
+     feels integrated rather than pasted on. */
+  --color-bg: #0a0c11;
+  --color-panel: #13161e;
+  --color-panel2: #1b1f29;
+  --color-border: #272d3a;
+  --color-fg: #e9edf4;
+  --color-muted: #8b93a3;
+  /* One brand hue — blueprint-steel blue, the instrument's "ink". It deliberately
+     sits OFF the verdict arc (red→amber→green) so it never competes with a verdict.
+     accent = UI/controls/structure; accent2 = the same ink lit up, for live readouts. */
+  --color-accent: #5a8fcf;
+  --color-accent2: #72b2ec;
+  /* Signal lights — the ONLY saturated colour that carries meaning: the verdict. */
+  --color-good: #33cb8c;
+  --color-warn: #f2b13c;
+  --color-bad: #f06b6b;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
