@@ -123,12 +123,14 @@ function tone3(value: string, good: string, mid: string): string {
       : "var(--color-bad)";
 }
 
-function StatTile({ label, value, color, hint }: { label: string; value: string; color?: string; hint?: string }) {
+// A borderless metric cell — sits inside a gap-px hairline grid so the report
+// reads as instrument panels, not a stack of equally-weighted bordered cards.
+function Metric({ label, value, color, hint }: { label: string; value: string; color?: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-panel2 p-2.5" title={hint}>
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted">{label}</div>
+    <div className="bg-panel px-3.5 py-3" title={hint}>
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{label}</div>
       <div
-        className="mt-0.5 text-sm font-semibold leading-snug [overflow-wrap:anywhere]"
+        className="mt-1 text-sm font-semibold leading-snug [overflow-wrap:anywhere]"
         style={color ? { color } : undefined}
       >
         {value}
@@ -137,12 +139,68 @@ function StatTile({ label, value, color, hint }: { label: string; value: string;
   );
 }
 
-function DetailRow({ title, children }: { title: string; children: React.ReactNode }) {
+// The editorial spine: a numbered eyebrow + a hairline rule. Replaces bordered
+// section cards so the eye gets anchors, not boxes.
+function SectionHead({ n, title, id, hint }: { n: string; title: string; id?: string; hint?: string }) {
+  return (
+    <div id={id} className="mb-5 flex items-center gap-3 scroll-mt-20">
+      <span className="font-mono text-xs font-semibold tabular-nums text-accent2">{n}</span>
+      <h2 className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-fg/90">{title}</h2>
+      <div className="h-px flex-1 bg-border" />
+      {hint && <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-muted sm:block">{hint}</span>}
+    </div>
+  );
+}
+
+// The headline reads, as one divided instrument strip (not four cards).
+function DimensionStrip({ dims }: { dims: { label: string; value: string; color?: string; hint?: string }[] }) {
+  if (!dims.length) return null;
+  return (
+    <div className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
+      {dims.map((d) => (
+        <Metric key={d.label} label={d.label} value={d.value} color={d.color} hint={d.hint} />
+      ))}
+    </div>
+  );
+}
+
+// Compact, promoted strengths / risks — the most actionable read, pulled up out
+// of the collapsed scorecard.
+function MiniSignals({ tone, label, items }: { tone: "good" | "warn"; label: string; items: { text: string; category?: string }[] }) {
+  const cls = tone === "good" ? "text-good" : "text-warn";
+  const mark = tone === "good" ? "+" : "!";
+  if (!items.length) return null;
   return (
     <div>
-      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{title}</div>
-      {children}
+      <div className={`mb-2.5 font-mono text-[11px] uppercase tracking-[0.16em] ${cls}`}>{label}</div>
+      <ul className="space-y-2.5">
+        {items.map((s, i) => (
+          <li key={i} className="flex gap-2.5 text-sm leading-snug">
+            <span className={`mt-px font-mono font-bold ${cls}`} aria-hidden>{mark}</span>
+            <span className="text-fg/90">
+              {s.text}
+              {s.category ? <span className="ml-1.5 font-mono text-[10px] uppercase tracking-wide text-muted">· {s.category}</span> : null}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
+  );
+}
+
+function PainkillerTag({ verdict }: { verdict: "Painkiller" | "Vitamin" }) {
+  const pain = verdict === "Painkiller";
+  const c = pain ? "var(--color-good)" : "var(--color-warn)";
+  return (
+    <span
+      className="shrink-0 rounded-full border px-3 py-1 text-xs font-bold"
+      title={pain
+        ? "Painkiller — solves an urgent, must-fix pain people already pay to relieve. Easier to sell."
+        : "Vitamin — a nice-to-have improvement. Real, but harder to sell because no one is forced to act."}
+      style={{ color: c, borderColor: `color-mix(in srgb, ${c} 40%, transparent)`, background: `color-mix(in srgb, ${c} 8%, transparent)` }}
+    >
+      {pain ? "💊 Painkiller" : "🟡 Vitamin"}
+    </span>
   );
 }
 
@@ -203,7 +261,11 @@ function VerdictMeter({ score }: { score: number }) {
 }
 
 export function ValidationView({ d }: { d: Validation }) {
-  const navLink = "rounded-md px-2.5 py-1 text-xs text-muted transition hover:bg-panel2 hover:text-fg";
+  const navLink =
+    "rounded-md px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-muted transition hover:bg-panel2 hover:text-fg";
+  const color = scoreColor(d.score);
+  const band = scoreBand(d.score);
+
   // only show a section (and its nav link) when it actually has content — a partial
   // analysis shouldn't leave a nav link that jumps to a blank section.
   const m = d.market;
@@ -216,208 +278,386 @@ export function ValidationView({ d }: { d: Validation }) {
     f.startup_cost || f.revenue_model || f.unit_economics?.cac || f.unit_economics?.ltv ||
     f.unit_economics?.payback || f.projections?.length
   );
-  const p = d.plan;
-  const showPlan = !!p && !!(p.milestones?.length || p.team_and_ops);
+  const pl = d.plan;
+  const showPlan = !!pl && !!(pl.milestones?.length || pl.team_and_ops);
+
+  // the four headline reads → one divided strip
+  const dims: { label: string; value: string; color?: string; hint?: string }[] = [];
+  if (d.demand) dims.push({ label: "Demand", value: d.demand.strength, color: tone3(d.demand.strength, "Strong", "Moderate"), hint: "How strongly the target wants this." });
+  if (d.demand) dims.push({ label: "Will pay", value: d.demand.willingness_to_pay, hint: "What they'll realistically pay." });
+  if (d.operating) dims.push({ label: "Effort to run", value: d.operating.effort_level, color: tone3(d.operating.effort_level, "Low", "Medium"), hint: "Ongoing work to operate it." });
+  if (d.acquisition) dims.push({ label: "Hard to sell", value: d.acquisition.difficulty, color: tone3(d.acquisition.difficulty, "Easy", "Moderate"), hint: "How hard it is to win each customer." });
+
+  // promoted strengths / risks — the top items; the full lists stay in the scorecard.
+  const strengths = [...(d.go_signals?.key_strengths ?? []), ...(d.go_signals?.positive_signals ?? [])].slice(0, 3);
+  const risks = [...(d.stop_signals?.critical_risks ?? []), ...(d.stop_signals?.areas_of_concern ?? [])].slice(0, 3);
+
+  const sens = d.demand?.sensitivity;
+  const hasSens = !!sens && !!(sens.conservative || sens.optimistic);
+
+  const narrativeRows: [string, string, string][] = d.narrative
+    ? [
+        ["Who feels it", d.narrative.who, ""],
+        ["The pain", d.narrative.pain, ""],
+        ["Today they", d.narrative.status_quo, "text-muted"],
+        ["Cost of nothing", d.narrative.cost_of_inaction, "text-bad"],
+        ["Your solution", d.narrative.solution, "text-accent"],
+        ["After", d.narrative.after, "text-good"],
+      ]
+    : [];
+
   return (
-    <div className="space-y-8">
-      {/* jump nav across the one analysis */}
-      <nav className="no-print sticky top-0 z-10 -mx-1 flex flex-wrap gap-1 border-b border-border bg-bg/85 px-1 py-2 backdrop-blur">
+    <div className="space-y-12">
+      {/* on-this-report nav */}
+      <nav className="no-print sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-1 border-b border-border bg-bg/85 px-1 py-2.5 backdrop-blur">
+        <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Report</span>
         <a href="#verdict" className={navLink}>Verdict</a>
-        {d.risk_matrix?.length ? <a href="#risks" className={navLink}>Risks</a> : null}
-        {showMarket && <a href="#market" className={navLink}>Market &amp; competition</a>}
+        <a href="#brief" className={navLink}>Brief</a>
+        {showMarket && <a href="#market" className={navLink}>Market</a>}
         {showMoney && <a href="#money" className={navLink}>Money</a>}
+        {d.risk_matrix?.length ? <a href="#risks" className={navLink}>Risks</a> : null}
         {showPlan && <a href="#plan" className={navLink}>Plan</a>}
       </nav>
 
-      <div id="verdict" className="space-y-4 scroll-mt-16">
-        {/* primary instrument — the verdict readout, rail tinted to the verdict */}
-        <div
-          className="overflow-hidden rounded-xl border border-border bg-panel"
-          style={{ borderLeftWidth: 3, borderLeftColor: scoreColor(d.score) }}
-        >
-          <div className="p-5">
-            <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+      {/* ============================ VERDICT (hero) ============================ */}
+      <section id="verdict" className="scroll-mt-20 space-y-5">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-panel2 to-panel">
+          {/* verdict-tinted top hairline — the only place the verdict color leads */}
+          <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
+          <div className="p-6 sm:p-7">
+            <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
               <span>Validation readout</span>
-              <span>{d.confidence}% confidence</span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+                {d.confidence}% confidence
+              </span>
             </div>
-            <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+
+            <div className="mt-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
               <div className="min-w-0">
-                <div
-                  className="font-display text-4xl font-bold leading-none tracking-tight"
-                  style={{ color: scoreColor(d.score) }}
-                >
-                  {d.verdict}
+                <div className="flex items-baseline gap-3">
+                  <span className="font-display text-5xl font-bold leading-none tracking-tight sm:text-6xl" style={{ color }}>
+                    {d.verdict}
+                  </span>
+                  <span className="font-mono text-2xl font-bold tabular-nums" style={{ color }}>
+                    {Math.round(d.score)}
+                    <span className="text-base text-muted">/100</span>
+                  </span>
                 </div>
-                <div className="mt-2 max-w-sm text-sm text-muted">{scoreBand(d.score).hint}</div>
+                <div className="mt-2.5 max-w-md text-sm leading-relaxed text-muted">
+                  <b className="text-fg/80">{band.label}.</b> {band.hint}
+                </div>
               </div>
               <div className="text-right">
-                <div className="font-mono text-3xl font-bold leading-none text-accent2 [overflow-wrap:anywhere]">
+                <div className="font-mono text-3xl font-bold leading-none text-accent2 [overflow-wrap:anywhere] sm:text-4xl">
                   {d.demand?.obtainable_revenue ?? "—"}
                 </div>
-                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-                  obtainable revenue / yr
-                </div>
+                <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">obtainable / yr</div>
               </div>
             </div>
-            <div className="mt-6">
+
+            <div className="mt-7">
               <VerdictMeter score={d.score} />
             </div>
           </div>
-        </div>
 
-        {/* secondary instruments */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {d.demand && (
-            <StatTile label="Demand" value={d.demand.strength} color={tone3(d.demand.strength, "Strong", "Moderate")} hint="How many people actively want this and how strongly." />
-          )}
-          {d.demand && <StatTile label="Pays" value={d.demand.willingness_to_pay} hint="What they'll realistically pay." />}
-          {d.operating && (
-            <StatTile label="Effort to run" value={d.operating.effort_level} color={tone3(d.operating.effort_level, "Low", "Medium")} hint="How much ongoing work running this takes." />
-          )}
-          {d.acquisition && (
-            <StatTile label="Hard to sell" value={d.acquisition.difficulty} color={tone3(d.acquisition.difficulty, "Easy", "Moderate")} hint="How hard it is to acquire each customer." />
-          )}
+          {/* the four reads as the instrument footer */}
+          <DimensionStrip dims={dims} />
         </div>
 
         {/* the read, in plain words */}
-        <p className="text-sm leading-relaxed text-fg/90">{d.summary}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <p className="max-w-2xl text-[15px] leading-relaxed text-fg/90">{d.summary}</p>
+          {d.narrative && <PainkillerTag verdict={d.narrative.verdict} />}
+        </div>
+      </section>
 
-        {d.goal_fit_note && (
-          <div className="rounded-lg border border-warn/30 bg-warn/5 p-3 text-sm">
-            <span className="font-semibold text-warn">Goal fit · </span>
-            <span className="text-fg/90">{d.goal_fit_note}</span>
-          </div>
-        )}
-
-        {d.demand?.sensitivity && (d.demand.sensitivity.conservative || d.demand.sensitivity.optimistic) && (
-          <div className="grid grid-cols-3 gap-3">
-            <StatTile label="Conservative" value={d.demand.sensitivity.conservative || "—"} hint="If it goes worse than expected" />
-            <StatTile label="Base" value={d.demand.sensitivity.base || d.demand.obtainable_revenue || "—"} color="var(--color-accent2)" hint="The headline estimate" />
-            <StatTile label="Optimistic" value={d.demand.sensitivity.optimistic || "—"} hint="If it goes well" />
-          </div>
-        )}
-      </div>
-
-      {d.narrative && (
-        <Card>
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-              Why they'll buy — pain → obvious solution
+      {/* ============================== THE BRIEF ============================== */}
+      <section id="brief" className="scroll-mt-20">
+        <SectionHead n="01" title="The brief" hint="what you need to know" />
+        <div className="space-y-8">
+          {narrativeRows.length > 0 && (
+            <div>
+              <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Why they&apos;ll buy</div>
+              <div className="grid gap-x-6 gap-y-2.5 text-sm sm:grid-cols-[140px_1fr]">
+                {narrativeRows.map(([label, text, cls]) => (
+                  <React.Fragment key={label}>
+                    <div className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted sm:pt-0.5">{label}</div>
+                    <div className={`leading-relaxed ${cls}`}>{text}</div>
+                  </React.Fragment>
+                ))}
+              </div>
+              {d.narrative?.why && (
+                <p className="mt-3 border-t border-border pt-3 text-sm text-muted">
+                  <b className="text-fg/80">{d.narrative.verdict}: </b>
+                  {d.narrative.why}
+                </p>
+              )}
             </div>
-            <span
-              className="rounded-full border px-2.5 py-0.5 text-xs font-bold"
-              title={
-                d.narrative.verdict === "Painkiller"
-                  ? "Painkiller — solves an urgent, must-fix pain people already pay to relieve. Easier to sell."
-                  : "Vitamin — a nice-to-have improvement. Real, but harder to sell because no one is forced to act."
-              }
-              style={{
-                color:
-                  d.narrative.verdict === "Painkiller" ? "var(--color-good)" : "var(--color-warn)",
-                borderColor:
-                  d.narrative.verdict === "Painkiller"
-                    ? "color-mix(in srgb, var(--color-good) 40%, transparent)"
-                    : "color-mix(in srgb, var(--color-warn) 40%, transparent)",
-              }}
-            >
-              {d.narrative.verdict === "Painkiller" ? "💊 Painkiller" : "🟡 Vitamin"}
-            </span>
-          </div>
-          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-[150px_1fr]">
-            {[
-              ["Who feels it", d.narrative.who, ""],
-              ["The pain", d.narrative.pain, ""],
-              ["Today they", d.narrative.status_quo, "text-muted"],
-              ["Cost of doing nothing", d.narrative.cost_of_inaction, "text-bad"],
-              ["Your solution", d.narrative.solution, "text-accent"],
-              ["After", d.narrative.after, "text-good"],
-            ].map(([label, text, cls]) => (
-              <React.Fragment key={label}>
-                <div className="text-xs uppercase tracking-wide text-muted sm:pt-0.5">{label}</div>
-                <div className={`leading-relaxed ${cls}`}>{text}</div>
-              </React.Fragment>
-            ))}
-          </div>
-          <p className="mt-3 border-t border-border pt-2 text-xs text-muted">
-            <b className="text-fg/80">{d.narrative.verdict}:</b> {d.narrative.why}
-          </p>
-        </Card>
-      )}
+          )}
 
-      {(d.demand || d.operating || d.acquisition || d.downside) && (
-        <details className="group rounded-xl border border-border bg-panel">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-medium text-muted hover:text-fg">
-            <span className="transition group-open:rotate-90">▸</span>
-            Forecast detail — demand & pricing, day-to-day, sales & downside
-          </summary>
-          <div className="space-y-5 border-t border-border p-5">
-            {d.demand && (
-              <DetailRow title="Demand & pricing">
-                {d.demand.math && (
-                  <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-accent2/20 bg-accent2/5 px-3 py-2 font-mono text-xs">
-                    <span title="customers you can realistically reach">{d.demand.math.reachable}</span>
-                    <span className="text-muted">reach ×</span>
-                    <span title="share/conversion you'd win">{d.demand.math.capture}</span>
-                    <span className="text-muted">win ×</span>
-                    <span title="annual revenue per customer">{d.demand.math.price}</span>
-                    <span className="text-muted">each ≈</span>
-                    <span className="font-bold text-accent2">{d.demand.obtainable_revenue}</span>
-                    <span className="text-muted">/yr</span>
+          {(strengths.length > 0 || risks.length > 0) && (
+            <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
+              <div className="sm:pr-6"><MiniSignals tone="good" label="What's working" items={strengths} /></div>
+              <div className="sm:pl-6"><MiniSignals tone="warn" label="What to watch" items={risks} /></div>
+            </div>
+          )}
+
+          {d.demand && (
+            <div>
+              <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">The number</div>
+              {d.demand.math && (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted">
+                  <span className="text-fg/80" title="customers you can realistically reach">{d.demand.math.reachable}</span>
+                  <span>reach ×</span>
+                  <span className="text-fg/80" title="share/conversion you'd win">{d.demand.math.capture}</span>
+                  <span>win ×</span>
+                  <span className="text-fg/80" title="annual revenue per customer">{d.demand.math.price}</span>
+                  <span>each ≈</span>
+                  <span className="font-bold text-accent2">{d.demand.obtainable_revenue}</span>
+                  <span>/yr</span>
+                </div>
+              )}
+              {hasSens && (
+                <div className="mt-3 grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border">
+                  <Metric label="Conservative" value={sens!.conservative || "—"} hint="If it goes worse than expected" />
+                  <Metric label="Base" value={sens!.base || d.demand.obtainable_revenue || "—"} color="var(--color-accent2)" hint="The headline estimate" />
+                  <Metric label="Optimistic" value={sens!.optimistic || "—"} hint="If it goes well" />
+                </div>
+              )}
+              {d.demand.reasoning && (
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">{d.demand.reasoning}</p>
+              )}
+            </div>
+          )}
+
+          {d.goal_fit_note && (
+            <div className="rounded-r-lg border-l-2 border-warn/50 bg-warn/5 px-4 py-3 text-sm">
+              <span className="font-mono text-[11px] uppercase tracking-wide text-warn">Goal fit · </span>
+              <span className="text-fg/90">{d.goal_fit_note}</span>
+            </div>
+          )}
+
+          {d.clarifying_questions && d.clarifying_questions.length > 0 && (
+            <div className="rounded-r-lg border-l-2 border-accent2/50 bg-accent2/5 px-4 py-3">
+              <div className="mb-1.5 font-mono text-[11px] uppercase tracking-wide text-accent2">Open questions</div>
+              <p className="mb-2 text-xs text-muted">Answer these via “💬 Discuss → Respond” to sharpen the next pass.</p>
+              <ul className="space-y-1.5">
+                {d.clarifying_questions.map((q, i) => (
+                  <li key={i} className="flex gap-2 text-sm leading-snug text-fg/90">
+                    <span className="text-accent2" aria-hidden>?</span>
+                    {q}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {(d.operating || d.acquisition) && (
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted hover:text-fg">
+                <span className="transition group-open:rotate-90">▸</span>
+                How it runs &amp; how you sell
+              </summary>
+              <div className="mt-3 space-y-3 border-l border-border pl-4 text-sm leading-relaxed text-fg/90">
+                {d.operating && (
+                  <p>
+                    <span className="font-mono text-[11px] uppercase tracking-wide text-muted">{d.operating.effort_level} effort · </span>
+                    {d.operating.description}
+                  </p>
+                )}
+                {d.acquisition && (
+                  <p>
+                    <span className="font-mono text-[11px] uppercase tracking-wide text-muted">{d.acquisition.difficulty} to sell · </span>
+                    {d.acquisition.reasoning}
+                  </p>
+                )}
+              </div>
+            </details>
+          )}
+        </div>
+      </section>
+
+      {/* ============================ MARKET ============================ */}
+      {showMarket && d.market && (
+        <section id="market" className="scroll-mt-20">
+          <SectionHead n="02" title="Market & competition" hint="proof the pain is real" />
+          <div className="space-y-6">
+            {d.market.sizing && (d.market.sizing.tam?.value || d.market.sizing.sam?.value || d.market.sizing.som?.value) && (
+              <MarketSizing sizing={d.market.sizing} cagrPct={d.market.cagr_pct ?? 0} />
+            )}
+
+            {((d.market.search_trend && d.market.search_trend.note) || d.market.momentum) && (
+              <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
+                {d.market.search_trend && d.market.search_trend.note && (
+                  <div className="bg-panel p-4">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Search interest</div>
+                    <div
+                      className="mt-1 text-sm font-medium"
+                      style={{
+                        color:
+                          d.market.search_trend.direction === "Rising"
+                            ? "var(--color-good)"
+                            : d.market.search_trend.direction === "Falling"
+                              ? "var(--color-bad)"
+                              : "var(--color-fg)",
+                      }}
+                    >
+                      {d.market.search_trend.direction === "Rising" ? "↗ " : d.market.search_trend.direction === "Falling" ? "↘ " : "→ "}
+                      {d.market.search_trend.note}
+                    </div>
+                    {d.market.search_trend.keyword && <div className="mt-0.5 font-mono text-[11px] text-muted">“{d.market.search_trend.keyword}”</div>}
                   </div>
                 )}
-                <p className="text-sm">
-                  <span className="text-muted">Willingness to pay: </span>
-                  {d.demand.willingness_to_pay}
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-muted">{d.demand.reasoning}</p>
-              </DetailRow>
+                {d.market.momentum && (
+                  <div className="bg-panel p-4">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Recent momentum</div>
+                    <p className="mt-1 text-sm text-fg/90">{d.market.momentum}</p>
+                  </div>
+                )}
+              </div>
             )}
-            {d.operating && (
-              <DetailRow title={`What running it is like · ${d.operating.effort_level} effort`}>
-                <p className="text-sm leading-relaxed text-fg/90">{d.operating.description}</p>
-              </DetailRow>
+
+            {(d.market.competitors ?? []).length > 0 && (
+              <div>
+                <div className="mb-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Competitors</div>
+                <div className="space-y-2">
+                  {d.market.competitors!.map((c, i) => (
+                    <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-4">
+                      <div className="text-sm font-semibold">{c.name}</div>
+                      {c.note && <p className="mt-1 text-sm text-muted">{c.note}</p>}
+                      {c.complaint_theme && (
+                        <p className="mt-1.5 text-xs">
+                          <span className="font-semibold text-warn">Customers complain: </span>
+                          <span className="text-fg/85">{c.complaint_theme}</span>
+                        </p>
+                      )}
+                      {c.your_edge && (
+                        <p className="mt-1 text-xs">
+                          <span className="font-semibold text-accent">Your edge: </span>
+                          <span className="text-fg/85">{c.your_edge}</span>
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
-            {d.acquisition && (
-              <DetailRow title={`How hard to sell · ${d.acquisition.difficulty}`}>
-                <p className="text-sm leading-relaxed text-fg/90">{d.acquisition.reasoning}</p>
-              </DetailRow>
+
+            {(d.market.demand_signals ?? []).length > 0 && (
+              <div>
+                <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">What people are actually saying</div>
+                <p className="mb-2.5 text-xs text-muted">Real posts found while researching — the pain in their own words.</p>
+                <div className="space-y-2">
+                  {d.market.demand_signals!.map((s, i) => (
+                    <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        {s.tag && (
+                          <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent2">
+                            {s.tag}
+                          </span>
+                        )}
+                        {s.url ? (
+                          <a href={s.url} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent2 hover:underline">
+                            {s.source || "source"} ↗
+                          </a>
+                        ) : (
+                          <span className="truncate text-xs text-muted">{s.source}</span>
+                        )}
+                      </div>
+                      {s.quote && <p className="mt-1.5 text-sm leading-relaxed text-fg/90">“{s.quote}”</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
-        </details>
+        </section>
       )}
 
-      {/* open questions about the assessment (not a to-do list — the journey is the plan) */}
-      {d.clarifying_questions && d.clarifying_questions.length > 0 && (
-        <Section title="Open questions from the validator">
-          <Card className="border-accent2/30 bg-accent2/5">
-            <p className="mb-2 text-xs text-muted">
-              Answer these via “💬 Respond to validator” to sharpen the next validation.
-            </p>
-            <Bullets items={d.clarifying_questions} />
-          </Card>
-        </Section>
+      {/* ============================ MONEY ============================ */}
+      {showMoney && d.financials && (
+        <section id="money" className="scroll-mt-20">
+          <SectionHead n="03" title="Money" hint="the unit economics" />
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
+            <Metric label="Startup cost" value={d.financials.startup_cost || "—"} />
+            <Metric label="CAC" value={d.financials.unit_economics?.cac || "—"} hint="Cost to acquire a customer" />
+            <Metric label="LTV" value={d.financials.unit_economics?.ltv || "—"} hint="Lifetime value of a customer" />
+            <Metric label="Payback" value={d.financials.unit_economics?.payback || "—"} hint="Time to recoup acquisition cost" />
+          </div>
+          {d.financials.revenue_model && <p className="mt-3 text-sm text-muted">{d.financials.revenue_model}</p>}
+          {(d.financials.projections ?? []).length > 0 && (
+            <div className="mt-4 overflow-x-auto rounded-lg border border-border">
+              <table className="w-full min-w-[28rem] text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left font-mono text-[11px] uppercase tracking-wide text-muted">
+                    <th className="px-3 py-2 font-medium">Year</th>
+                    <th className="px-3 py-2 font-medium">Revenue</th>
+                    <th className="px-3 py-2 font-medium">Customers</th>
+                    <th className="px-3 py-2 font-medium">Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.financials.projections.map((p, i) => (
+                    <tr key={i} className="border-b border-border/60 last:border-0">
+                      <td className="px-3 py-2 align-top font-mono text-accent2">{p.year}</td>
+                      <td className="px-3 py-2 align-top font-mono font-bold">{p.revenue}</td>
+                      <td className="px-3 py-2 align-top text-muted">{p.customers}</td>
+                      <td className="px-3 py-2 align-top text-xs text-muted">{p.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
 
-      {/* RISKS — its own section, not buried in the evidence */}
+      {/* ============================ RISKS ============================ */}
       {d.risk_matrix?.length ? (
-        <section id="risks" className="scroll-mt-16">
+        <section id="risks" className="scroll-mt-20">
+          <SectionHead n="04" title="Risks" hint="probability × impact" />
           <RiskMatrix risks={d.risk_matrix} />
           {d.downside && (
-            <Card className="mt-3">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">What&apos;s at stake</div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="Capital at risk" value={d.downside.capital_at_risk} />
-                <Field label="Liability" value={d.downside.liability} />
-                <Field label="If it fails" value={d.downside.if_it_fails} />
-              </div>
-            </Card>
+            <div className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
+              <Metric label="Capital at risk" value={d.downside.capital_at_risk} />
+              <Metric label="Liability" value={d.downside.liability} />
+              <Metric label="If it fails" value={d.downside.if_it_fails} />
+            </div>
           )}
         </section>
       ) : null}
 
-      {/* The score's evidence — collapsed to keep the verdict scannable */}
-      <details className="group rounded-xl border border-border bg-panel">
-        <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-medium text-muted hover:text-fg">
+      {/* ============================ PLAN ============================ */}
+      {showPlan && d.plan && (
+        <section id="plan" className="scroll-mt-20">
+          <SectionHead n="05" title="Plan" hint="path to first revenue" />
+          <ol className="space-y-2">
+            {(d.plan.milestones ?? []).map((mi, i) => (
+              <li key={i} className="flex gap-3 rounded-lg border border-border/70 bg-panel/40 p-3">
+                <span className="mt-0.5 font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
+                <div>
+                  <div className="text-sm font-semibold">{mi.title}</div>
+                  <div className="mt-0.5 text-xs text-muted">
+                    {mi.when}
+                    {mi.metric ? ` · ${mi.metric}` : ""}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+          {d.plan.team_and_ops && (
+            <p className="mt-3 text-sm text-muted">
+              <span className="font-medium text-fg/80">Team &amp; ops: </span>
+              {d.plan.team_and_ops}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* ===================== full scorecard (the deep dive) ===================== */}
+      <details className="group rounded-xl border border-border bg-panel/40">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted hover:text-fg">
           <span className="transition group-open:rotate-90">▸</span>
           Full scorecard &amp; signals — the evidence behind the score
         </summary>
@@ -434,165 +674,6 @@ export function ValidationView({ d }: { d: Validation }) {
           <ValidationScorecard validations={d.validations} criteria={d.criteria} />
         </div>
       </details>
-
-      {/* MARKET & COMPETITION */}
-      {showMarket && d.market && (
-        <section id="market" className="scroll-mt-16 space-y-6">
-          {d.market.sizing && (d.market.sizing.tam?.value || d.market.sizing.sam?.value || d.market.sizing.som?.value) && (
-            <MarketSizing sizing={d.market.sizing} cagrPct={d.market.cagr_pct ?? 0} />
-          )}
-
-          {((d.market.search_trend && d.market.search_trend.note) || d.market.momentum) && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {d.market.search_trend && d.market.search_trend.note && (
-                <Card className="p-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">Search interest</div>
-                  <div
-                    className="mt-1 text-sm font-medium"
-                    style={{
-                      color:
-                        d.market.search_trend.direction === "Rising"
-                          ? "var(--color-good)"
-                          : d.market.search_trend.direction === "Falling"
-                            ? "var(--color-bad)"
-                            : "var(--color-fg)",
-                    }}
-                  >
-                    {d.market.search_trend.direction === "Rising" ? "↗ " : d.market.search_trend.direction === "Falling" ? "↘ " : "→ "}
-                    {d.market.search_trend.note}
-                  </div>
-                  {d.market.search_trend.keyword && <div className="mt-0.5 font-mono text-[11px] text-muted">“{d.market.search_trend.keyword}”</div>}
-                </Card>
-              )}
-              {d.market.momentum && (
-                <Card className="p-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">Recent momentum</div>
-                  <p className="mt-1 text-sm text-fg/90">{d.market.momentum}</p>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {(d.market.competitors ?? []).length > 0 && (
-            <Section title="Competitors">
-              <div className="space-y-2">
-                {d.market.competitors!.map((c, i) => (
-                  <Card key={i} className="p-4">
-                    <div className="text-sm font-semibold">{c.name}</div>
-                    {c.note && <p className="mt-1 text-sm text-muted">{c.note}</p>}
-                    {c.complaint_theme && (
-                      <p className="mt-1.5 text-xs">
-                        <span className="font-semibold text-warn">Customers complain: </span>
-                        <span className="text-fg/85">{c.complaint_theme}</span>
-                      </p>
-                    )}
-                    {c.your_edge && (
-                      <p className="mt-1 text-xs">
-                        <span className="font-semibold text-accent">Your edge: </span>
-                        <span className="text-fg/85">{c.your_edge}</span>
-                      </p>
-                    )}
-                  </Card>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {(d.market.demand_signals ?? []).length > 0 && (
-            <Section title="What people are actually saying">
-              <p className="mb-2 text-xs text-muted">Real posts found while researching — the pain in their own words.</p>
-              <div className="space-y-2">
-                {d.market.demand_signals!.map((s, i) => (
-                  <Card key={i} className="p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      {s.tag && (
-                        <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent2">
-                          {s.tag}
-                        </span>
-                      )}
-                      {s.url ? (
-                        <a href={s.url} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent2 hover:underline">
-                          {s.source || "source"} ↗
-                        </a>
-                      ) : (
-                        <span className="truncate text-xs text-muted">{s.source}</span>
-                      )}
-                    </div>
-                    {s.quote && <p className="mt-1.5 text-sm leading-relaxed text-fg/90">“{s.quote}”</p>}
-                  </Card>
-                ))}
-              </div>
-            </Section>
-          )}
-        </section>
-      )}
-
-      {/* MONEY */}
-      {showMoney && d.financials && (
-        <section id="money" className="scroll-mt-16">
-          <Section title="Money">
-            <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatTile label="Startup cost" value={d.financials.startup_cost || "—"} />
-              <StatTile label="CAC" value={d.financials.unit_economics?.cac || "—"} hint="Cost to acquire a customer" />
-              <StatTile label="LTV" value={d.financials.unit_economics?.ltv || "—"} hint="Lifetime value of a customer" />
-              <StatTile label="Payback" value={d.financials.unit_economics?.payback || "—"} hint="Time to recoup acquisition cost" />
-            </div>
-            {d.financials.revenue_model && <p className="mb-3 text-sm text-muted">{d.financials.revenue_model}</p>}
-            {(d.financials.projections ?? []).length > 0 && (
-              <Card className="overflow-x-auto p-0">
-                <table className="w-full min-w-[28rem] text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
-                      <th className="px-3 py-2 font-medium">Year</th>
-                      <th className="px-3 py-2 font-medium">Revenue</th>
-                      <th className="px-3 py-2 font-medium">Customers</th>
-                      <th className="px-3 py-2 font-medium">Note</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {d.financials.projections.map((p, i) => (
-                      <tr key={i} className="border-b border-border/60 last:border-0">
-                        <td className="px-3 py-2 align-top font-mono text-accent2">{p.year}</td>
-                        <td className="px-3 py-2 align-top font-mono font-bold">{p.revenue}</td>
-                        <td className="px-3 py-2 align-top text-muted">{p.customers}</td>
-                        <td className="px-3 py-2 align-top text-xs text-muted">{p.note}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </Card>
-            )}
-          </Section>
-        </section>
-      )}
-
-      {/* PLAN */}
-      {showPlan && d.plan && (
-        <section id="plan" className="scroll-mt-16">
-          <Section title="Plan">
-            <ol className="space-y-2">
-              {(d.plan.milestones ?? []).map((m, i) => (
-                <li key={i} className="flex gap-3 rounded-lg border border-border bg-panel2 p-3">
-                  <span className="mt-0.5 font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
-                  <div>
-                    <div className="text-sm font-semibold">{m.title}</div>
-                    <div className="mt-0.5 text-xs text-muted">
-                      {m.when}
-                      {m.metric ? ` · ${m.metric}` : ""}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            {d.plan.team_and_ops && (
-              <p className="mt-3 text-sm text-muted">
-                <span className="font-medium text-fg/80">Team &amp; ops: </span>
-                {d.plan.team_and_ops}
-              </p>
-            )}
-          </Section>
-        </section>
-      )}
     </div>
   );
 }

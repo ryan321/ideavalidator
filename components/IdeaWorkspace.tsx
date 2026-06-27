@@ -177,6 +177,85 @@ const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.k
 type ArtMap = Record<string, Record<string, Artifact>>;
 const bk = (vid: string, kind: string) => `${vid}:${kind}`;
 
+// A small dropdown — folds related actions under one trigger so the control row
+// reads as a few clear choices instead of a wall of same-weight buttons.
+type MenuItem = { label: string; hint?: string; onClick: () => void; disabled?: boolean; danger?: boolean };
+function DropMenu({
+  trigger,
+  items,
+  tone = "default",
+  align = "left",
+  caret = true,
+  disabled,
+}: {
+  trigger: React.ReactNode;
+  items: MenuItem[];
+  tone?: "default" | "accent" | "accent2";
+  align?: "left" | "right";
+  caret?: boolean;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  const toneCls =
+    tone === "accent"
+      ? "border-accent/30 text-accent hover:bg-accent/10"
+      : tone === "accent2"
+        ? "border-accent2/30 text-accent2 hover:bg-accent2/10"
+        : "border-border text-muted hover:text-fg";
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition disabled:opacity-50 ${toneCls}`}
+      >
+        {trigger}
+        {caret && <span className={`text-[10px] transition ${open ? "rotate-180" : ""}`}>▾</span>}
+      </button>
+      {open && (
+        <div
+          className={`absolute z-20 mt-1 w-64 overflow-hidden rounded-lg border border-border bg-panel shadow-xl shadow-black/40 ${align === "right" ? "right-0" : "left-0"}`}
+        >
+          {items.map((it, i) => (
+            <button
+              key={i}
+              type="button"
+              disabled={it.disabled}
+              onClick={() => {
+                setOpen(false);
+                it.onClick();
+              }}
+              className={`flex w-full flex-col items-start gap-0.5 border-b border-border/60 px-3 py-2 text-left transition last:border-0 disabled:opacity-40 ${
+                it.danger ? "text-bad hover:bg-bad/10" : "hover:bg-panel2"
+              }`}
+            >
+              <span className="text-sm font-medium">{it.label}</span>
+              {it.hint && <span className="text-xs text-muted">{it.hint}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function IdeaWorkspace({
   idea,
   versions: versionsProp,
@@ -1080,53 +1159,55 @@ export default function IdeaWorkspace({
               {/* validation / idea-changing actions only belong on the Validate stage */}
               {currentStage === "validate" && (
                 <>
-                  {/* improve the idea — grouped */}
-                  <div className="flex items-center overflow-hidden rounded-lg border border-accent/30">
-                    <span className="px-2 font-mono text-[10px] uppercase tracking-wider text-accent/70">Improve</span>
-                    <button title="Edit the idea statement yourself — saves as a new version and re-scores." onClick={startManual} disabled={anyBusy} className="border-l border-accent/20 px-2.5 py-1.5 text-sm text-accent transition hover:bg-accent/10 disabled:opacity-50">
-                      ✎ Refine
-                    </button>
-                    <button title="Let AI propose a sharper version aimed at your weakest criteria." onClick={suggest} disabled={anyBusy} className="border-l border-accent/20 px-2.5 py-1.5 text-sm text-accent transition hover:bg-accent/10 disabled:opacity-50">
-                      {suggesting ? "Thinking…" : "✨ Suggest"}
-                    </button>
-                    <button title="AI hill-climbs the idea over several rounds toward a target score." onClick={autoIterate} disabled={anyBusy} className="border-l border-accent/20 px-2.5 py-1.5 text-sm text-accent transition hover:bg-accent/10 disabled:opacity-50">
-                      ⟳ Iterate
-                    </button>
-                  </div>
-
-                  {/* talk to the validator — grouped */}
-                  <div className="flex items-center overflow-hidden rounded-lg border border-accent2/30">
-                    <button
-                      title="Push back or add context the analysis missed — re-validates treating your input as authoritative."
-                      onClick={() => {
-                        setProposal(null);
-                        setEditing(false);
-                        setResponseDraft("");
-                        setResponding((r) => !r);
-                      }}
-                      disabled={anyBusy}
-                      className="px-2.5 py-1.5 text-sm text-accent2 transition hover:bg-accent2/10 disabled:opacity-50"
-                    >
-                      💬 Respond
-                    </button>
-                    <button
-                      title="Ask questions about the analysis. Doesn't change anything."
-                      onClick={() => (chatting ? setChatting(false) : openChat())}
-                      disabled={anyBusy}
-                      className="border-l border-accent2/20 px-2.5 py-1.5 text-sm text-accent2 transition hover:bg-accent2/10 disabled:opacity-50"
-                    >
-                      ❓ Ask
-                    </button>
-                  </div>
+                  <DropMenu
+                    trigger={<span className="font-medium">✎ Improve idea</span>}
+                    tone="accent"
+                    disabled={anyBusy}
+                    items={[
+                      { label: "Refine manually", hint: "Edit the statement yourself — saves a new version & re-scores.", onClick: startManual },
+                      { label: "✨ Suggest a sharper version", hint: "AI targets your weakest criteria.", onClick: suggest },
+                      { label: "⟳ Auto-iterate to a target", hint: "Hill-climb over several rounds toward a score.", onClick: autoIterate },
+                    ]}
+                  />
+                  <DropMenu
+                    trigger={<span className="font-medium">💬 Discuss</span>}
+                    tone="accent2"
+                    disabled={anyBusy}
+                    items={[
+                      {
+                        label: "Respond to the validator",
+                        hint: "Push back or add context, then re-validate.",
+                        onClick: () => {
+                          setProposal(null);
+                          setEditing(false);
+                          setChatting(false);
+                          setResponseDraft("");
+                          setResponding(true);
+                        },
+                      },
+                      {
+                        label: "Ask about this analysis",
+                        hint: "Q&A grounded in the research. Changes nothing.",
+                        onClick: () => {
+                          setResponding(false);
+                          openChat();
+                        },
+                      },
+                    ]}
+                  />
+                  {suggesting && <span className="animate-pulse font-mono text-xs text-accent">✨ drafting…</span>}
                 </>
               )}
-              <div className="ml-auto flex items-center gap-1">
-                <button onClick={() => window.print()} title="Print or save the full report as a PDF" className="rounded-lg px-2.5 py-1.5 text-sm text-muted transition hover:bg-panel2 hover:text-fg">
-                  ⎙ PDF
-                </button>
-                <button onClick={remove} title="Delete this idea and all its versions" className="rounded-lg px-2.5 py-1.5 text-sm text-muted transition hover:bg-bad/10 hover:text-bad">
-                  Delete
-                </button>
+              <div className="ml-auto">
+                <DropMenu
+                  trigger={<span aria-hidden className="px-0.5 text-base leading-none">⋯</span>}
+                  align="right"
+                  caret={false}
+                  items={[
+                    { label: "⎙ Save as PDF", hint: "Print or export the full report.", onClick: () => window.print() },
+                    { label: "Delete idea", hint: "Removes all versions & artifacts.", danger: true, onClick: remove },
+                  ]}
+                />
               </div>
             </div>
           )}
@@ -1143,12 +1224,12 @@ export default function IdeaWorkspace({
             </div>
             <p className="mb-2 text-xs text-muted">
               Ask anything about the research &amp; analysis for v{activeVersion.n} — competitors, the
-              revenue math, risks, the score. Answers are grounded in what's been generated.
+              revenue math, risks, the score. Answers are grounded in what&apos;s been generated.
             </p>
             <div className="max-h-80 space-y-3 overflow-auto rounded-lg bg-bg/40 p-3">
               {chatMessages.length === 0 && (
                 <p className="text-xs text-muted">
-                  No questions yet — e.g. “Why only Moderate demand?” or “What's the fastest path to first revenue?”
+                  No questions yet — e.g. “Why only Moderate demand?” or “What&apos;s the fastest path to first revenue?”
                 </p>
               )}
               {chatMessages.map((m, i) => (
@@ -1412,22 +1493,19 @@ export default function IdeaWorkspace({
           />
         ) : currentStage === "validate" ? (
           <div>
-            {/* once there's a report, this header is the re-run control */}
+            {/* once there's a report, this slim bar is the re-run control */}
             {hasValidate && (
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-panel p-4">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold">Full analysis</div>
-                  <div className="mt-0.5 max-w-md text-xs text-muted">
-                    One grounded pass — the verdict, the market &amp; competition, the money, and the plan, all
-                    in a single consistent analysis.
-                  </div>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+                <div className="flex min-w-0 items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+                  <span className="h-1.5 w-1.5 rounded-full bg-good" aria-hidden />
+                  Full analysis · one grounded pass
                 </div>
                 <button
                   onClick={runValidate}
                   disabled={busy.has(bk(activeVersionId, "validation")) || iterating}
-                  className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm shadow-accent/20 transition hover:brightness-110 disabled:opacity-50"
+                  className="shrink-0 rounded-lg border border-accent/30 px-3 py-1.5 text-sm font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
                 >
-                  {busy.has(bk(activeVersionId, "validation")) ? "Analyzing…" : "Re-run analysis"}
+                  {busy.has(bk(activeVersionId, "validation")) ? "Analyzing…" : "⟳ Re-run analysis"}
                 </button>
               </div>
             )}
