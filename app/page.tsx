@@ -1,5 +1,6 @@
 import Link from "next/link";
 import NewIdeaForm from "@/components/NewIdeaForm";
+import { SectionHead } from "@/components/ui";
 import { listIdeas } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export default function Home() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">Validate an idea</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Validate an idea</h1>
         <p className="mt-1 text-sm text-muted">
           A grounded, scored GO/NO-GO report plus a full launch kit — brand, market, plan, marketing
           and pitch — generated on demand.
@@ -20,9 +21,7 @@ export default function Home() {
         <NewIdeaForm />
       </div>
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-        Your ideas ({ideas.length})
-      </h2>
+      <SectionHead title={`Your ideas (${ideas.length})`} />
       {ideas.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-panel/40 py-12 text-center text-sm text-muted">
           No ideas yet. Describe one above to get started.
