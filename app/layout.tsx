@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import AppNav from "@/components/AppNav";
@@ -10,7 +11,7 @@ const mono = JetBrains_Mono({ variable: "--font-jb-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "IdeaValidator",
-  description: "From idea to first paying customers — validated locally with grounded AI.",
+  description: "A grounded, scored GO/NO-GO validation report for your startup idea — local and private.",
 };
 
 export default function RootLayout({
@@ -34,13 +35,10 @@ export default function RootLayout({
               </span>
               IdeaValidator
             </Link>
-            <AppNav />
-            <Link
-              href="/calculators"
-              className="border-t border-border px-4 py-3 text-sm text-muted transition hover:text-fg"
-            >
-              Calculators
-            </Link>
+            {/* Suspense: AppNav reads useSearchParams (the ?stage= dot) */}
+            <Suspense fallback={null}>
+              <AppNav />
+            </Suspense>
           </aside>
 
           {/* main */}
@@ -49,9 +47,6 @@ export default function RootLayout({
             <header className="no-print flex items-center justify-between border-b border-border px-4 py-3 sm:hidden">
               <Link href="/" className="font-display font-semibold">
                 IdeaValidator
-              </Link>
-              <Link href="/calculators" className="text-sm text-muted">
-                Calculators
               </Link>
             </header>
             <div className="mx-auto w-full max-w-5xl px-5 py-7">{children}</div>

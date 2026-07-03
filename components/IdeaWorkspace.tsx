@@ -1,54 +1,20 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Artifact, ArtifactKind, Idea, Version } from "@/lib/db";
 import type { GeneratorMeta } from "@/lib/generators";
-import NameStage from "./NameStage";
-import SellStage from "./SellStage";
+import type { EvidenceCorpus } from "@/lib/evidence/types";
 import GenerationProgress from "./GenerationProgress";
 import type { Refinement } from "@/lib/generators/refine";
-import {
-  BrandView,
-  CustomerPitchView,
-  FinancialsView,
-  LogoView,
-  MarketingView,
-  MarketView,
-  OutreachView,
-  PitchView,
-  PlanView,
-  PromotionView,
-  SourcesList,
-  ValidationView,
-} from "./artifacts";
+import { SourcesList, ValidationView } from "./artifacts";
 import type { ZodType } from "zod";
 import { ValidationSchema } from "@/lib/generators/validation";
-import { MarketSchema } from "@/lib/generators/market";
-import { FinancialsSchema } from "@/lib/generators/financials";
-import { PlanSchema } from "@/lib/generators/plan";
-import { BrandSchema } from "@/lib/generators/brand";
-import { LogoSchema } from "@/lib/generators/logo";
-import { MarketingSchema } from "@/lib/generators/marketing";
-import { CustomerPitchSchema } from "@/lib/generators/customer_pitch";
-import { PitchSchema } from "@/lib/generators/pitch";
-import { OutreachSchema } from "@/lib/generators/outreach";
-import { PromotionSchema } from "@/lib/generators/promotion";
 
 // Validate persisted artifacts against the current schema so results saved under an
 // older schema show a regenerate prompt instead of crashing the render.
 const SCHEMAS: Record<ArtifactKind, ZodType> = {
   validation: ValidationSchema,
-  market: MarketSchema,
-  financials: FinancialsSchema,
-  plan: PlanSchema,
-  brand: BrandSchema,
-  logo: LogoSchema,
-  marketing: MarketingSchema,
-  customer_pitch: CustomerPitchSchema,
-  pitch: PitchSchema,
-  promotion: PromotionSchema,
-  outreach: OutreachSchema,
 };
 function isCurrent(kind: ArtifactKind, data: unknown): boolean {
   return SCHEMAS[kind].safeParse(data).success;
@@ -56,21 +22,12 @@ function isCurrent(kind: ArtifactKind, data: unknown): boolean {
 
 const VIEWS: Record<ArtifactKind, React.ComponentType<{ d: never }>> = {
   validation: ValidationView as never,
-  market: MarketView as never,
-  financials: FinancialsView as never,
-  plan: PlanView as never,
-  brand: BrandView as never,
-  logo: LogoView as never,
-  marketing: MarketingView as never,
-  customer_pitch: CustomerPitchView as never,
-  pitch: PitchView as never,
-  promotion: PromotionView as never,
-  outreach: OutreachView as never,
 };
 
-function renderView(kind: ArtifactKind, data: unknown) {
+// extra: view-specific props beyond the data (e.g. the evidence corpus for validation).
+function renderView(kind: ArtifactKind, data: unknown, extra?: Record<string, unknown>) {
   const View = VIEWS[kind];
-  return <View d={data as never} />;
+  return <View d={data as never} {...(extra as object)} />;
 }
 
 // Catches render errors (e.g. an artifact saved under an older schema) so a stale
@@ -130,13 +87,15 @@ function SafeArtifact({
   kind,
   data,
   onRegenerate,
+  extra,
 }: {
   kind: ArtifactKind;
   data: unknown;
   onRegenerate?: () => void;
+  extra?: Record<string, unknown>;
 }) {
   if (!isCurrent(kind, data)) return <StaleNotice onRegenerate={onRegenerate} />;
-  return <ArtifactBoundary onRegenerate={onRegenerate}>{renderView(kind, data)}</ArtifactBoundary>;
+  return <ArtifactBoundary onRegenerate={onRegenerate}>{renderView(kind, data, extra)}</ArtifactBoundary>;
 }
 
 const scoreColor = (n: number) =>
@@ -153,24 +112,17 @@ const GOAL_OPTIONS = [
 const goalLabel = (k: string | null) =>
   GOAL_OPTIONS.find((o) => o.key === k)?.label ?? "Not set";
 
-// The journey: idea -> first paying customers. Each stage groups artifact kinds (or a special view).
-type StageKey = "validate" | "decide" | "pitch" | "name" | "brand" | "promote" | "acquire";
+// The journey: validate, then pick the winning version. Each stage groups artifact kinds (or a special view).
+type StageKey = "validate" | "decide";
 const STAGES: {
   key: StageKey;
   label: string;
   blurb: string;
   kinds: ArtifactKind[];
   special?: boolean;
-  optional?: boolean;
-  needsChosen?: boolean; // gated until a version is chosen in Decide
 }[] = [
   { key: "validate", label: "Validate", blurb: "Is there real, paying demand?", kinds: ["validation"] },
-  { key: "decide", label: "Decide", blurb: "Commit to the version you'll build on.", kinds: [], special: true },
-  { key: "pitch", label: "Pitch", blurb: "Say why they'll buy — pick a customer or investor pitch.", kinds: ["customer_pitch", "pitch"], needsChosen: true },
-  { key: "name", label: "Name", blurb: "Find a name you can actually own.", kinds: [], special: true, needsChosen: true },
-  { key: "brand", label: "Branding", blurb: "Give it a feel, a voice, and a look.", kinds: ["brand", "logo"], needsChosen: true },
-  { key: "promote", label: "Promote", blurb: "Build your presence and get the word out.", kinds: ["promotion", "marketing"], needsChosen: true },
-  { key: "acquire", label: "Acquire", blurb: "Land your first 5 paying customers.", kinds: ["outreach"], special: true, needsChosen: true },
+  { key: "decide", label: "Decide", blurb: "Pick the winning version.", kinds: [], special: true },
 ];
 const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
 
@@ -260,6 +212,7 @@ export default function IdeaWorkspace({
   idea,
   versions: versionsProp,
   artifactsByVersion,
+  evidenceByVersion,
   meta,
   initialCost,
   initialStage,
@@ -267,12 +220,15 @@ export default function IdeaWorkspace({
   idea: Idea;
   versions: Version[];
   artifactsByVersion: Record<string, Artifact[]>;
+  evidenceByVersion: Record<string, EvidenceCorpus>;
   meta: GeneratorMeta[];
   initialCost: number;
   initialStage: string;
 }) {
   const router = useRouter();
   const [cost, setCost] = useState(initialCost);
+  const [evidence, setEvidence] = useState<Record<string, EvidenceCorpus>>(evidenceByVersion);
+  const [refreshingEvidence, setRefreshingEvidence] = useState(false);
 
   const [versions, setVersions] = useState<Version[]>(versionsProp);
   const [artifacts, setArtifacts] = useState<ArtMap>(() => {
@@ -285,57 +241,29 @@ export default function IdeaWorkspace({
   const [activeVersionId, setActiveVersionId] = useState<string>(
     () => versionsProp[versionsProp.length - 1]?.id ?? ""
   );
-  const [currentStage, setCurrentStage] = useState<StageKey>(
-    () => (initialStage as StageKey) ?? "validate"
+  // initialStage is the raw ?stage= param (or the persisted column) — sanitize it
+  // so an old launch-kit URL or a typo can't crash the render.
+  const [currentStage, setCurrentStage] = useState<StageKey>(() =>
+    STAGES.some((s) => s.key === initialStage) ? (initialStage as StageKey) : "validate"
   );
   const [chosenVersionId, setChosenVersionId] = useState<string | null>(idea.chosen_version_id);
-  const [activeTab, setActiveTab] = useState<ArtifactKind>(() => {
-    // match the tab to the stage in the URL (not the persisted stage) so a direct
-    // ?stage= link shows the right deliverable on first paint; on Pitch, open the
-    // pitch the founder already chose.
-    if (initialStage === "pitch" && idea.chosen_pitch)
-      return idea.chosen_pitch === "customer" ? "customer_pitch" : "pitch";
-    const st = STAGES.find((s) => s.key === initialStage);
-    return (st?.kinds[0] as ArtifactKind) ?? "validation";
-  });
-  // which pitch the founder leads with ("customer" | "investor"); marks Pitch done
-  const [chosenPitch, setChosenPitch] = useState<string | null>(idea.chosen_pitch);
   const [statementExpanded, setStatementExpanded] = useState(false);
   const [comparing, setComparing] = useState(false); // side-by-side version compare
-  // per-deliverable steer drafts, keyed by version:kind so each tab keeps its own
-  const [steerDrafts, setSteerDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
-  // keep the workspace in sync with the URL (?stage=) driven by the left nav.
-  // Crucially, reset the active deliverable tab + downstream version so a stage
-  // switch shows that stage's content instead of whatever tab was last open.
+  // keep the workspace in sync with the URL (?stage=) driven by the left nav, and
+  // persist the stage so the nav dot and reopening the idea reflect where you are.
+  const lastSavedStage = useRef(idea.stage);
   useEffect(() => {
-    const s = STAGES.find((x) => x.key === initialStage);
-    if (!s) return;
+    if (!STAGES.some((x) => x.key === initialStage)) return;
     setCurrentStage(initialStage as StageKey);
-    if (s.kinds.length) {
-      // on Pitch, open the chosen pitch so the tab and the chooser agree.
-      const tab =
-        initialStage === "pitch" && chosenPitch
-          ? chosenPitch === "customer"
-            ? "customer_pitch"
-            : "pitch"
-          : s.kinds[0];
-      setActiveTab(tab as ArtifactKind);
+    if (lastSavedStage.current !== initialStage) {
+      lastSavedStage.current = initialStage;
+      patchIdea({ stage: initialStage });
     }
-    if (
-      initialStage !== "validate" &&
-      initialStage !== "decide" &&
-      chosenVersionId &&
-      chosenVersionId !== activeVersionId
-    ) {
-      setActiveVersionId(chosenVersionId);
-    }
-    // chosenVersionId is a dep so navigating after a Decide pick reads the fresh
-    // value; activeVersionId/chosenPitch are read as a snapshot on purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialStage, chosenVersionId]);
+  }, [initialStage]);
 
   // panels
   const [editing, setEditing] = useState(false);
@@ -351,7 +279,7 @@ export default function IdeaWorkspace({
   const [chatLoading, setChatLoading] = useState(false);
 
   // Changing stage via the left nav (URL) should close any transient panels that
-  // were opened on the previous stage — mirrors what goToStage does for in-app nav.
+  // were opened on the previous stage.
   useEffect(() => {
     setProposal(null);
     setResponding(false);
@@ -404,13 +332,6 @@ export default function IdeaWorkspace({
   const [goalDetail, setGoalDetail] = useState(idea.goal_detail ?? "");
   const [editingGoal, setEditingGoal] = useState(false);
 
-  // If the goal flips to lifestyle/side-hustle while the investor pitch tab is active,
-  // that tab gets hidden — fall back to the customer pitch so the panel isn't orphaned.
-  useEffect(() => {
-    const hide = currentStage === "pitch" && (goalBucket === "lifestyle" || goalBucket === "side_hustle");
-    if (hide && activeTab === "pitch") setActiveTab("customer_pitch");
-  }, [currentStage, goalBucket, activeTab]);
-
   async function saveGoal() {
     try {
       await fetch(`/api/ideas/${idea.id}`, {
@@ -432,32 +353,9 @@ export default function IdeaWorkspace({
     }).catch(() => {});
   }
 
-  function goToStage(key: StageKey) {
-    setCurrentStage(key);
-    setProposal(null);
-    setResponding(false);
-    setChatting(false);
-    const stage = STAGES.find((s) => s.key === key)!;
-    // Stages after Validate build on the chosen version.
-    if (key !== "validate" && key !== "decide" && chosenVersionId && chosenVersionId !== activeVersionId) {
-      setActiveVersionId(chosenVersionId);
-    }
-    if (stage.kinds.length) setActiveTab(stage.kinds[0]);
-    patchIdea({ stage: key });
-    router.replace(`/idea/${idea.id}?stage=${key}`, { scroll: false });
-  }
-
   function setChosen(versionId: string) {
     setChosenVersionId(versionId);
     patchIdea({ chosenVersionId: versionId });
-  }
-
-  // pick the pitch you lead with — marks Pitch done. Sticky: re-clicking the
-  // current pick is a no-op (the chooser bar guards it) so you can't lose it by
-  // accident; switch by picking the other one.
-  function choosePitch(which: "customer" | "investor") {
-    setChosenPitch(which);
-    patchIdea({ chosenPitch: which });
   }
 
   // auto-iterate
@@ -467,7 +365,6 @@ export default function IdeaWorkspace({
   const [iterLog, setIterLog] = useState<string[]>([]);
   const [iterBest, setIterBest] = useState<{ id: string; n: number; score: number } | null>(null);
 
-  const metaByKind = useMemo(() => Object.fromEntries(meta.map((m) => [m.kind, m])), [meta]);
   const activeVersion = versions.find((v) => v.id === activeVersionId) ?? versions[0];
   const activeArtifacts = artifacts[activeVersionId] ?? {};
   const bestScore = Math.max(...versions.map((v) => v.score ?? -1));
@@ -489,8 +386,6 @@ export default function IdeaWorkspace({
     setResponding(false);
     setChatting(false);
     setChatMessages([]);
-    const first = artifacts[id] ? Object.keys(artifacts[id])[0] : undefined;
-    setActiveTab((first as ArtifactKind) ?? "validation");
   }
 
   async function generate(
@@ -531,42 +426,6 @@ export default function IdeaWorkspace({
     }
   }
 
-  async function generateActive(kind: ArtifactKind) {
-    setActiveTab(kind);
-    try {
-      await generate(kind, activeVersionId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Generation failed");
-    }
-  }
-
-  // Revise the active deliverable from a natural-language instruction instead of a
-  // blank regenerate — keeps what works, changes what the founder asks for.
-  async function steerActive() {
-    const key = bk(activeVersionId, activeTab);
-    const s = (steerDrafts[key] ?? "").trim();
-    if (!s) return;
-    try {
-      await generate(activeTab, activeVersionId, s);
-      setSteerDrafts((p) => ({ ...p, [key]: "" }));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Generation failed");
-    }
-  }
-
-  async function generateAll() {
-    for (const m of meta) {
-      if (!activeArtifacts[m.kind]) {
-        try {
-          await generate(m.kind, activeVersionId);
-        } catch (e) {
-          setError(e instanceof Error ? e.message : "Generation failed");
-          break;
-        }
-      }
-    }
-  }
-
   // --- background jobs: a long analysis survives leaving the page ------------
   const mountedRef = useRef(true);
   const pollingRef = useRef<Set<string>>(new Set());
@@ -583,7 +442,25 @@ export default function IdeaWorkspace({
       setArtifacts(m);
     }
     if (Array.isArray(j.versions)) setVersions(j.versions);
+    if (j.evidenceByVersion) setEvidence(j.evidenceByVersion);
     if (typeof j.cost === "number") setCost(j.cost);
+  }
+
+  // Re-collect the fetched Reddit/HN corpus for the active version (the report's
+  // demand signals only update on the next validation run, which cites the new ids).
+  async function refreshEvidence() {
+    setError(null);
+    setRefreshingEvidence(true);
+    try {
+      const res = await fetch(`/api/versions/${activeVersionId}/evidence`, { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Evidence collection failed");
+      setEvidence((prev) => ({ ...prev, [activeVersionId]: j as EvidenceCorpus }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Evidence collection failed");
+    } finally {
+      setRefreshingEvidence(false);
+    }
   }
 
   // Poll a running job until it finishes, then load the result (or surface the error).
@@ -697,28 +574,6 @@ export default function IdeaWorkspace({
       setResponseDraft("");
       switchVersion(v.id);
       await generate("validation", v.id);
-      await generate("market", v.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not re-validate");
-    }
-  }
-
-  // --- re-validate in light of what real prospects told you (Acquire stage) ------
-  async function applyLearnings(context: string) {
-    setError(null);
-    try {
-      const v = await createVersionFrom(
-        activeVersion.statement,
-        "context",
-        activeVersionId,
-        "Learnings from outreach",
-        context,
-        context
-      );
-      switchVersion(v.id);
-      goToStage("validate");
-      await generate("validation", v.id);
-      await generate("market", v.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not re-validate");
     }
@@ -738,7 +593,6 @@ export default function IdeaWorkspace({
       );
       switchVersion(v.id);
       await generate("validation", v.id);
-      await generate("market", v.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not re-validate");
     }
@@ -817,10 +671,6 @@ export default function IdeaWorkspace({
         log(`Validating v${curN}…`);
         curScore = scoreOf(await generate("validation", curId));
       }
-      if (!artifacts[curId]?.market) {
-        log(`Market scan for v${curN}…`);
-        await generate("market", curId);
-      }
       let bestId = curId;
       let bestN = curN;
       let best = curScore;
@@ -840,13 +690,10 @@ export default function IdeaWorkspace({
         setCost((c) => c + (prop._cost ?? 0));
         const v = await createVersionFrom(prop.statement, "ai", bestId, prop.label, prop.rationale);
         setActiveVersionId(v.id);
-        setActiveTab("validation");
         log(`→ v${v.n} "${prop.label}". Validating…`);
         const val = await generate("validation", v.id);
         const newScore = scoreOf(val);
         const newRev = revOf(val);
-        log(`Market scan for v${v.n}…`);
-        await generate("market", v.id);
         log(
           `v${v.n}: ${newScore}/100${newRev ? ` · forecast ${newRev}` : ""}${
             newScore > best ? "  ← new best" : ""
@@ -904,23 +751,12 @@ export default function IdeaWorkspace({
     router.push("/");
   }
 
-  const activeMeta = metaByKind[activeTab];
-  const activeArtifact = activeArtifacts[activeTab];
   const activeValidationData = activeArtifacts.validation?.data as
     | { clarifying_questions?: string[]; possible_alphas?: { alpha: string; rationale: string }[] }
     | undefined;
   const activeQuestions = activeValidationData?.clarifying_questions ?? [];
   const activeAlphas = activeValidationData?.possible_alphas ?? [];
-  const stage = STAGES.find((s) => s.key === currentStage)!;
-  // For lifestyle/side-hustle goals, the investor deck is a distraction — keep it
-  // out of the Pitch tabs + chooser (it's still reachable if the goal changes).
-  const hideInvestor =
-    currentStage === "pitch" && (goalBucket === "lifestyle" || goalBucket === "side_hustle");
-  const stageMeta = meta.filter(
-    (m) => stage.kinds.includes(m.kind) && !(hideInvestor && m.kind === "pitch")
-  );
-  const steerKey = bk(activeVersionId, activeTab);
-  const steerVal = steerDrafts[steerKey] ?? "";
+  const stage = STAGES.find((s) => s.key === currentStage) ?? STAGES[0];
   const hasValidate = !!activeArtifacts.validation;
 
   return (
@@ -1401,30 +1237,12 @@ export default function IdeaWorkspace({
           </div>
         )}
 
-        {stage.needsChosen && !chosenVersionId ? (
-          <div className="grid place-items-center rounded-xl border border-dashed border-border bg-panel/50 py-16 text-center">
-            <div className="max-w-sm">
-              <div className="text-2xl" aria-hidden>
-                🔒
-              </div>
-              <div className="mt-2 text-sm font-medium">{stage.label} builds on a chosen version</div>
-              <p className="mt-1 text-sm text-muted">
-                Pick the version you&apos;re betting on in Decide, then come back here.
-              </p>
-              <button
-                onClick={() => goToStage("decide")}
-                className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
-              >
-                Go to Decide →
-              </button>
-            </div>
-          </div>
-        ) : currentStage === "decide" ? (
+        {currentStage === "decide" ? (
           <div className="rounded-xl border border-border/70 bg-panel/40 p-5">
             <h3 className="font-display text-xl font-semibold">Which version are you betting on?</h3>
             <p className="mt-1 text-sm text-muted">
-              Pick the idea version to build the rest of the journey on. You can change it anytime — the
-              others stay as research.
+              Mark the winning version of this idea. You can change it anytime — the others stay as
+              research.
             </p>
             <div className="mt-4 space-y-2">
               {versions.map((v) => {
@@ -1462,36 +1280,8 @@ export default function IdeaWorkspace({
                 );
               })}
             </div>
-            {chosenVersionId && (
-              <button
-                onClick={() => goToStage("pitch")}
-                className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
-              >
-                Continue to Pitch →
-              </button>
-            )}
           </div>
-        ) : currentStage === "name" ? (
-          <div>
-            <NameStage ideaId={idea.id} onCost={(d) => setCost((c) => c + d)} />
-            <button
-              onClick={() => goToStage("brand")}
-              className="mt-6 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
-            >
-              Continue to Branding →
-            </button>
-          </div>
-        ) : currentStage === "acquire" ? (
-          <SellStage
-            ideaId={idea.id}
-            chosenVersionId={chosenVersionId}
-            outreach={chosenVersionId ? artifacts[chosenVersionId]?.outreach?.data : undefined}
-            outreachBusy={!!chosenVersionId && busy.has(bk(chosenVersionId, "outreach"))}
-            onGenerateOutreach={() => chosenVersionId && generate("outreach", chosenVersionId)}
-            onCost={(d) => setCost((c) => c + d)}
-            onApplyLearnings={applyLearnings}
-          />
-        ) : currentStage === "validate" ? (
+        ) : (
           <div>
             {/* once there's a report, this slim bar is the re-run control */}
             {hasValidate && (
@@ -1520,6 +1310,11 @@ export default function IdeaWorkspace({
                   kind="validation"
                   data={activeArtifacts.validation.data}
                   onRegenerate={() => generate("validation", activeVersionId)}
+                  extra={{
+                    evidence: evidence[activeVersionId] ?? null,
+                    onRefreshEvidence: refreshEvidence,
+                    refreshingEvidence,
+                  }}
                 />
                 <SourcesList sources={activeArtifacts.validation.sources} />
                 <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
@@ -1572,201 +1367,6 @@ export default function IdeaWorkspace({
               </div>
             )}
           </div>
-        ) : (
-          <>
-            {/* Pitch stage: which pitch are you leading with? Picking marks Pitch done. */}
-            {currentStage === "pitch" && (
-              <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-panel p-3">
-                <span className="text-sm text-muted">Lead with:</span>
-                {([
-                  { which: "customer", label: "Customer pitch", kind: "customer_pitch" },
-                  { which: "investor", label: "Investor pitch", kind: "pitch" },
-                ] as const)
-                  .filter((o) => o.which !== "investor" || !hideInvestor)
-                  .map((o) => {
-                  const picked = chosenPitch === o.which;
-                  return (
-                    <button
-                      key={o.which}
-                      onClick={() => {
-                        setActiveTab(o.kind);
-                        if (!picked) choosePitch(o.which);
-                      }}
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition ${
-                        picked
-                          ? "border-good/60 bg-good/10 text-good"
-                          : "border-border text-muted hover:text-fg"
-                      }`}
-                      title={picked ? "Your primary pitch" : "Make this your primary pitch"}
-                    >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          picked ? "bg-good" : "border border-border"
-                        }`}
-                      />
-                      {o.label}
-                      {picked && <span aria-hidden>✓</span>}
-                    </button>
-                  );
-                })}
-                <span className="ml-auto text-xs text-muted">
-                  {chosenPitch
-                    ? `Leading with your ${chosenPitch} pitch.`
-                    : "Pick one to mark this stage done."}
-                </span>
-              </div>
-            )}
-
-            {/* tabs (this stage's deliverables) */}
-            <div className="mb-6 flex flex-wrap gap-1.5 border-b border-border pb-3">
-              {stageMeta.map((m) => {
-                const done = !!activeArtifacts[m.kind];
-                const loading = busy.has(bk(activeVersionId, m.kind));
-                return (
-                  <button
-                    key={m.kind}
-                    onClick={() => setActiveTab(m.kind)}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
-                      activeTab === m.kind ? "bg-panel2 text-fg" : "text-muted hover:text-fg"
-                    }`}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${loading ? "animate-pulse bg-accent2" : done ? "bg-good" : "bg-border"}`} />
-                    {m.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* active panel */}
-            {busy.has(bk(activeVersionId, activeTab)) ? (
-              <GenerationProgress
-                key={bk(activeVersionId, activeTab)}
-                label={activeMeta.label}
-                grounded={activeMeta.grounded}
-              />
-            ) : activeArtifact ? (
-              <div>
-                <SafeArtifact
-                  key={`${activeVersionId}:${activeTab}`}
-                  kind={activeTab}
-                  data={activeArtifact.data}
-                  onRegenerate={() => generateActive(activeTab)}
-                />
-                <SourcesList sources={activeArtifact.sources} />
-                <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
-                  <span>
-                    Model: {activeArtifact.model ?? "—"}
-                    {activeArtifact.cost != null ? ` · ${fmtCost(activeArtifact.cost)}` : ""}
-                  </span>
-                  <button onClick={() => generateActive(activeTab)} className="rounded-md border border-border px-2 py-1 hover:bg-panel2">
-                    Regenerate
-                  </button>
-                </div>
-
-                {/* steer: revise this deliverable with an instruction instead of a blank regen */}
-                <div className="mt-4 rounded-xl border border-accent2/30 bg-accent2/5 p-3">
-                  <div className="text-sm font-semibold text-accent2">
-                    💬 Steer this {activeMeta.label.toLowerCase()}
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted">
-                    Like most of it but want it different? Tell the AI what to change — it rewrites this
-                    draft, keeping it grounded in your research. e.g. “lead with the cost-of-inaction
-                    angle,” “make it more enterprise,” “shorter and punchier.”
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      value={steerVal}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSteerDrafts((p) => ({ ...p, [steerKey]: val }));
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          steerActive();
-                        }
-                      }}
-                      placeholder={`How should I adjust this ${activeMeta.label.toLowerCase()}?`}
-                      className="min-w-0 flex-1 rounded-lg border border-border bg-panel2 px-3 py-2 text-sm outline-none focus:border-accent2"
-                    />
-                    <button
-                      onClick={steerActive}
-                      disabled={!steerVal.trim() || anyBusy}
-                      className="shrink-0 rounded-lg bg-accent2 px-3 py-2 text-sm font-semibold text-bg disabled:opacity-50"
-                    >
-                      Steer →
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="grid place-items-center rounded-xl border border-dashed border-border bg-panel/50 py-16 text-center">
-                <div className="max-w-sm">
-                  <div className="text-sm text-muted">{activeMeta.blurb}</div>
-                  {activeMeta.uses.length > 0 && (
-                    <div className="mt-2 text-xs text-muted">Tip: generate {activeMeta.uses.join(", ")} first for best results.</div>
-                  )}
-                  <button onClick={() => generateActive(activeTab)} disabled={anyBusy} className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-                    Generate {activeMeta.label}
-                    {activeMeta.grounded ? " 🌐" : ""}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "validation" && activeArtifact && activeAlphas.length > 0 && (
-              <div className="mt-6 rounded-xl border border-accent/30 bg-accent/5 p-4">
-                <div className="mb-1 text-sm font-semibold text-accent">
-                  ✨ Possible alpha — test a different edge
-                </div>
-                <p className="mb-3 text-xs text-muted">
-                  Differentiators this idea could pursue. Re-validate positioned around one to see how it
-                  moves the forecast.
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {activeAlphas.map((a, i) => (
-                    <div key={i} className="flex flex-col rounded-lg border border-border bg-panel2 p-3">
-                      <div className="text-sm font-medium">{a.alpha}</div>
-                      <p className="mt-1 flex-1 text-xs leading-relaxed text-muted">{a.rationale}</p>
-                      <button
-                        onClick={() => revalidateWithAlpha(a.alpha, a.rationale)}
-                        disabled={anyBusy}
-                        className="mt-2 self-start rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
-                      >
-                        Re-validate with this alpha →
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* forward step to keep the journey moving */}
-            {currentStage === "pitch" && chosenPitch && (
-              <button
-                onClick={() => goToStage("name")}
-                className="mt-6 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
-              >
-                Continue to Name →
-              </button>
-            )}
-            {currentStage === "brand" && (
-              <button
-                onClick={() => goToStage("promote")}
-                className="mt-6 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
-              >
-                Continue to Promote →
-              </button>
-            )}
-            {currentStage === "promote" && (
-              <button
-                onClick={() => goToStage("acquire")}
-                className="mt-6 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
-              >
-                Continue to Acquire →
-              </button>
-            )}
-          </>
         )}
       </div>
 
@@ -1780,7 +1380,15 @@ export default function IdeaWorkspace({
           activeArtifacts[m.kind] ? (
             <div key={m.kind} className="print-section" style={{ marginTop: 24 }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{m.label}</h2>
-              <SafeArtifact key={`${activeVersionId}:${m.kind}`} kind={m.kind} data={activeArtifacts[m.kind].data} />
+              {/* print: expand the collapsed sections + unclamp prose so the PDF is the FULL report */}
+              <SafeArtifact
+                key={`${activeVersionId}:${m.kind}`}
+                kind={m.kind}
+                data={activeArtifacts[m.kind].data}
+                extra={{ print: true }}
+              />
+              {/* the "model estimate — see sources" tags need the sources in the PDF too */}
+              <SourcesList sources={activeArtifacts[m.kind].sources} />
             </div>
           ) : null
         )}

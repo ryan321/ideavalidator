@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { generateStructured } from "../ai/client";
-import { getArtifact, getIdea, getVersion, logUsage } from "../db";
+import { getArtifact, getEvidence, getIdea, getVersion, logUsage } from "../db";
+import { corpusDigest } from "../evidence";
 import { goalContext } from "./shared";
 
 export const RefinementSchema = z.object({
@@ -37,9 +38,6 @@ export async function proposeRefinement(
   const idea = getIdea(version.idea_id);
 
   const validation = getArtifact(versionId, "validation")?.data as ValidationLike | undefined;
-  const market = getArtifact(versionId, "market")?.data;
-  const financials = getArtifact(versionId, "financials")?.data;
-  const plan = getArtifact(versionId, "plan")?.data;
 
   const evidence = validation
     ? `Current overall score: ${validation.score ?? "?"}/100.
@@ -60,17 +58,10 @@ Top risk-matrix items: ${(validation.risk_matrix ?? [])
         .join("; ")}`
     : "No validation has been run yet; refine for clarity, focus, and defensibility.";
 
-  // Once due diligence is done, iteration should weigh ALL of it — the real
-  // competition, the unit economics, and the plan — not just the validation.
-  const marketCtx = market
-    ? `\n\nMarket & competition (use the real competitors, sentiment, and gaps):\n${JSON.stringify(market).slice(0, 2500)}`
-    : "";
-  const financialsCtx = financials
-    ? `\n\nFinancials (respect these unit economics / pricing — don't propose changes the numbers can't support):\n${JSON.stringify(financials).slice(0, 1500)}`
-    : "";
-  const planCtx = plan
-    ? `\n\nPlan (build on this, don't contradict the milestones/team reality):\n${JSON.stringify(plan).slice(0, 1200)}`
-    : "";
+  // What real users actually said (fetched Reddit/HN corpus) — so the refinement
+  // attacks weaknesses with real evidence, not just the prior JSON.
+  const corpus = getEvidence(versionId);
+  const digest = corpus ? corpusDigest(corpus) : "";
 
   const { data, usage, model } = await generateStructured(RefinementSchema, {
     role: "scoring",
@@ -108,8 +99,8 @@ Top risk-matrix items: ${(validation.risk_matrix ?? [])
 Current statement (v${version.n}): ${version.statement}
 
 Validation evidence to improve against:
-${evidence}${marketCtx}${financialsCtx}${planCtx}
-
+${evidence}
+${digest ? `\nWhat real users are saying (fetched from Reddit/Hacker News — aim the refinement at these actual pains and willingness-to-pay signals):\n${digest}\n` : ""}
 Rewrite the idea statement to raise the overall validation score and reduce the top risks, while
 keeping the same core idea. Ask yourself: what ALPHA (differentiator/niche/angle/positioning) would most
 raise the obtainable revenue for this founder's goal? Return JSON:

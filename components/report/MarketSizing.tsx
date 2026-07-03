@@ -70,6 +70,12 @@ export function MarketSizing({
             <span className="font-mono">CAGR {cagr}%</span>
           </Badge>
         </div>
+        <p
+          className="-mt-3 mb-4 font-mono text-[10px] uppercase tracking-wide text-muted/70"
+          title="These figures are the model's synthesis of its web-search results — check the cited sources before relying on them."
+        >
+          model estimate — see sources
+        </p>
 
         <div className="flex flex-col gap-4">
           {rows.map((r) => {

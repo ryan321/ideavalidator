@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import IdeaWorkspace from "@/components/IdeaWorkspace";
-import { getArtifactsByVersion, getIdea, getIdeaCost, listVersions } from "@/lib/db";
+import { getArtifactsByVersion, getEvidenceByVersion, getIdea, getIdeaCost, listVersions } from "@/lib/db";
 import { generatorMeta } from "@/lib/generators";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ export default async function IdeaPage({
       idea={idea}
       versions={listVersions(id)}
       artifactsByVersion={getArtifactsByVersion(id)}
+      evidenceByVersion={getEvidenceByVersion(id)}
       meta={generatorMeta()}
       initialCost={getIdeaCost(id)}
       initialStage={stage ?? idea.stage ?? "validate"}

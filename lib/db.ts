@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 import type { Source, Usage } from "./ai/client";
+import type { EvidenceCorpus } from "./evidence/types";
 
 // ---- connection (singleton across dev hot-reloads) ---------------------------
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -43,9 +44,6 @@ function init(): Database.Database {
       goal_detail       TEXT,
       stage             TEXT,
       chosen_version_id TEXT,
-      chosen_name       TEXT,
-      chosen_pitch      TEXT,
-      name_data         TEXT,
       founder_fit       TEXT,
       created_at        TEXT NOT NULL
     );
@@ -91,9 +89,6 @@ function init(): Database.Database {
   addColumn(db, "ideas", "goal_detail", "TEXT");
   addColumn(db, "ideas", "stage", "TEXT");
   addColumn(db, "ideas", "chosen_version_id", "TEXT");
-  addColumn(db, "ideas", "chosen_name", "TEXT");
-  addColumn(db, "ideas", "chosen_pitch", "TEXT");
-  addColumn(db, "ideas", "name_data", "TEXT");
   addColumn(db, "ideas", "founder_fit", "TEXT");
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
@@ -121,33 +116,6 @@ function init(): Database.Database {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_messages_version ON messages(version_id);
-    CREATE TABLE IF NOT EXISTS prospects (
-      id         TEXT PRIMARY KEY,
-      idea_id    TEXT NOT NULL,
-      name       TEXT NOT NULL,
-      company    TEXT,
-      channel    TEXT,
-      status     TEXT NOT NULL DEFAULT 'lead',
-      pain       INTEGER,
-      objection  TEXT,
-      next_step  TEXT,
-      notes      TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_prospects_idea ON prospects(idea_id);
-    CREATE TABLE IF NOT EXISTS price_tests (
-      id         TEXT PRIMARY KEY,
-      idea_id    TEXT NOT NULL,
-      offer      TEXT,
-      audience   TEXT,
-      asked      INTEGER,
-      willing    INTEGER,
-      notes      TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_price_idea ON price_tests(idea_id);
     CREATE TABLE IF NOT EXISTS jobs (
       version_id TEXT NOT NULL,
       kind       TEXT NOT NULL,
@@ -155,6 +123,11 @@ function init(): Database.Database {
       error      TEXT,
       updated_at TEXT NOT NULL,
       PRIMARY KEY (version_id, kind)
+    );
+    CREATE TABLE IF NOT EXISTS evidence (
+      version_id TEXT PRIMARY KEY REFERENCES versions(id) ON DELETE CASCADE,
+      data       TEXT NOT NULL,    -- EvidenceCorpus JSON
+      created_at INTEGER NOT NULL
     );
   `);
 
@@ -197,18 +170,7 @@ const db = globalForDb._db ?? init();
 if (process.env.NODE_ENV !== "production") globalForDb._db = db;
 
 // ---- types -------------------------------------------------------------------
-export type ArtifactKind =
-  | "validation"
-  | "market"
-  | "financials"
-  | "plan"
-  | "brand"
-  | "logo"
-  | "marketing"
-  | "customer_pitch"
-  | "pitch"
-  | "promotion"
-  | "outreach";
+export type ArtifactKind = "validation";
 
 export type Idea = {
   id: string;
@@ -218,7 +180,6 @@ export type Idea = {
   goal_detail: string | null;
   stage: string | null; // current journey stage key
   chosen_version_id: string | null; // the version the founder is betting on
-  chosen_pitch: string | null; // which pitch they lead with: "customer" | "investor"
   founder_fit: string | null; // founder's market knowledge / build experience / network
   created_at: string;
 };
@@ -299,7 +260,6 @@ export function createIdea(
     goal_detail: goalDetail ?? null,
     stage: "validate",
     chosen_version_id: null,
-    chosen_pitch: null,
     founder_fit: founderFit ?? null,
     created_at: now,
   };
@@ -319,7 +279,7 @@ export function createIdea(
   };
   const tx = db.transaction(() => {
     db.prepare(
-      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, chosen_version_id, chosen_pitch, founder_fit, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @chosen_version_id, @chosen_pitch, @founder_fit, @created_at)"
+      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, chosen_version_id, founder_fit, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @chosen_version_id, @founder_fit, @created_at)"
     ).run(idea);
     db.prepare(
       `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, revenue, created_at)
@@ -361,30 +321,6 @@ export function setIdeaJourney(
     db.prepare("UPDATE ideas SET chosen_version_id = ? WHERE id = ?").run(fields.chosenVersionId, id);
 }
 
-// ---- naming (name candidates + domain availability) -------------------------
-export function getNameData(id: string): { chosen_name: string | null; candidates: unknown } {
-  const r = db.prepare("SELECT chosen_name, name_data FROM ideas WHERE id = ?").get(id) as
-    | { chosen_name: string | null; name_data: string | null }
-    | undefined;
-  return {
-    chosen_name: r?.chosen_name ?? null,
-    candidates: r?.name_data ? JSON.parse(r.name_data) : null,
-  };
-}
-
-export function saveNameData(id: string, candidates: unknown): void {
-  db.prepare("UPDATE ideas SET name_data = ? WHERE id = ?").run(JSON.stringify(candidates), id);
-}
-
-export function setChosenName(id: string, name: string | null): void {
-  db.prepare("UPDATE ideas SET chosen_name = ? WHERE id = ?").run(name, id);
-}
-
-// Which pitch the founder is leading with — "customer" | "investor" | null.
-export function setChosenPitch(id: string, pitch: string | null): void {
-  db.prepare("UPDATE ideas SET chosen_pitch = ? WHERE id = ?").run(pitch, id);
-}
-
 export function deleteIdea(id: string): void {
   const tx = db.transaction(() => {
     db.prepare(
@@ -394,150 +330,14 @@ export function deleteIdea(id: string): void {
       "DELETE FROM messages WHERE version_id IN (SELECT id FROM versions WHERE idea_id = ?)"
     ).run(id);
     db.prepare("DELETE FROM usage_log WHERE idea_id = ?").run(id);
-    db.prepare("DELETE FROM prospects WHERE idea_id = ?").run(id);
-    db.prepare("DELETE FROM price_tests WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM jobs WHERE version_id IN (SELECT id FROM versions WHERE idea_id = ?)").run(id);
+    db.prepare(
+      "DELETE FROM evidence WHERE version_id IN (SELECT id FROM versions WHERE idea_id = ?)"
+    ).run(id);
     db.prepare("DELETE FROM versions WHERE idea_id = ?").run(id);
     db.prepare("DELETE FROM ideas WHERE id = ?").run(id);
   });
   tx();
-}
-
-// ---- prospects (the path to first paying customers) --------------------------
-export type ProspectStatus =
-  | "lead"
-  | "contacted"
-  | "meeting"
-  | "demo"
-  | "trial"
-  | "paying"
-  | "lost";
-
-export type Prospect = {
-  id: string;
-  idea_id: string;
-  name: string;
-  company: string | null;
-  channel: string | null;
-  status: ProspectStatus;
-  pain: number | null; // how acutely they feel the problem, 1-5
-  objection: string | null;
-  next_step: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export function listProspects(ideaId: string): Prospect[] {
-  return db
-    .prepare("SELECT * FROM prospects WHERE idea_id = ? ORDER BY created_at ASC")
-    .all(ideaId) as Prospect[];
-}
-
-export function createProspect(ideaId: string, name: string): Prospect {
-  const now = new Date().toISOString();
-  const p: Prospect = {
-    id: crypto.randomUUID(),
-    idea_id: ideaId,
-    name,
-    company: null,
-    channel: null,
-    status: "lead",
-    pain: null,
-    objection: null,
-    next_step: null,
-    notes: null,
-    created_at: now,
-    updated_at: now,
-  };
-  db.prepare(
-    `INSERT INTO prospects (id, idea_id, name, company, channel, status, pain, objection, next_step, notes, created_at, updated_at)
-     VALUES (@id, @idea_id, @name, @company, @channel, @status, @pain, @objection, @next_step, @notes, @created_at, @updated_at)`
-  ).run(p);
-  return p;
-}
-
-const PROSPECT_FIELDS = ["name", "company", "channel", "status", "pain", "objection", "next_step", "notes"] as const;
-
-export function updateProspect(
-  id: string,
-  fields: Partial<Pick<Prospect, (typeof PROSPECT_FIELDS)[number]>>
-): void {
-  const sets: string[] = [];
-  const vals: Record<string, unknown> = { id, updated_at: new Date().toISOString() };
-  for (const f of PROSPECT_FIELDS) {
-    if (f in fields) {
-      sets.push(`${f} = @${f}`);
-      vals[f] = (fields as Record<string, unknown>)[f];
-    }
-  }
-  if (!sets.length) return;
-  db.prepare(`UPDATE prospects SET ${sets.join(", ")}, updated_at = @updated_at WHERE id = @id`).run(vals);
-}
-
-export function deleteProspect(id: string): void {
-  db.prepare("DELETE FROM prospects WHERE id = ?").run(id);
-}
-
-// ---- pricing experiments -----------------------------------------------------
-export type PriceTest = {
-  id: string;
-  idea_id: string;
-  offer: string | null; // e.g. "$199/mo" or "one-time $2k"
-  audience: string | null;
-  asked: number | null; // how many prospects you put this price to
-  willing: number | null; // how many said yes / would pay
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export function listPriceTests(ideaId: string): PriceTest[] {
-  return db
-    .prepare("SELECT * FROM price_tests WHERE idea_id = ? ORDER BY created_at ASC")
-    .all(ideaId) as PriceTest[];
-}
-
-export function createPriceTest(ideaId: string, offer: string): PriceTest {
-  const now = new Date().toISOString();
-  const t: PriceTest = {
-    id: crypto.randomUUID(),
-    idea_id: ideaId,
-    offer,
-    audience: null,
-    asked: null,
-    willing: null,
-    notes: null,
-    created_at: now,
-    updated_at: now,
-  };
-  db.prepare(
-    `INSERT INTO price_tests (id, idea_id, offer, audience, asked, willing, notes, created_at, updated_at)
-     VALUES (@id, @idea_id, @offer, @audience, @asked, @willing, @notes, @created_at, @updated_at)`
-  ).run(t);
-  return t;
-}
-
-const PRICE_FIELDS = ["offer", "audience", "asked", "willing", "notes"] as const;
-
-export function updatePriceTest(
-  id: string,
-  fields: Partial<Pick<PriceTest, (typeof PRICE_FIELDS)[number]>>
-): void {
-  const sets: string[] = [];
-  const vals: Record<string, unknown> = { id, updated_at: new Date().toISOString() };
-  for (const f of PRICE_FIELDS) {
-    if (f in fields) {
-      sets.push(`${f} = @${f}`);
-      vals[f] = (fields as Record<string, unknown>)[f];
-    }
-  }
-  if (!sets.length) return;
-  db.prepare(`UPDATE price_tests SET ${sets.join(", ")}, updated_at = @updated_at WHERE id = @id`).run(vals);
-}
-
-export function deletePriceTest(id: string): void {
-  db.prepare("DELETE FROM price_tests WHERE id = ?").run(id);
 }
 
 // ---- background jobs (so a long analysis survives leaving the page) ----------
@@ -569,18 +369,6 @@ export function runningJobsForIdea(ideaId: string): { version_id: string; kind: 
   return rows.filter((r) => r.updated_at > cutoff).map(({ version_id, kind }) => ({ version_id, kind }));
 }
 
-export function payingCount(ideaId: string): number {
-  const r = db
-    .prepare("SELECT COUNT(*) AS n FROM prospects WHERE idea_id = ? AND status = 'paying'")
-    .get(ideaId) as { n: number };
-  return r.n;
-}
-
-export function prospectCount(ideaId: string): number {
-  const r = db.prepare("SELECT COUNT(*) AS n FROM prospects WHERE idea_id = ?").get(ideaId) as { n: number };
-  return r.n;
-}
-
 // ---- versions ----------------------------------------------------------------
 export function listVersions(ideaId: string): Version[] {
   return db
@@ -605,6 +393,7 @@ export function deleteVersion(versionId: string): boolean {
     db.prepare("DELETE FROM artifacts WHERE version_id = ?").run(versionId);
     db.prepare("DELETE FROM messages WHERE version_id = ?").run(versionId);
     db.prepare("DELETE FROM usage_log WHERE version_id = ?").run(versionId);
+    db.prepare("DELETE FROM evidence WHERE version_id = ?").run(versionId);
     db.prepare("DELETE FROM versions WHERE id = ?").run(versionId);
   });
   tx();
@@ -744,6 +533,37 @@ export function getArtifact(versionId: string, kind: ArtifactKind): Artifact | u
     .prepare("SELECT * FROM artifacts WHERE version_id = ? AND kind = ?")
     .get(versionId, kind) as ArtifactRow | undefined;
   return row ? rowToArtifact(row) : undefined;
+}
+
+// ---- evidence (version-keyed fetched corpus) ----------------------------------
+export function getEvidence(versionId: string): EvidenceCorpus | undefined {
+  const row = db.prepare("SELECT data FROM evidence WHERE version_id = ?").get(versionId) as
+    | { data: string }
+    | undefined;
+  return row ? (JSON.parse(row.data) as EvidenceCorpus) : undefined;
+}
+
+export function saveEvidence(versionId: string, corpus: EvidenceCorpus): void {
+  db.prepare(
+    `INSERT INTO evidence (version_id, data, created_at) VALUES (?, ?, ?)
+     ON CONFLICT (version_id) DO UPDATE SET data = excluded.data, created_at = excluded.created_at`
+  ).run(versionId, JSON.stringify(corpus), Date.now());
+}
+
+export function deleteEvidence(versionId: string): void {
+  db.prepare("DELETE FROM evidence WHERE version_id = ?").run(versionId);
+}
+
+// All evidence corpora for an idea, keyed by version id (for the workspace).
+export function getEvidenceByVersion(ideaId: string): Record<string, EvidenceCorpus> {
+  const rows = db
+    .prepare(
+      "SELECT e.version_id, e.data FROM evidence e JOIN versions v ON v.id = e.version_id WHERE v.idea_id = ?"
+    )
+    .all(ideaId) as { version_id: string; data: string }[];
+  const out: Record<string, EvidenceCorpus> = {};
+  for (const r of rows) out[r.version_id] = JSON.parse(r.data) as EvidenceCorpus;
+  return out;
 }
 
 // ---- chat (ask about the analysis) ------------------------------------------

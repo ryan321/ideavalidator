@@ -1,13 +1,13 @@
 # IdeaValidator
 
-A **local, single-user** startup-idea validator inspired by [IdeaProof.io](https://ideaproof.io/) —
-without the SaaS layer (no accounts, credits, or billing). Describe an idea, get a grounded, scored
-GO/NO-GO report, then generate a full launch kit on demand: market analysis, business plan, brand
-strategy, logo + visual identity, a marketing suite, and a pitch deck. Plus 9 startup calculators.
+A **local, single-user** startup-idea validator. Describe an idea and your goal (side hustle →
+venture scale), get a grounded, scored GO/MAYBE/NO-GO report — demand, obtainable revenue, market
+& competition, money, risks, and a plan — then iterate the idea statement until it clears the bar.
 
 Everything runs on your machine and is stored in a local SQLite file. AI runs through
 [OpenRouter](https://openrouter.ai/) (one key → Claude / GPT / Gemini / Grok), with live web-search
-grounding so claims are backed by real sources.
+grounding. Demand evidence is **fetched, not asserted**: the app searches the Hacker News and
+Reddit APIs itself, so every quote, link, and vote count in the report is verifiably real.
 
 ## Stack
 
@@ -16,7 +16,7 @@ Next.js 16 · React 19 · TypeScript · Tailwind v4 · SQLite (better-sqlite3) �
 ## Setup
 
 ```bash
-npm install                     # already done if you scaffolded here
+npm install
 cp .env.example .env.local      # then edit .env.local
 ```
 
@@ -26,14 +26,21 @@ Add your OpenRouter key to `.env.local`:
 OPENROUTER_API_KEY=sk-or-...    # https://openrouter.ai/keys
 ```
 
-Optionally override the per-stage models (defaults are sensible; paste current slugs from
+Optional — connect Reddit for the evidence pipeline (without it, evidence comes from Hacker News
+only and the report shows a "Reddit not connected" hint). Create a free "script" app at
+<https://www.reddit.com/prefs/apps> and add:
+
+```
+REDDIT_CLIENT_ID=...
+REDDIT_CLIENT_SECRET=...
+```
+
+Optional — override the per-role models (defaults are sensible; paste current slugs from
 <https://openrouter.ai/models> if any 404):
 
 ```
-MODEL_REASONING=anthropic/claude-opus-4.8
-MODEL_RESEARCH=anthropic/claude-sonnet-4.6
-MODEL_FAST=google/gemini-2.5-flash
-MODEL_IMAGE=google/gemini-2.5-flash-image-preview
+MODEL_SCORING=anthropic/claude-sonnet-4.6       # validation, refine
+MODEL_WRITING=google/gemini-3-flash-preview     # evidence queries + ranking, chat
 ```
 
 ## Run
@@ -43,37 +50,47 @@ npm run dev      # http://localhost:3000
 ```
 
 1. Describe an idea on the home page → creates an idea (version 1) and opens its workspace.
-2. Click **Generate** on any tab, or **Generate all** to run the full suite (validation → market →
-   financials → plan → brand → logo → marketing → pitch). Later stages reuse earlier results.
-3. **Print / PDF** exports the active version's full report. `/calculators` has the 9 calculators.
+2. **Validate** — one comprehensive grounded pass: the app fetches an evidence corpus (real
+   Reddit/HN posts), the model scores 9 criteria against your goal, and the report shows the
+   verdict, obtainable revenue, market, money, risks, and plan. Confidence is computed from the
+   evidence, not self-reported.
+3. Iterate: refine manually, let the AI suggest a sharper version, respond to the validator with
+   context, or auto-iterate toward a target score. Each try is a new version you can compare.
+4. **Decide** — mark the winning version. **Print / PDF** exports the active version's report.
 
-## Versions & iteration
+## The evidence pipeline
 
-An idea is a container for **versions** (v1, v2, …), each with its own statement, artifacts, and
-cached score. The version bar lets you switch between them; the best score is starred.
+Before each validation, `lib/evidence/` builds a corpus for the version:
 
-- **✎ Refine manually** — edit the statement → saves a new version to analyze.
-- **✨ Suggest improvement** — the AI reads the current version's low scores + top risks and proposes
-  a sharper statement (with rationale); accept it to create a version and validate.
-- **⟳ Auto-iterate** — a hill-climb loop: validate + market-scan each candidate, refine to attack the
-  weakest scores, repeat until it hits a target score or a max-round cap (defaults 80 / 5, editable).
-  Runs client-side with a live log; the best version is highlighted at the end.
+- a fast model turns the idea statement into 4–8 keyword queries (pain phrases, competitor
+  alternatives, willingness-to-pay phrases);
+- the queries fan out to the HN Algolia API and the Reddit search API (OAuth client-credentials,
+  skipped gracefully when creds are absent);
+- results are deduped, relevance-ranked (one fast-model batch call), flagged for
+  willingness-to-pay language, and stored per version as numbered items `[E1..En]`.
+
+The validation prompt includes the corpus and the model must cite demand signals by id; the server
+rewrites every citation's URL/engagement from the corpus and **drops signals citing unknown ids**,
+so an invented link can never render. The report's Evidence section shows the full corpus with a
+refresh button, and model-synthesized figures (TAM/SAM/SOM, trends, competitors) are labeled
+"model estimate — see sources".
 
 ## How it works
 
-- `lib/ai/` — OpenRouter client, per-stage model routing, structured-output + web-grounding helper.
-- `lib/generators/` — one module per artifact (prompt + Zod schema + runner), plus `refine.ts`.
-- `lib/db.ts` — SQLite: ideas → versions → artifacts (artifacts keyed by version), with a migration.
-- `app/api/generate/[kind]` runs a generator for a version; `app/api/versions` + `.../refine` handle
-  versioning and AI refinement proposals.
-- `components/report/` — the visualization components (radar, charts, signal cards, risk matrix, …).
-- Persisted artifacts are validated against the current schema on render; stale ones prompt a regen.
+- `lib/ai/` — OpenRouter client (structured output + web-grounding), per-role model routing.
+- `lib/evidence/` — query generation, HN + Reddit search, dedupe/rank, corpus types.
+- `lib/generators/` — the validation generator (prompt + Zod schema), `refine.ts` (statement
+  refinement, fed a corpus digest), `ask.ts` (Q&A about the analysis).
+- `lib/db.ts` — SQLite: ideas → versions → artifacts + evidence (both keyed by version).
+- `app/api/` — `generate/[kind]` runs validation (background-job capable); `versions` + `.../refine`
+  + `.../evidence` handle versioning, refinement proposals, and evidence refresh.
+- `components/report/` — the report visuals (radar, factor bars, market sizing, risk matrix,
+  evidence panel, …). Persisted artifacts are schema-checked on render; stale ones prompt a regen.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and
-[docs/IDEAPROOF_FEATURES.md](docs/IDEAPROOF_FEATURES.md) for the feature reference this clones.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
 ## Notes
 
 - Data lives in `data/ideavalidator.db` (gitignored). Delete it to reset.
-- Generation cost depends on the models you route to; grounded steps (validation, market) call the
-  web-search plugin and cost a bit more.
+- Cost depends on the models you route to; the grounded validation pass calls the web-search
+  plugin (10 results) and costs the most. Evidence queries/ranking use the cheap writing model.

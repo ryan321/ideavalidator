@@ -2,15 +2,11 @@ import { NextResponse } from "next/server";
 import {
   deleteIdea,
   getArtifactsByVersion,
+  getEvidenceByVersion,
   getIdea,
   getIdeaCost,
-  getNameData,
   listVersions,
-  payingCount,
-  prospectCount,
   runningJobsForIdea,
-  setChosenName,
-  setChosenPitch,
   setIdeaGoal,
   setIdeaJourney,
 } from "@/lib/db";
@@ -37,12 +33,6 @@ export async function PATCH(
       chosenVersionId: "chosenVersionId" in body ? body.chosenVersionId : undefined,
     });
   }
-  if ("chosenName" in body) {
-    setChosenName(id, typeof body.chosenName === "string" ? body.chosenName : null);
-  }
-  if ("chosenPitch" in body) {
-    setChosenPitch(id, typeof body.chosenPitch === "string" ? body.chosenPitch : null);
-  }
   return NextResponse.json({ ok: true });
 }
 
@@ -55,25 +45,17 @@ export async function GET(
   if (!idea) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const artifactsByVersion = getArtifactsByVersion(id);
   const kinds = new Set(Object.values(artifactsByVersion).flat().map((a) => a.kind));
-  const name = getNameData(id);
   const st = (done: boolean, stage: string) =>
     done ? "done" : idea.stage === stage ? "active" : "todo";
-  const paying = payingCount(id);
-  const hasProspects = prospectCount(id) > 0;
   const stageStatus = {
     validate: st(kinds.has("validation"), "validate"),
     decide: st(!!idea.chosen_version_id, "decide"),
-    pitch: st(!!idea.chosen_pitch, "pitch"),
-    name: st(!!name.chosen_name, "name"),
-    brand: st(kinds.has("brand"), "brand"),
-    promote: st(kinds.has("promotion") || kinds.has("marketing"), "promote"),
-    acquire: paying > 0 ? "done" : hasProspects || idea.stage === "acquire" ? "active" : "todo",
   };
   return NextResponse.json({
     idea,
     versions: listVersions(id),
     artifactsByVersion,
-    chosenName: name.chosen_name,
+    evidenceByVersion: getEvidenceByVersion(id),
     stageStatus,
     cost: getIdeaCost(id),
     runningJobs: runningJobsForIdea(id),

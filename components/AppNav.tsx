@@ -2,16 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 const STAGES = [
-  { key: "validate", label: "Validate", needsChosen: false },
-  { key: "decide", label: "Decide", needsChosen: false },
-  { key: "pitch", label: "Pitch", needsChosen: true },
-  { key: "name", label: "Name", needsChosen: true },
-  { key: "brand", label: "Branding", needsChosen: true },
-  { key: "promote", label: "Promote", needsChosen: true },
-  { key: "acquire", label: "Acquire", needsChosen: true },
+  { key: "validate", label: "Validate" },
+  { key: "decide", label: "Decide" },
 ];
 
 type IdeaLite = { id: string; title: string };
@@ -22,10 +17,14 @@ const cleanTitle = (t: string) =>
 
 export default function AppNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const activeId = pathname?.match(/^\/idea\/([^/?]+)/)?.[1] ?? null;
+  // the stage the user is looking at RIGHT NOW comes from the URL; the fetched
+  // status can lag (the workspace persists the stage in the background)
+  const urlStage = searchParams?.get("stage");
+  const currentStage = STAGES.some((s) => s.key === urlStage) ? urlStage : null;
   const [ideas, setIdeas] = useState<IdeaLite[]>([]);
   const [status, setStatus] = useState<StageStatus | null>(null);
-  const [hasChosen, setHasChosen] = useState(false);
 
   useEffect(() => {
     fetch("/api/ideas")
@@ -37,15 +36,11 @@ export default function AppNav() {
   useEffect(() => {
     if (!activeId) {
       setStatus(null);
-      setHasChosen(false);
       return;
     }
     fetch(`/api/ideas/${activeId}`)
       .then((r) => r.json())
-      .then((d) => {
-        setStatus(d.stageStatus ?? null);
-        setHasChosen(!!d.idea?.chosen_version_id);
-      })
+      .then((d) => setStatus(d.stageStatus ?? null))
       .catch(() => {});
   }, [activeId, pathname]);
 
@@ -78,42 +73,29 @@ export default function AppNav() {
               {isActive && (
                 <ul className="my-0.5 ml-3 border-l border-border pl-2">
                   {STAGES.map((s) => {
-                    const st = status?.[s.key] ?? "todo";
-                    const locked = s.needsChosen && !hasChosen;
-                    const dot = (
-                      <span
-                        role="img"
-                        aria-label={st === "done" ? "done" : st === "active" ? "in progress" : "not started"}
-                        title={st === "done" ? "Done" : st === "active" ? "In progress" : "Not started"}
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          st === "done"
-                            ? "bg-good"
-                            : st === "active"
-                              ? "bg-accent2 ring-2 ring-accent2/30"
-                              : "border border-border"
-                        }`}
-                      />
-                    );
+                    let st = status?.[s.key] ?? "todo";
+                    // override with the URL's stage so the dot tracks the click instantly
+                    if (currentStage && st !== "done") st = s.key === currentStage ? "active" : "todo";
                     return (
                       <li key={s.key}>
-                        {locked ? (
+                        <Link
+                          href={`/idea/${i.id}?stage=${s.key}`}
+                          className="flex items-center gap-2 rounded-md px-2 py-1 text-[13px] text-muted transition hover:text-fg"
+                        >
                           <span
-                            title="Choose a version in Decide first"
-                            className="flex cursor-not-allowed items-center gap-2 rounded-md px-2 py-1 text-[13px] text-muted/40"
-                          >
-                            {dot}
-                            {s.label}
-                            <span className="ml-auto text-[11px]">🔒</span>
-                          </span>
-                        ) : (
-                          <Link
-                            href={`/idea/${i.id}?stage=${s.key}`}
-                            className="flex items-center gap-2 rounded-md px-2 py-1 text-[13px] text-muted transition hover:text-fg"
-                          >
-                            {dot}
-                            {s.label}
-                          </Link>
-                        )}
+                            role="img"
+                            aria-label={st === "done" ? "done" : st === "active" ? "in progress" : "not started"}
+                            title={st === "done" ? "Done" : st === "active" ? "In progress" : "Not started"}
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              st === "done"
+                                ? "bg-good"
+                                : st === "active"
+                                  ? "bg-accent2 ring-2 ring-accent2/30"
+                                  : "border border-border"
+                            }`}
+                          />
+                          {s.label}
+                        </Link>
                       </li>
                     );
                   })}

@@ -91,8 +91,8 @@ export function Prose({ children }: { children: React.ReactNode }) {
 }
 
 // ---- Shared report vocabulary -------------------------------------------------
-// One set of primitives so every stage (Validate, Pitch, Brand, Promote, …) reads
-// like the same product: an editorial section spine, mono eyebrows, light panels.
+// One set of primitives so every report surface (verdict, market, money, evidence)
+// reads like the same product: an editorial section spine, mono eyebrows, light panels.
 
 // Top-level section header: optional index, a 20px display title, a hairline rule.
 // This is THE heading used across every report surface.

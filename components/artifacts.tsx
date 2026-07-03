@@ -1,18 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Bullets, Card, Eyebrow, Field, Metric, Panel, Prose, Section, SectionHead, Tag } from "./ui";
+import { Card, Metric, Section, SectionHead } from "./ui";
 import type { Source } from "@/lib/ai/client";
 import type { Validation } from "@/lib/generators/validation";
-import type { Market } from "@/lib/generators/market";
-import type { Plan } from "@/lib/generators/plan";
-import type { Brand } from "@/lib/generators/brand";
-import type { Logo } from "@/lib/generators/logo";
-import type { Marketing } from "@/lib/generators/marketing";
-import type { CustomerPitch } from "@/lib/generators/customer_pitch";
-import type { Pitch } from "@/lib/generators/pitch";
-import type { Outreach } from "@/lib/generators/outreach";
-import type { Promotion } from "@/lib/generators/promotion";
+import type { EvidenceCorpus } from "@/lib/evidence/types";
 
 // Report subcomponents (built as standalone files).
 import { CriteriaRadar } from "./report/CriteriaRadar";
@@ -20,16 +12,8 @@ import { FactorBars } from "./report/FactorBars";
 import { ValidationSummary } from "./report/ValidationSummary";
 import { ValidationScorecard } from "./report/ValidationScorecard";
 import { RiskMatrix } from "./report/RiskMatrix";
-import { MarketHeader } from "./report/MarketHeader";
 import { MarketSizing } from "./report/MarketSizing";
-import { MarketTrajectory } from "./report/MarketTrajectory";
-import { MarketStage } from "./report/MarketStage";
-import { DemandSignals } from "./report/DemandSignals";
-import { CompetitiveLandscape } from "./report/CompetitiveLandscape";
-import { TargetDiscovery } from "./report/TargetDiscovery";
-import { FinancialsView } from "./report/FinancialsView";
-
-export { FinancialsView };
+import { EvidencePanel, FetchedBadge, WtpTag, relDate, sourceLabel } from "./report/EvidencePanel";
 
 function scoreColor(n: number): string {
   if (n >= 70) return "var(--color-good)";
@@ -88,29 +72,6 @@ export function SourcesList({ sources }: { sources: Source[] }) {
         ))}
       </ul>
     </Section>
-  );
-}
-
-// Defense-in-depth for model-generated SVG rendered via dangerouslySetInnerHTML.
-// Strip active/embedding elements and any vector for script execution or remote loads.
-function sanitizeSvg(svg: string): string {
-  return svg
-    .replace(/<\s*(script|foreignObject|iframe|a|image|use|set|animate\w*)\b[\s\S]*?<\/\s*\1\s*>/gi, "")
-    .replace(/<\s*(script|foreignObject|iframe|a|image|use|set|animate\w*)\b[^>]*\/?>/gi, "")
-    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "") // quoted event handlers
-    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
-    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "") // unquoted event handlers
-    .replace(/(href|xlink:href)\s*=\s*(["'])\s*(javascript|data):[^"']*\2/gi, "") // dangerous URLs
-    .replace(/(href|xlink:href)\s*=\s*(["'])\s*(https?:)?\/\/[^"']*\2/gi, "") // external refs
-    .replace(/url\(\s*['"]?\s*(https?:)?\/\/[^)]*\)/gi, "none"); // external url() refs
-}
-
-export function SvgLogo({ svg }: { svg: string }) {
-  return (
-    <div
-      className="grid h-44 w-44 place-items-center rounded-xl border border-border bg-white p-3 [&_svg]:h-full [&_svg]:w-full"
-      dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }}
-    />
   );
 }
 
@@ -234,10 +195,11 @@ function VerdictMeter({ score }: { score: number }) {
 }
 
 // Lead with the gist: clamp long prose to three lines and keep the rest one
-// click away, so the report doesn't open as a wall of text.
-function ClampText({ text, className = "" }: { text: string; className?: string }) {
+// click away, so the report doesn't open as a wall of text. `print` disables the
+// clamp entirely (a printed "+ More" button is dead weight).
+function ClampText({ text, className = "", print = false }: { text: string; className?: string; print?: boolean }) {
   const [open, setOpen] = useState(false);
-  const long = text.length > 170;
+  const long = !print && text.length > 170;
   return (
     <div className={className}>
       <p className={open || !long ? "leading-relaxed" : "line-clamp-3 leading-relaxed"}>{text}</p>
@@ -253,7 +215,31 @@ function ClampText({ text, className = "" }: { text: string; className?: string 
   );
 }
 
-export function ValidationView({ d }: { d: Validation }) {
+// Subtle provenance tag: this figure is the model's synthesis of its web search,
+// not a measured feed — the opposite of a fake "VERIFIED / LIVE DATA" badge.
+function ModelEstimateTag() {
+  return (
+    <span className="font-mono text-[10px] uppercase tracking-wide text-muted/70" title="An estimate synthesized by the model from web-search results — check the cited sources before relying on it.">
+      model estimate — see sources
+    </span>
+  );
+}
+
+export function ValidationView({
+  d,
+  evidence,
+  onRefreshEvidence,
+  refreshingEvidence,
+  print = false,
+}: {
+  d: Validation;
+  /** The fetched Reddit/HN corpus behind the demand read (shown as its own section). */
+  evidence?: EvidenceCorpus | null;
+  onRefreshEvidence?: () => void;
+  refreshingEvidence?: boolean;
+  /** Print/PDF render: open every collapsed section and unclamp prose. */
+  print?: boolean;
+}) {
   const navLink =
     "rounded-md px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-muted transition hover:bg-panel2 hover:text-fg";
   const color = scoreColor(d.score);
@@ -310,6 +296,7 @@ export function ValidationView({ d }: { d: Validation }) {
         {showMoney && <a href="#money" className={navLink}>Money</a>}
         {d.risk_matrix?.length ? <a href="#risks" className={navLink}>Risks</a> : null}
         {showPlan && <a href="#plan" className={navLink}>Plan</a>}
+        {evidence && <a href="#evidence" className={navLink}>Evidence</a>}
       </nav>
 
       {/* ============================ VERDICT (hero) ============================ */}
@@ -320,7 +307,10 @@ export function ValidationView({ d }: { d: Validation }) {
           <div className="p-6 sm:p-7">
             <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
               <span>Validation readout</span>
-              <span className="flex items-center gap-1.5">
+              <span
+                className="flex items-center gap-1.5"
+                title="Computed from the fetched evidence corpus + distinct cited web sources; the model's self-report only nudges it (max 15 pts)."
+              >
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
                 {d.confidence}% confidence
               </span>
@@ -360,7 +350,7 @@ export function ValidationView({ d }: { d: Validation }) {
 
         {/* the read, in plain words — clamped so the verdict stays above the fold */}
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <ClampText text={d.summary} className="max-w-2xl text-[15px] text-fg/90" />
+          <ClampText text={d.summary} print={print} className="max-w-2xl text-[15px] text-fg/90" />
           {d.narrative && <PainkillerTag verdict={d.narrative.verdict} />}
         </div>
       </section>
@@ -409,13 +399,13 @@ export function ValidationView({ d }: { d: Validation }) {
                   <Metric label="Optimistic" value={sens!.optimistic || "—"} hint="If it goes well" />
                 </div>
               )}
-              {d.demand.reasoning && <ClampText text={d.demand.reasoning} className="mt-3 max-w-2xl text-sm text-muted" />}
+              {d.demand.reasoning && <ClampText text={d.demand.reasoning} print={print} className="mt-3 max-w-2xl text-sm text-muted" />}
             </div>
           )}
 
           {/* full pain → solution breakdown — the heaviest block, collapsed by default */}
           {narrativeRows.length > 0 && (
-            <details className="group">
+            <details className="group" open={print}>
               <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
                 <span className="transition group-open:rotate-90">▸</span>
                 Why they&apos;ll buy — full pain → solution breakdown
@@ -454,7 +444,7 @@ export function ValidationView({ d }: { d: Validation }) {
           )}
 
           {(d.operating || d.acquisition) && (
-            <details className="group">
+            <details className="group" open={print}>
               <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
                 <span className="transition group-open:rotate-90">▸</span>
                 How it runs &amp; how you sell
@@ -491,7 +481,7 @@ export function ValidationView({ d }: { d: Validation }) {
               <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
                 {d.market.search_trend && d.market.search_trend.note && (
                   <div className="bg-panel p-4">
-                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Search interest</div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Search interest · direction per web search</div>
                     <div
                       className="mt-1 text-sm font-medium"
                       style={{
@@ -507,12 +497,14 @@ export function ValidationView({ d }: { d: Validation }) {
                       {d.market.search_trend.note}
                     </div>
                     {d.market.search_trend.keyword && <div className="mt-0.5 font-mono text-[11px] text-muted">“{d.market.search_trend.keyword}”</div>}
+                    <div className="mt-1.5"><ModelEstimateTag /></div>
                   </div>
                 )}
                 {d.market.momentum && (
                   <div className="bg-panel p-4">
                     <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Recent momentum</div>
                     <p className="mt-1 text-sm text-fg/90">{d.market.momentum}</p>
+                    <div className="mt-1.5"><ModelEstimateTag /></div>
                   </div>
                 )}
               </div>
@@ -520,7 +512,10 @@ export function ValidationView({ d }: { d: Validation }) {
 
             {(d.market.competitors ?? []).length > 0 && (
               <div>
-                <div className="mb-2.5 font-mono text-sm uppercase tracking-[0.1em] text-muted">Competitors</div>
+                <div className="mb-2.5 flex items-baseline justify-between gap-2 font-mono text-sm uppercase tracking-[0.1em] text-muted">
+                  Competitors
+                  <ModelEstimateTag />
+                </div>
                 <div className="space-y-2">
                   {d.market.competitors!.map((c, i) => (
                     <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-4">
@@ -547,25 +542,36 @@ export function ValidationView({ d }: { d: Validation }) {
             {(d.market.demand_signals ?? []).length > 0 && (
               <div>
                 <div className="mb-1 font-mono text-sm uppercase tracking-[0.1em] text-muted">What people are actually saying</div>
-                <p className="mb-2.5 text-xs text-muted">Real posts found while researching — the pain in their own words.</p>
+                <p className="mb-2.5 text-xs text-muted">
+                  Posts fetched from the Reddit / Hacker News APIs — every link and vote count is real, not model-asserted.
+                </p>
                 <div className="space-y-2">
                   {d.market.demand_signals!.map((s, i) => (
                     <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-3">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {s.tag && (
                           <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent2">
                             {s.tag}
                           </span>
                         )}
-                        {s.url ? (
-                          <a href={s.url} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent2 hover:underline">
-                            {s.source || "source"} ↗
-                          </a>
-                        ) : (
-                          <span className="truncate text-xs text-muted">{s.source}</span>
-                        )}
+                        {s.wtp_signal && <WtpTag />}
+                        <span className="ml-auto flex items-center gap-2">
+                          {s.url && s.source ? (
+                            <a href={s.url} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent2 hover:underline">
+                              {sourceLabel({ source: s.source, community: s.community })} ↗
+                            </a>
+                          ) : null}
+                          {s.source && <FetchedBadge source={s.source} />}
+                        </span>
                       </div>
                       {s.quote && <p className="mt-1.5 text-sm leading-relaxed text-fg/90">“{s.quote}”</p>}
+                      {(s.score != null || s.num_comments != null || !!s.created_utc) && (
+                        <div className="mt-1.5 font-mono text-[11px] text-muted">
+                          {s.score != null ? `▲${s.score}` : ""}
+                          {s.num_comments != null ? ` · ${s.num_comments} comments` : ""}
+                          {s.created_utc ? ` · ${relDate(s.created_utc)}` : ""}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -578,7 +584,7 @@ export function ValidationView({ d }: { d: Validation }) {
       {/* ============================ MONEY ============================ */}
       {showMoney && d.financials && (
         <section id="money" className="scroll-mt-20">
-          <SectionHead n="03" title="Money" hint="the unit economics" />
+          <SectionHead n="03" title="Money" hint="the unit economics" right={<ModelEstimateTag />} />
           <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
             <Metric label="Startup cost" value={d.financials.startup_cost || "—"} />
             <Metric label="CAC" value={d.financials.unit_economics?.cac || "—"} hint="Cost to acquire a customer" />
@@ -587,27 +593,33 @@ export function ValidationView({ d }: { d: Validation }) {
           </div>
           {d.financials.revenue_model && <p className="mt-3 text-sm text-muted">{d.financials.revenue_model}</p>}
           {(d.financials.projections ?? []).length > 0 && (
-            <div className="mt-4 overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[28rem] text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left font-mono text-[11px] uppercase tracking-wide text-muted">
-                    <th className="px-3 py-2 font-medium">Year</th>
-                    <th className="px-3 py-2 font-medium">Revenue</th>
-                    <th className="px-3 py-2 font-medium">Customers</th>
-                    <th className="px-3 py-2 font-medium">Note</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {d.financials.projections.map((p, i) => (
-                    <tr key={i} className="border-b border-border/60 last:border-0">
-                      <td className="px-3 py-2 align-top font-mono text-accent2">{p.year}</td>
-                      <td className="px-3 py-2 align-top font-mono font-bold">{p.revenue}</td>
-                      <td className="px-3 py-2 align-top text-muted">{p.customers}</td>
-                      <td className="px-3 py-2 align-top text-xs text-muted">{p.note}</td>
+            <div className="mt-4">
+              <div className="mb-2 flex items-baseline justify-between gap-2 font-mono text-sm uppercase tracking-[0.1em] text-muted">
+                Projections
+                <ModelEstimateTag />
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full min-w-[28rem] text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left font-mono text-[11px] uppercase tracking-wide text-muted">
+                      <th className="px-3 py-2 font-medium">Year</th>
+                      <th className="px-3 py-2 font-medium">Revenue</th>
+                      <th className="px-3 py-2 font-medium">Customers</th>
+                      <th className="px-3 py-2 font-medium">Note</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {d.financials.projections.map((p, i) => (
+                      <tr key={i} className="border-b border-border/60 last:border-0">
+                        <td className="px-3 py-2 align-top font-mono text-accent2">{p.year}</td>
+                        <td className="px-3 py-2 align-top font-mono font-bold">{p.revenue}</td>
+                        <td className="px-3 py-2 align-top text-muted">{p.customers}</td>
+                        <td className="px-3 py-2 align-top text-xs text-muted">{p.note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </section>
@@ -655,8 +667,16 @@ export function ValidationView({ d }: { d: Validation }) {
         </section>
       )}
 
+      {/* ============================ EVIDENCE ============================ */}
+      {evidence && (
+        <section id="evidence" className="no-print scroll-mt-20">
+          <SectionHead n="06" title="Evidence" hint="the fetched corpus behind the demand read" />
+          <EvidencePanel corpus={evidence} onRefresh={onRefreshEvidence} refreshing={refreshingEvidence} />
+        </section>
+      )}
+
       {/* ===================== full scorecard (the deep dive) ===================== */}
-      <details className="group rounded-xl border border-border bg-panel/40">
+      <details className="group rounded-xl border border-border bg-panel/40" open={print}>
         <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
           <span className="transition group-open:rotate-90">▸</span>
           Full scorecard &amp; signals — the evidence behind the score
@@ -674,455 +694,6 @@ export function ValidationView({ d }: { d: Validation }) {
           <ValidationScorecard validations={d.validations} criteria={d.criteria} />
         </div>
       </details>
-    </div>
-  );
-}
-
-// ---- Market (composed) -------------------------------------------------------
-
-export function MarketView({ d }: { d: Market }) {
-  return (
-    <div className="space-y-8">
-      <Prose>{d.summary}</Prose>
-      <MarketHeader cagrLabel={d.cagr_label} maturity={d.maturity} competitorCount={d.competitors.length} />
-      <MarketSizing sizing={d.sizing} cagrPct={d.cagr_pct} />
-      <MarketTrajectory baseYear={d.trajectory.base_year} endYear={d.trajectory.end_year} cagrPct={d.cagr_pct} />
-      <MarketStage
-        maturity={d.maturity}
-        maturityRationale={d.maturity_rationale}
-        seasonality={d.seasonality}
-        regions={d.regions}
-      />
-      <DemandSignals reddit={d.demand_signals.reddit} search={d.demand_signals.search_trends} />
-      <CompetitiveLandscape competitors={d.competitors} />
-      <TargetDiscovery persona={d.persona} discovery={d.discovery} />
-      <Field label="Pricing recommendation" value={d.pricing_recommendation} />
-    </div>
-  );
-}
-
-// ---- Plan / Brand / Logo / Marketing / Pitch (unchanged schemas) -------------
-
-export function PlanView({ d }: { d: Plan }) {
-  const sections: [string, string][] = [
-    ["Executive summary", d.executive_summary],
-    ["Problem", d.problem],
-    ["Solution", d.solution],
-    ["Business model", d.business_model],
-    ["Go-to-market", d.go_to_market],
-    ["Team & operations", d.team_and_ops],
-    ["Risks & mitigations", d.risks_and_mitigations],
-  ];
-  return (
-    <div className="space-y-10">
-      {sections.map(([title, body]) => (
-        <section key={title}>
-          <SectionHead title={title} />
-          <Prose>{body}</Prose>
-        </section>
-      ))}
-      <section>
-        <SectionHead title="Financials" />
-        <Panel>
-          <Prose>{d.financials.summary}</Prose>
-          <div className="mt-3">
-            <Field label="Year 1 revenue" value={d.financials.year1_revenue} />
-          </div>
-          <Eyebrow className="mt-4">Assumptions</Eyebrow>
-          <div className="mt-1.5">
-            <Bullets items={d.financials.assumptions} />
-          </div>
-        </Panel>
-      </section>
-      <section>
-        <SectionHead title="Milestones" />
-        <div className="space-y-2">
-          {d.milestones.map((m, i) => (
-            <div key={i} className="flex gap-3 text-sm">
-              <span className="w-28 shrink-0 font-mono text-accent2">{m.when}</span>
-              <span>{m.goal}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-export function BrandView({ d }: { d: Brand }) {
-  return (
-    <div className="space-y-10">
-      <Card className="border-accent/30 bg-accent/5">
-        <Eyebrow tone="accent">Archetype</Eyebrow>
-        <div className="mt-1 font-display text-xl font-bold text-accent">{d.archetype.name}</div>
-        <p className="mt-1 text-sm text-muted">{d.archetype.why}</p>
-      </Card>
-      <section>
-        <SectionHead title="Positioning" />
-        <div className="grid gap-6 sm:grid-cols-2">
-          <Field label="Mission" value={d.mission} />
-          <Field label="Vision" value={d.vision} />
-          <Field label="Value proposition" value={d.value_proposition} />
-          <Field label="Positioning statement" value={d.positioning_statement} />
-        </div>
-      </section>
-      <section>
-        <SectionHead title="Name ideas" />
-        <div className="flex flex-wrap gap-2">
-          {d.name_ideas.map((n, i) => (
-            <Tag key={i}>{n}</Tag>
-          ))}
-        </div>
-      </section>
-      <section>
-        <SectionHead title="Taglines" />
-        <Bullets items={d.tagline_options} />
-      </section>
-      <section>
-        <SectionHead title="Voice" />
-        <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
-          <div className="sm:pr-6">
-            <Eyebrow tone="good" className="mb-2.5">Do · {d.tone}</Eyebrow>
-            <Bullets items={d.voice_dos} />
-          </div>
-          <div className="sm:pl-6">
-            <Eyebrow tone="warn" className="mb-2.5">Don&apos;t</Eyebrow>
-            <Bullets items={d.voice_donts} />
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-export function LogoView({ d }: { d: Logo }) {
-  return (
-    <div className="space-y-10">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-        <SvgLogo svg={d.logo_svg} />
-        <div className="flex-1">
-          <div className="font-display text-xl font-semibold">{d.wordmark}</div>
-          <p className="mt-1 text-sm text-muted">{d.concept}</p>
-        </div>
-      </div>
-      <section>
-        <SectionHead title="Palette" />
-        <div className="flex flex-wrap gap-3">
-          {d.palette.map((c, i) => (
-            <div key={i} className="w-32">
-              <div className="h-16 rounded-lg border border-border" style={{ background: c.hex }} />
-              <div className="mt-1 text-sm font-medium">{c.name}</div>
-              <div className="font-mono text-xs text-muted">{c.hex}</div>
-              <div className="text-xs text-muted">{c.usage}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-      <section>
-        <SectionHead title="Typography" />
-        <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
-          <div className="bg-panel p-4">
-            <Eyebrow>Heading</Eyebrow>
-            <div className="mt-1 text-lg font-semibold">{d.typography.heading.font}</div>
-            <p className="mt-0.5 text-xs text-muted">{d.typography.heading.note}</p>
-          </div>
-          <div className="bg-panel p-4">
-            <Eyebrow>Body</Eyebrow>
-            <div className="mt-1 text-lg font-semibold">{d.typography.body.font}</div>
-            <p className="mt-0.5 text-xs text-muted">{d.typography.body.note}</p>
-          </div>
-        </div>
-      </section>
-      <section>
-        <SectionHead title="Usage notes" />
-        <Bullets items={d.usage_notes} />
-      </section>
-    </div>
-  );
-}
-
-export function MarketingView({ d }: { d: Marketing }) {
-  return (
-    <div className="space-y-10">
-      <section>
-        <SectionHead title="Ad creatives" />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {d.ads.map((a, i) => (
-            <Panel key={i}>
-              <Tag>{a.platform}</Tag>
-              <div className="mt-2 text-sm font-semibold">{a.headline}</div>
-              <p className="mt-1 text-sm text-muted">{a.primary_text}</p>
-              <div className="mt-2 text-xs">
-                <span className="text-accent">CTA:</span> {a.cta}
-              </div>
-              <div className="mt-1 text-xs text-muted">Visual: {a.visual_idea}</div>
-            </Panel>
-          ))}
-        </div>
-      </section>
-      <section>
-        <SectionHead title="Landing page copy" />
-        <Card>
-          <div className="font-display text-xl font-bold">{d.landing_copy.hero_headline}</div>
-          <p className="mt-1 text-sm text-muted">{d.landing_copy.subheadline}</p>
-          <div className="mt-3">
-            <Bullets items={d.landing_copy.bullets} />
-          </div>
-          <div className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white">
-            {d.landing_copy.cta}
-          </div>
-        </Card>
-      </section>
-      <section>
-        <SectionHead title="Email sequence" />
-        <div className="space-y-3">
-          {d.email_sequence.map((e, i) => (
-            <Panel key={i}>
-              <div className="flex items-center gap-2">
-                <Tag>{e.stage}</Tag>
-                <span className="text-sm font-semibold">{e.subject}</span>
-              </div>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{e.body}</p>
-            </Panel>
-          ))}
-        </div>
-      </section>
-      <section>
-        <SectionHead title="UGC scripts" />
-        <div className="space-y-3">
-          {d.ugc_scripts.map((u, i) => (
-            <Panel key={i}>
-              <Tag>{u.platform}</Tag>
-              <div className="mt-2 text-sm font-semibold">Hook: {u.hook}</div>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{u.script}</p>
-              <div className="mt-1 text-xs">
-                <span className="text-accent">CTA:</span> {u.cta}
-              </div>
-            </Panel>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-export function PromotionView({ d }: { d: Promotion }) {
-  return (
-    <div className="space-y-10">
-      <Card className="border-accent2/40 bg-accent2/5">
-        <Eyebrow tone="accent2">Channel strategy</Eyebrow>
-        <p className="mt-1.5 text-sm text-fg/90">{d.channel_strategy}</p>
-      </Card>
-
-      <section>
-        <SectionHead title="Where to show up" />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {d.channels.map((c, i) => (
-            <Panel key={i}>
-              <div className="text-sm font-semibold">{c.channel}</div>
-              <p className="mt-1 text-sm text-muted">{c.why}</p>
-              {c.first_move && (
-                <p className="mt-2 text-xs">
-                  <span className="font-semibold text-accent">First move: </span>
-                  <span className="text-fg/85">{c.first_move}</span>
-                </p>
-              )}
-            </Panel>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <SectionHead title="Set up & launch" />
-        <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
-          <div className="sm:pr-6">
-            <Eyebrow className="mb-2.5">Stand this up</Eyebrow>
-            <Bullets items={d.presence_checklist} />
-          </div>
-          <div className="sm:pl-6">
-            <Eyebrow className="mb-2.5">Get the word out</Eyebrow>
-            <Bullets items={d.launch_tactics} />
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <SectionHead title="What to post" />
-        <div className="space-y-2">
-          {d.content_plan.map((c, i) => (
-            <Panel key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 p-3">
-              <span className="text-sm font-semibold">{c.theme}</span>
-              <span className="text-xs text-muted">{c.formats}</span>
-              <span className="ml-auto rounded-full border border-border bg-panel2 px-2 py-0.5 font-mono text-[11px] text-muted">
-                {c.cadence}
-              </span>
-            </Panel>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-export function OutreachView({ d }: { d: Outreach }) {
-  return (
-    <div className="space-y-10">
-      <Card className="border-accent2/40 bg-accent2/5">
-        <Eyebrow tone="accent2">Channel strategy</Eyebrow>
-        <p className="mt-1.5 text-sm text-fg/90">{d.channel_strategy}</p>
-      </Card>
-
-      <section>
-        <SectionHead title="Cold openers" />
-        <div className="space-y-3">
-          {d.openers.map((o, i) => (
-            <Panel key={i}>
-              <div className="flex items-center justify-between gap-2">
-                <Tag>{o.channel}</Tag>
-                {o.why && <span className="text-[11px] text-muted">{o.why}</span>}
-              </div>
-              {o.subject && (
-                <div className="mt-2 text-sm">
-                  <span className="text-muted">Subject: </span>
-                  <span className="font-medium">{o.subject}</span>
-                </div>
-              )}
-              <p className="mt-1.5 whitespace-pre-wrap text-sm text-fg/90">{o.message}</p>
-            </Panel>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <SectionHead title="Plan to first 5 paying customers" />
-        <ol className="space-y-2">
-          {d.first_five_plan.map((step, i) => (
-            <li key={i} className="flex gap-3 rounded-lg border border-border/70 bg-panel/40 p-3 text-sm">
-              <span className="font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
-              <span className="text-fg/90">{step}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </div>
-  );
-}
-
-export function CustomerPitchView({ d }: { d: CustomerPitch }) {
-  return (
-    <div className="space-y-10">
-      {/* the line you lead with */}
-      <Card>
-        <Eyebrow tone="accent2">One-liner</Eyebrow>
-        <p className="mt-1.5 font-display text-lg font-semibold leading-snug">{d.one_liner}</p>
-        <p className="mt-3 border-t border-border pt-3 text-sm leading-relaxed text-fg/90">
-          <span className="font-mono text-xs uppercase tracking-wide text-muted">Hook · </span>
-          {d.hook}
-        </p>
-        <p className="mt-3 text-sm leading-relaxed text-muted">
-          <span className="font-mono text-xs uppercase tracking-wide text-muted">Elevator · </span>
-          {d.elevator}
-        </p>
-      </Card>
-
-      <section>
-        <SectionHead title="Walkthrough script" />
-        <ol className="space-y-2">
-          {d.demo_script.map((s, i) => (
-            <li key={i} className="flex gap-3 rounded-lg border border-border/70 bg-panel/40 p-3">
-              <span className="mt-0.5 font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
-              <div>
-                <div className="text-sm font-semibold">{s.beat}</div>
-                <p className="mt-0.5 text-sm text-muted">“{s.say}”</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section>
-        <SectionHead title="Objections & answers" />
-        <div className="space-y-2">
-          {d.objections.map((o, i) => (
-            <Panel key={i}>
-              <div className="text-sm font-semibold text-warn">“{o.objection}”</div>
-              <p className="mt-1 text-sm text-fg/90">{o.response}</p>
-            </Panel>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <SectionHead title="Proof & timing" />
-        <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
-          <div className="sm:pr-6">
-            <Eyebrow className="mb-2.5">Proof points</Eyebrow>
-            <Bullets items={d.proof_points} />
-          </div>
-          <div className="sm:pl-6">
-            <Eyebrow className="mb-2.5">Why now</Eyebrow>
-            <p className="text-sm leading-relaxed text-fg/90">{d.why_now}</p>
-          </div>
-        </div>
-      </section>
-
-      <Card className="border-accent/40 bg-accent/5">
-        <Eyebrow tone="accent">The ask</Eyebrow>
-        <p className="mt-1.5 text-base font-medium">{d.call_to_action}</p>
-      </Card>
-
-      {d.claim_check && d.claim_check.length > 0 && <ClaimCheck items={d.claim_check} />}
-    </div>
-  );
-}
-
-const CLAIM_TONE: Record<string, { color: string; label: string }> = {
-  grounded: { color: "var(--color-good)", label: "Grounded" },
-  assumption: { color: "var(--color-warn)", label: "Assumption" },
-  aspirational: { color: "var(--color-bad)", label: "Aspirational" },
-};
-
-function ClaimCheck({ items }: { items: { claim: string; basis: string; note: string }[] }) {
-  return (
-    <section>
-      <SectionHead title="Reality check" hint="before you say it out loud" />
-      <div className="space-y-2">
-        {items.map((c, i) => {
-          const t = CLAIM_TONE[c.basis] ?? CLAIM_TONE.assumption;
-          return (
-            <Panel key={i} className="flex items-start gap-3 p-3">
-              <span
-                className="mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                style={{ color: t.color, borderColor: `color-mix(in srgb, ${t.color} 40%, transparent)` }}
-              >
-                {t.label}
-              </span>
-              <div className="min-w-0">
-                <div className="text-sm text-fg/90">{c.claim}</div>
-                {c.note && <div className="mt-0.5 text-xs text-muted">{c.note}</div>}
-              </div>
-            </Panel>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-export function PitchView({ d }: { d: Pitch }) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {d.slides.map((s, i) => (
-        <Panel key={i} className="flex flex-col p-5">
-          <Eyebrow>Slide {i + 1}</Eyebrow>
-          <div className="mt-1 font-display text-base font-bold">{s.title}</div>
-          <div className="text-sm text-accent2">{s.subtitle}</div>
-          <div className="mt-3 flex-1">
-            <Bullets items={s.bullets} />
-          </div>
-          <p className="mt-3 border-t border-border pt-2 text-xs italic text-muted">{s.speaker_notes}</p>
-        </Panel>
-      ))}
     </div>
   );
 }

@@ -26,7 +26,7 @@ export async function answerQuestion(
   addMessage(versionId, "user", question);
 
   const { text, usage, model } = await generateText({
-    role: "research",
+    role: "writing",
     grounded: false,
     maxTokens: 1200,
     system:
@@ -37,7 +37,7 @@ export async function answerQuestion(
     prompt: `Idea: "${idea?.title ?? ""}" — ${version.statement}
 Founder's goal: ${idea?.goal ?? "unsure"}${idea?.goal_detail ? ` (${idea.goal_detail})` : ""}
 
-=== THE ANALYSIS (validation, market, financials, etc.) ===
+=== THE ANALYSIS (the validation report) ===
 ${analysis || "(no analysis generated yet)"}
 
 ${history ? `=== CONVERSATION SO FAR ===\n${history}\n\n` : ""}Founder's question: ${question}`,

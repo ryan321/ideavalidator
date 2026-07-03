@@ -175,14 +175,24 @@ export const ValidationSchema = z.object({
           })
         )
         .catch([]),
-      // real cited evidence of the pain — Reddit/X/forum posts, with links
+      // cited evidence of the pain, drawn ONLY from the fetched corpus. The model
+      // outputs {evidence_id, quote, tag}; the server rewrites url/source/engagement
+      // from the corpus item (and drops unknown ids), so no invented link can render.
       demand_signals: z
         .array(
           z.object({
-            source: z.string().catch(""), // e.g. "Reddit r/saas", "X (Twitter)", "Hacker News"
-            quote: z.string().catch(""), // the pain, in their words
-            url: z.string().catch(""), // link to the post/thread
+            evidence_id: z.string().catch(""), // corpus id, e.g. "E3"
+            quote: z.string().catch(""), // the pain, in their words (from that item)
             tag: z.string().catch(""), // PAIN POINT | FEATURE REQUEST | DISCUSSION
+            // enriched server-side from the corpus (present on stored artifacts).
+            // .catch(undefined) so model junk in one field can't wipe the array.
+            source: z.enum(["reddit", "hn"]).optional().catch(undefined),
+            url: z.string().optional().catch(undefined),
+            community: z.string().optional().catch(undefined),
+            score: z.number().optional().catch(undefined),
+            num_comments: z.number().optional().catch(undefined),
+            created_utc: z.number().optional().catch(undefined),
+            wtp_signal: z.boolean().optional().catch(undefined),
           })
         )
         .catch([]),
@@ -239,6 +249,7 @@ export const validationGenerator: Generator<Validation> = {
   blurb: "One grounded pass: scored verdict + market, money, plan & risks.",
   role: "scoring",
   grounded: true,
+  webMaxResults: 10, // the one big grounded pass gets a deeper result set
   schema: ValidationSchema,
   maxTokens: 16000, // one comprehensive analysis: verdict + market + money + plan
   system:
@@ -269,11 +280,16 @@ This is the SINGLE comprehensive analysis — it must cover the verdict AND the 
 and the plan, all consistent with each other (reuse the same figures across sections; don't contradict yourself).
 
 Validate this idea. You MUST issue web searches before answering and base every figure (market size,
-CAGR, competitor funding, pricing, thread/upvote counts) on a result you actually retrieved. Name the
+CAGR, competitor funding, pricing) on a result you actually retrieved. Name the
 source domain or publication inline in the relevant rationale/explanation/text (e.g. "(grandviewresearch.com, 2024)").
 If search returns no figure, write "no reliable source found" and LOWER that criterion's score and the
 overall confidence — do NOT invent a number, a competitor, or a Reddit thread. Name at least 2 real,
 currently-operating competitors by name in the explanations.
+
+An EVIDENCE section of real Reddit/Hacker News posts we fetched appears at the end of this prompt —
+it is the ONLY citable demand evidence. Ground Demand Strength, Willingness to Pay, and the
+demand_signals in those numbered items (weigh WILLINGNESS-TO-PAY-flagged ones heavily); if the corpus
+is thin for a dimension, say so and score that dimension lower.
 
 FIRST, glean the "pain → obvious solution" NARRATIVE from the idea — even if the founder didn't spell it
 out (this drives the demand judgment): WHO feels the pain; the PAIN itself, articulated so that person
@@ -317,19 +333,19 @@ For each: set "category" to one of DEMAND, REVENUE, MARKET, DEFENSIBILITY, EXECU
 ${COMPETITION_GUIDANCE}
 
 Also produce:
-- "confidence" (0-100) = how much corroborating web evidence you actually found (lower it when you relied on assumption). Still output a "score" and "verdict", but know the system RECOMPUTES the overall score as a demand-weighted average of your 9 criteria and derives the verdict from it — so put your effort into scoring the 9 criteria honestly and distinctly, NOT into tuning the headline number. Add a TIGHT evidence-based "summary" — AT MOST 2 sentences (~45 words) — that leads with what the founder can realistically expect (obtainable revenue vs goal), then the verdict's crux. No preamble, no restating the idea.
+- "confidence" (0-100) = how much corroborating evidence you actually found (lower it when you relied on assumption). The system RECOMPUTES confidence from the fetched corpus + citation counts (your self-report only nudges it), and RECOMPUTES the overall score as a demand-weighted average of your 9 criteria, deriving the verdict from it — so put your effort into scoring the 9 criteria honestly and distinctly, NOT into tuning the headline numbers. Add a TIGHT evidence-based "summary" — AT MOST 2 sentences (~45 words) — that leads with what the founder can realistically expect (obtainable revenue vs goal), then the verdict's crux. No preamble, no restating the idea.
 - "validations": problem, solution, and market validation each with a 0-100 score and an evidence-based rationale.
 - "go_signals": positive_signals (why it has momentum) and key_strengths; "stop_signals": critical_risks and areas_of_concern. Each item is { text, category } where category is ONE of MARKET, DEMAND, DEFENSIBILITY, REVENUE, EXECUTION, TECH and "text" references something specific to THIS idea (a named competitor, a real number, or a cited signal) — no statement that could apply to any startup. Keep each "text" to ONE sentence, ~20 words max.
 - "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation.
 - "clarifying_questions": 2-4 pointed questions whose answers would most change this assessment (e.g. exact target segment, what truly distinguishes this from the named competitors, pricing/distribution). If FOUNDER CONTEXT above already answered earlier questions, ask new ones (or fewer) — don't repeat answered ones.
 - "narrative": { who, pain, status_quo, cost_of_inaction, solution, after, verdict ("Painkiller"|"Vitamin"), why (ONE sentence for the verdict) }. Each field is ONE short sentence (~15 words), concrete to THIS idea — no padding, no second sentence.
-- "demand": { strength (Weak/Moderate/Strong), willingness_to_pay (a SHORT $ figure ONLY, e.g. "$200–600/team/mo" — no timeframe words, no prose), obtainable_revenue (a SHORT $/yr figure ONLY, e.g. "$120K–360K/yr" — realistic annual dollars THIS founder could capture given competition + goal, NOT the TAM; do NOT append a timeframe like "by Year 2" or ANY prose), reasoning (2-3 sentences max: the pricing basis and the demand × capturable-share math), sensitivity { conservative, base, optimistic } (each a SHORT annual-$ figure — the downside, the headline, and the upside, so the founder sees the range not just a point) }.
+- "demand": { strength (Weak/Moderate/Strong), willingness_to_pay (a SHORT $ figure ONLY, e.g. "$200–600/team/mo" — no timeframe words, no prose), obtainable_revenue (a SHORT $/yr figure ONLY, e.g. "$120K–360K/yr" — realistic annual dollars THIS founder could capture given competition + goal, NOT the TAM; do NOT append a timeframe like "by Year 2" or ANY prose), reasoning (2-3 sentences max: the pricing basis and the demand × capturable-share math), math { reachable, capture, price } (the three SHORT figures behind obtainable_revenue, as specified above), sensitivity { conservative, base, optimistic } (each a SHORT annual-$ figure — the downside, the headline, and the upside, so the founder sees the range not just a point) }.
 - "goal_fit_note": 1-2 sentences stating the EFFORT/CAPITAL/TIME this idea needs vs the founder's stated goal — call out a mismatch plainly (e.g. "needs a full-time team + ~$300K; that contradicts a nights-and-weekends side hustle"). If the goal is "unsure", give the lifestyle-vs-venture split explicitly (e.g. "a solid lifestyle GO; a venture NO-GO because the SOM caps out below fund-returnable scale").
 - "operating": { effort_level (Low/Medium/High), description (2–3 sentences on what the founder would actually spend time DOING — e.g. "mostly async remote support" vs "high-touch outbound sales + in-person demos") }.
 - "acquisition": { difficulty (Easy/Moderate/Hard), reasoning (2–3 sentences; weigh the category-education tax — an established category buyers understand is EASIER, creating a category is HARDER; competitors can make selling easier) }.
 - "downside": { capital_at_risk (1–2 sentences, LEAD with the figure, e.g. "<$15K to MVP; main risk is foregone salary"), liability (1–2 sentences), if_it_fails (1–2 sentences) }.
 - "possible_alphas": 2-4 concrete differentiators/angles this idea COULD pursue to improve its odds — each { alpha (short, specific — a niche to own, a positioning as the alternative to a dominant player, a workflow/data edge, an underserved segment), rationale (1-2 sentences on why it would raise the obtainable revenue / lower risk for the goal) }. These are TESTABLE directions distinct from the current positioning.
-- "market": the deeper market & competition read — { sizing: { tam: {value (a figure, e.g. "$4.2B"), note (one line)}, sam: {value, note}, som: {value, note}, methodology (one line on how you derived them) }, cagr_pct (number, e.g. 18), search_trend { keyword (the core search term), direction ("Rising"|"Flat"|"Falling"), note (e.g. "+85% YoY interest, per Google Trends") }, momentum (one line on a recent funding/exit/shift in the category, if you found one — else ""), competitors: 2-4 of [{ name (a REAL, currently-operating company), note (what they do + how satisfied their customers are, from real signals), complaint_theme (the single biggest thing their customers complain about — from real reviews/threads), your_edge (your angle vs them) }], demand_signals: 3-5 REAL cited evidences of the pain you found via web search — each { source (e.g. "Reddit r/saas", "X (Twitter)", "Hacker News"), quote (the pain in the person's own words), url (a link to the actual post/thread), tag ("PAIN POINT"|"FEATURE REQUEST"|"DISCUSSION") }. Only include search_trend/momentum/demand_signals you actually found; never fabricate a figure, a thread, or a URL. Keep all of this CONSISTENT with the scores and obtainable_revenue above.
+- "market": the deeper market & competition read — { sizing: { tam: {value (a figure, e.g. "$4.2B"), note (one line)}, sam: {value, note}, som: {value, note}, methodology (one line on how you derived them) }, cagr_pct (number, e.g. 18), search_trend { keyword (the core search term), direction ("Rising"|"Flat"|"Falling"), note (e.g. "+85% YoY interest, per Google Trends") }, momentum (one line on a recent funding/exit/shift in the category, if you found one — else ""), competitors: 2-4 of [{ name (a REAL, currently-operating company), note (what they do + how satisfied their customers are, from real signals), complaint_theme (the single biggest thing their customers complain about — from real reviews/threads), your_edge (your angle vs them) }], demand_signals: 3-5 of the strongest items from the EVIDENCE section — each { evidence_id (the corpus id, e.g. "E3"), quote (the relevant excerpt from THAT item, verbatim or trimmed — never paraphrased into something the person didn't say), tag ("PAIN POINT"|"FEATURE REQUEST"|"DISCUSSION") }. NO urls — the system attaches the real link from the corpus, and a signal citing an id not in the corpus is DROPPED. If the corpus has no relevant items, return an empty demand_signals array. Only include search_trend/momentum you actually found; never fabricate a figure, a thread, or a URL. Keep all of this CONSISTENT with the scores and obtainable_revenue above.
 - "financials": the money — { startup_cost (a figure to a usable MVP), unit_economics { cac, ltv, payback (each short) }, revenue_model (pricing + how money is made, one line), projections: 3 years of [{ year, revenue, customers, note }] where revenue ≈ customers × blended price each year and Year-1 is consistent with obtainable_revenue and the sales difficulty }.
 - "plan": the path — { milestones: 3-5 of [{ title, when (e.g. "Month 1-2"), metric (how you know it's done) }] ordered earliest-first, team_and_ops (one line: who/what it takes to build and run) }.
 
@@ -343,12 +359,12 @@ Return JSON exactly matching:
   "risk_matrix": [{"title": string, "category": "tech"|"market"|"financial", "probability": number, "impact": number, "mitigation": string}],
   "clarifying_questions": [string],
   "narrative": {"who": string, "pain": string, "status_quo": string, "cost_of_inaction": string, "solution": string, "after": string, "verdict": "Painkiller"|"Vitamin", "why": string},
-  "demand": {"strength": "Weak"|"Moderate"|"Strong", "willingness_to_pay": string, "obtainable_revenue": string, "reasoning": string, "sensitivity": {"conservative": string, "base": string, "optimistic": string}},
+  "demand": {"strength": "Weak"|"Moderate"|"Strong", "willingness_to_pay": string, "obtainable_revenue": string, "reasoning": string, "math": {"reachable": string, "capture": string, "price": string}, "sensitivity": {"conservative": string, "base": string, "optimistic": string}},
   "operating": {"effort_level": "Low"|"Medium"|"High", "description": string},
   "downside": {"capital_at_risk": string, "liability": string, "if_it_fails": string},
   "acquisition": {"difficulty": "Easy"|"Moderate"|"Hard", "reasoning": string},
   "possible_alphas": [{"alpha": string, "rationale": string}],
-  "market": {"sizing": {"tam": {"value": string, "note": string}, "sam": {"value": string, "note": string}, "som": {"value": string, "note": string}, "methodology": string}, "cagr_pct": number, "search_trend": {"keyword": string, "direction": "Rising"|"Flat"|"Falling", "note": string}, "momentum": string, "competitors": [{"name": string, "note": string, "complaint_theme": string, "your_edge": string}], "demand_signals": [{"source": string, "quote": string, "url": string, "tag": string}]},
+  "market": {"sizing": {"tam": {"value": string, "note": string}, "sam": {"value": string, "note": string}, "som": {"value": string, "note": string}, "methodology": string}, "cagr_pct": number, "search_trend": {"keyword": string, "direction": "Rising"|"Flat"|"Falling", "note": string}, "momentum": string, "competitors": [{"name": string, "note": string, "complaint_theme": string, "your_edge": string}], "demand_signals": [{"evidence_id": string, "quote": string, "tag": string}]},
   "financials": {"startup_cost": string, "unit_economics": {"cac": string, "ltv": string, "payback": string}, "revenue_model": string, "projections": [{"year": string, "revenue": string, "customers": string, "note": string}]},
   "plan": {"milestones": [{"title": string, "when": string, "metric": string}], "team_and_ops": string}
 }`,

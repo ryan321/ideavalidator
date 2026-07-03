@@ -31,6 +31,8 @@ export type GenerateOptions = {
   prompt: string;
   /** Enable OpenRouter's live web-search plugin for grounded, cited output. */
   grounded?: boolean;
+  /** How many web-plugin results to feed the model (default 5). */
+  webMaxResults?: number;
   maxTokens?: number;
   temperature?: number;
 };
@@ -93,7 +95,10 @@ async function call(
   };
   if (opts.grounded) {
     // OpenRouter web-search plugin — adds cited results, no extra API key.
-    body.plugins = [{ id: "web", max_results: 5 }];
+    // engine "exa" is load-bearing: the default routes Anthropic models to their
+    // native web search, which returns no url_citation annotations — so sources
+    // would always come back empty.
+    body.plugins = [{ id: "web", engine: "exa", max_results: opts.webMaxResults ?? 5 }];
   }
   // The `plugins`/`usage` fields are OpenRouter-specific and not in the OpenAI SDK types.
   const completion = await client().chat.completions.create(body as never);
@@ -206,7 +211,7 @@ export async function generateText(opts: {
     max_tokens: opts.maxTokens ?? 1200,
     usage: { include: true },
   };
-  if (opts.grounded) body.plugins = [{ id: "web", max_results: 5 }];
+  if (opts.grounded) body.plugins = [{ id: "web", engine: "exa", max_results: 5 }];
   const completion = await client().chat.completions.create(body as never);
   const data = completion as {
     choices: { message: RawMessage }[];

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 // (we don't stream real events), but each label reflects a real step, so the wait
 // reads as rigor — the opposite of a "60-second" black box.
 const GROUNDED_STEPS = [
+  "Fetching real posts from Reddit & Hacker News",
   "Searching the web for market & competitor evidence",
   "Reading & citing sources",
   "Scoring the idea against your goal",
@@ -27,7 +28,7 @@ export default function GenerationProgress({
   useEffect(() => {
     // seconds at which each later step becomes the active one (the comprehensive
     // grounded pass takes ~1-2 min, so the steps are spread out accordingly)
-    const at = grounded ? [10, 28, 52, 80] : [6];
+    const at = grounded ? [12, 24, 40, 60, 85] : [6];
     const timers = at.map((sec, i) => setTimeout(() => setIdx(i + 1), sec * 1000));
     return () => timers.forEach(clearTimeout);
   }, [grounded]);
