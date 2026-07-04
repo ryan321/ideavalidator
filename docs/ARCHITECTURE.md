@@ -30,14 +30,14 @@ All AI calls happen **server-side** (API routes) so the OpenRouter key never rea
 An **idea** is a container for **versions** (v1, v2, …) of its statement. Two stages:
 
 1. **Validate** — one comprehensive grounded pass per version produces the `validation` artifact
-   (the only artifact kind): verdict + 9 scored criteria, demand → willingness-to-pay → obtainable
+   (the only artifact kind): verdict + 10 scored criteria, demand → willingness-to-pay → obtainable
    revenue, market & competition, money, risks, plan. The founder iterates: manual refine, AI
    "suggest a sharper version" (`refine.ts`), "respond to the validator" with authoritative
    context, or an auto-iterate hill-climb toward a target score.
 2. **Decide** — mark the winning version; the others stay as research.
 
 Scoring is **band-elicited, code-computed** (full rationale in [EVALUATION.md](./EVALUATION.md) —
-authoritative). The model scores each of the 9 criteria goal-neutrally as a coarse letter band
+authoritative). The model scores each of the 10 criteria goal-neutrally as a coarse letter band
 (A+…F, rationale written first) against a frozen anchor panel; code maps bands to numbers,
 weights them with an explicit per-criterion map modulated by the founder's goal, and applies
 non-compensatory gates (fatal-criterion cap, GO demand/founder-fit floors, no-edge cap, Vitamin

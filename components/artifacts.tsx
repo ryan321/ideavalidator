@@ -17,6 +17,8 @@ import { MarketSizing } from "./report/MarketSizing";
 import { SystemAdjustments } from "./report/SystemAdjustments";
 import { HowScored } from "./report/HowScored";
 import { EvidencePanel, FetchedBadge, WtpTag, relDate, sourceLabel } from "./report/EvidencePanel";
+import { NextTest } from "./report/NextTest";
+import { ClaimsLedger } from "./report/ClaimsAudit";
 
 // The overall score is judged against the GOAL's verdict bands (lib/scoring.ts) —
 // there is no fixed 70/45 line; a venture GO sits higher than a side-hustle GO.
@@ -262,6 +264,8 @@ export function ValidationView({
   evidence,
   onRefreshEvidence,
   refreshingEvidence,
+  scorePercentile,
+  scoringSamples,
   print = false,
 }: {
   d: Validation;
@@ -271,6 +275,12 @@ export function ValidationView({
   evidence?: EvidenceCorpus | null;
   onRefreshEvidence?: () => void;
   refreshingEvidence?: boolean;
+  /** Where this version's score sits across all ideas (0-100 percentile), or null when
+   * unrankable / withheld (Flows only provides it at ≥8 scores). Surface renders the badge. */
+  scorePercentile?: number | null;
+  /** Active k for self-consistency scoring (env SCORING_SAMPLES), resolved server-side —
+   * HowScored documents the mechanics against the real value. */
+  scoringSamples?: number;
   /** Print/PDF render: open every collapsed section and unclamp prose. */
   print?: boolean;
 }) {
@@ -284,6 +294,10 @@ export function ValidationView({
   // INSUFFICIENT EVIDENCE is a neutral state — no verdict color may imply a read.
   const color = insufficient ? "var(--color-muted)" : scoreColor(d.score, bands);
   const band = scoreBand(d.score, bands);
+  // Where this score sits across every idea validated locally — only shown when Flows
+  // provided it (it withholds the prop until there are ≥8 scores to rank against, so a
+  // tiny population can't read as a meaningful "90th percentile").
+  const pct = scorePercentile;
   // "68 ± 4" sitting within the noise band of a threshold is a coin flip, not a verdict.
   const sd = MEASURED_SCORE_SD;
   const nearLine =
@@ -345,6 +359,10 @@ export function ValidationView({
 
       {/* ============================ VERDICT (hero) ============================ */}
       <section id="verdict" className="scroll-mt-20 space-y-5">
+        {/* THE LEAD: the cheapest way to change this verdict, read before the meter.
+            The report's deliverable is a decision plus the test that could flip it. */}
+        {d.next_test && <NextTest next={d.next_test} verdict={d.verdict} print={print} />}
+
         <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-panel2 to-panel">
           {/* verdict-tinted top hairline — the only place the verdict color leads */}
           <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
@@ -395,6 +413,14 @@ export function ValidationView({
                 ) : (
                   <div className="mt-2.5 max-w-md text-sm leading-relaxed text-muted">
                     <b className="text-fg/80">{band.label}.</b> {band.hint}
+                    {pct != null && (
+                      <span
+                        className="mt-1.5 block font-mono text-[11px] uppercase tracking-wide text-accent2"
+                        title="Percentile across every non-archived, scored idea validated in this app."
+                      >
+                        scores higher than {pct}% of ideas validated here
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -426,10 +452,8 @@ export function ValidationView({
           <SystemAdjustments adjustments={d.system_adjustments} goalLabel={GOAL_NOUN[goalKey]} />
         ) : null}
 
-        {/* the neutral restatement the scorer actually judged (sycophancy firewall) */}
-        {/* SURFACE-PHASE: render d.claims_audit.claims as a typed/tiered ledger (kind
-            + T1-T4 chips) under the brief, and the next_test kill-test panel ABOVE the
-            score in the hero region. */}
+        {/* the neutral restatement the scorer actually judged (sycophancy firewall),
+            plus the typed/tiered claim ledger (self-facts vs market-assumptions). */}
         {d.claims_audit?.brief && (
           <details className="group" open={print}>
             <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
@@ -442,12 +466,13 @@ export function ValidationView({
                 The scorer judged this third-person restatement — the enthusiasm and superlatives
                 in the original wording carry no evidential weight.
               </p>
+              {d.claims_audit.claims?.length ? <ClaimsLedger claims={d.claims_audit.claims} /> : null}
             </div>
           </details>
         )}
 
         {/* the published scoring machinery, from lib/scoring.ts */}
-        <HowScored goal={goalKey} print={print} />
+        <HowScored goal={goalKey} samples={scoringSamples} print={print} />
       </section>
 
       {/* ============================== THE BRIEF ============================== */}

@@ -311,7 +311,17 @@ export const ValidationSchema = ValidationElicitSchema.extend({
   verdict: z.enum(["GO", "MAYBE", "NO-GO", "INSUFFICIENT EVIDENCE"]),
   score: z.number().min(0).max(100),
   criteria: z
-    .array(ElicitedCriterion.extend({ score: z.number().min(0).max(100) }))
+    .array(
+      ElicitedCriterion.extend({
+        score: z.number().min(0).max(100),
+        // k-sample self-consistency (SCORING_SAMPLES>1): the max−min band-score spread
+        // across the k samples for THIS criterion. Present only when it exceeded the
+        // disagreement threshold (the samples disagreed materially); absent for k=1 and
+        // for criteria the samples agreed on. .catch(undefined) so an old artifact
+        // without it still validates.
+        spread: z.number().optional().catch(undefined),
+      })
+    )
     .length(CRITERIA.length),
   // Evidence-base scorecard — DERIVED roll-ups of the criteria (problem = Demand
   // Strength; solution = Problem-Solution Fit; market = mean of Market Timing +

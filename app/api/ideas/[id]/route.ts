@@ -7,6 +7,7 @@ import {
   getIdeaCost,
   listVersions,
   runningJobsForIdea,
+  scoreDistribution,
   setIdeaGoal,
   setIdeaJourney,
 } from "@/lib/db";
@@ -59,6 +60,9 @@ export async function GET(
     stageStatus,
     cost: getIdeaCost(id),
     runningJobs: runningJobsForIdea(id),
+    // Population of all non-archived version scores across every idea — the workspace
+    // computes the active version's percentile against it (SURFACE-PHASE renders it).
+    scoreDistribution: scoreDistribution(),
   });
 }
 

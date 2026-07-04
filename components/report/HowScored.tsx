@@ -6,6 +6,7 @@ import {
   MEASURED_SCORE_SD,
   criterionWeight,
   normalizeGoal,
+  scoringSamples,
   verdictBands,
   type GoalBucket,
 } from "@/lib/scoring";
@@ -21,10 +22,21 @@ const GOAL_LABELS: Record<GoalBucket, string> = {
   unsure: "Not sure yet",
 };
 
-export function HowScored({ goal, print = false }: { goal: string | null | undefined; print?: boolean }) {
+export function HowScored({
+  goal,
+  samples,
+  print = false,
+}: {
+  goal: string | null | undefined;
+  /** Active k for self-consistency scoring — passed from the server so the value matches
+   * the env the recompute actually ran under (falls back to the default at k=undefined). */
+  samples?: number;
+  print?: boolean;
+}) {
   const g = normalizeGoal(goal);
   const bands = verdictBands(g);
   const mods = GOAL_WEIGHTS[g];
+  const k = samples ?? scoringSamples();
 
   // The gate list, phrased from the live constants.
   const gates: string[] = [
@@ -68,6 +80,31 @@ export function HowScored({ goal, print = false }: { goal: string | null | undef
             Measured run-to-run scoring noise is ±{MEASURED_SCORE_SD} points — a score within that
             of a line is borderline, not a decision.
           </p>
+        </div>
+
+        {/* k-sample self-consistency mechanics */}
+        <div>
+          <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
+            Self-consistency · {k} scoring {k === 1 ? "run" : "runs"}
+          </div>
+          {k > 1 ? (
+            <p className="max-w-3xl text-xs leading-relaxed text-muted">
+              Each validation fires <b className="text-fg/80">{k}</b> independent scoring runs on the
+              same claims brief and evidence corpus. Every criterion&apos;s score is the{" "}
+              <b className="text-fg/80">median</b> of the {k} runs (not one lucky roll); the rest of
+              the report (narrative, market, money, plan) comes from the median-overall run. When the{" "}
+              {k} runs disagree by more than 10 points on a criterion, it gets a{" "}
+              <span className="rounded-full border border-warn/40 bg-warn/10 px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-warn">disagree</span>{" "}
+              marker. Overall agreement then nudges confidence: a tight spread (≤5) adds points, a
+              wide one (&gt;12) subtracts — surfaced as a system adjustment.
+            </p>
+          ) : (
+            <p className="max-w-3xl text-xs leading-relaxed text-muted">
+              Scoring runs a single pass (<code className="font-mono">SCORING_SAMPLES=1</code>) — no
+              medians or agreement adjustment. Set <code className="font-mono">SCORING_SAMPLES</code>{" "}
+              higher to fire k parallel runs and take the per-criterion median (at ~k× the run cost).
+            </p>
+          )}
         </div>
 
         {/* the active weight vector */}

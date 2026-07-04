@@ -7,10 +7,11 @@ import type { GeneratorMeta } from "@/lib/generators";
 import type { EvidenceCorpus } from "@/lib/evidence/types";
 import GenerationProgress from "./GenerationProgress";
 import type { Refinement } from "@/lib/generators/refine";
-import { acceptanceMargin, verdictBands } from "@/lib/scoring";
+import { acceptanceMargin, percentileOf, verdictBands } from "@/lib/scoring";
 import { SourcesList, ValidationView } from "./artifacts";
+import { CriteriaDeltaTable, type DeltaVersion } from "./report/CriteriaDeltaTable";
 import type { ZodType } from "zod";
-import { ValidationSchema } from "@/lib/generators/validation";
+import { ValidationSchema, type Validation } from "@/lib/generators/validation";
 
 // Validate persisted artifacts against the current schema so results saved under an
 // older schema show a regenerate prompt instead of crashing the render.
@@ -219,6 +220,8 @@ export default function IdeaWorkspace({
   meta,
   initialCost,
   initialStage,
+  initialScoreDistribution,
+  scoringSamples,
 }: {
   idea: Idea;
   versions: Version[];
@@ -227,6 +230,12 @@ export default function IdeaWorkspace({
   meta: GeneratorMeta[];
   initialCost: number;
   initialStage: string;
+  /** All non-archived version scores across every idea — the active version's score is
+   * ranked against this for a percentile (rendered in ValidationView). */
+  initialScoreDistribution: number[];
+  /** Active k for self-consistency scoring (env SCORING_SAMPLES) — resolved server-side
+   * and passed through so HowScored documents the real value without a hydration mismatch. */
+  scoringSamples: number;
 }) {
   const router = useRouter();
   const [cost, setCost] = useState(initialCost);
@@ -234,6 +243,7 @@ export default function IdeaWorkspace({
   const [refreshingEvidence, setRefreshingEvidence] = useState(false);
 
   const [versions, setVersions] = useState<Version[]>(versionsProp);
+  const [scoreDistribution, setScoreDistribution] = useState<number[]>(initialScoreDistribution);
   const [artifacts, setArtifacts] = useState<ArtMap>(() => {
     const m: ArtMap = {};
     for (const [vid, arr] of Object.entries(artifactsByVersion)) {
@@ -252,6 +262,7 @@ export default function IdeaWorkspace({
   const [chosenVersionId, setChosenVersionId] = useState<string | null>(idea.chosen_version_id);
   const [statementExpanded, setStatementExpanded] = useState(false);
   const [comparing, setComparing] = useState(false); // side-by-side version compare
+  const [showArchived, setShowArchived] = useState(false); // reveal archived versions in the switcher
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
@@ -382,9 +393,25 @@ export default function IdeaWorkspace({
   const [iterLog, setIterLog] = useState<string[]>([]);
   const [iterBest, setIterBest] = useState<{ id: string; n: number; score: number } | null>(null);
 
-  const activeVersion = versions.find((v) => v.id === activeVersionId) ?? versions[0];
+  // Archived versions (cleanup hid them) stay in `versions` for state sync but are
+  // filtered out of every user-facing list: the switcher, compare, Decide, and the
+  // best-score star. The active version is always shown even if it were archived
+  // (defensive — the archive guards never archive what you're viewing).
+  const visibleVersions = versions.filter((v) => !v.archived || v.id === activeVersionId);
+  // Archived-and-not-active: revealed behind the "show archived (N)" affordance, each
+  // with an unarchive control.
+  const archivedVersions = versions.filter((v) => v.archived && v.id !== activeVersionId);
+  const activeVersion = versions.find((v) => v.id === activeVersionId) ?? visibleVersions[0] ?? versions[0];
   const activeArtifacts = artifacts[activeVersionId] ?? {};
-  const bestScore = Math.max(...versions.map((v) => v.score ?? -1));
+  const bestScore = Math.max(...visibleVersions.map((v) => v.score ?? -1));
+  // Where the active version's score sits in the cross-idea population — rendered as a
+  // percentile badge in ValidationView. Withheld (null) below 8 scored versions: a
+  // "90th percentile of 3" is noise, not a signal, so the badge simply doesn't show.
+  const PERCENTILE_MIN_POP = 8;
+  const activePercentile =
+    scoreDistribution.length >= PERCENTILE_MIN_POP
+      ? percentileOf(activeVersion?.score ?? null, scoreDistribution)
+      : null;
   const anyBusy = busy.size > 0 || iterating;
 
   function setBusyKey(key: string, on: boolean) {
@@ -461,6 +488,7 @@ export default function IdeaWorkspace({
     if (Array.isArray(j.versions)) setVersions(j.versions);
     if (j.evidenceByVersion) setEvidence(j.evidenceByVersion);
     if (typeof j.cost === "number") setCost(j.cost);
+    if (Array.isArray(j.scoreDistribution)) setScoreDistribution(j.scoreDistribution);
   }
 
   // Re-collect the fetched Reddit/HN corpus for the active version (the report's
@@ -600,8 +628,11 @@ export default function IdeaWorkspace({
   async function revalidateWithAlpha(alpha: string, rationale: string) {
     setError(null);
     try {
+      // Merge the alpha INTO the statement so the new version's evidence queries target
+      // the pivot (evidence is generated from the statement, not the founder context).
+      const mergedStatement = `${activeVersion.statement}\n\nAngle: ${alpha} — ${rationale}`;
       const v = await createVersionFrom(
-        activeVersion.statement,
+        mergedStatement,
         "context",
         activeVersionId,
         `Alpha: ${alpha}`,
@@ -784,32 +815,48 @@ export default function IdeaWorkspace({
     }
   }
 
-  // After auto-iterate, drop the intermediate AI versions (keep the original, the
-  // best, the chosen, and whatever you're viewing) so the switcher stays legible.
+  // After auto-iterate, ARCHIVE the intermediate AI versions (keep the original, the
+  // best, the chosen, and whatever you're viewing) so the switcher stays legible — the
+  // rows and their artifacts survive (archived, not deleted), so the history and the
+  // cross-idea score distribution stay intact but hidden from the lists.
   async function cleanupVersions() {
     if (!iterBest) return;
-    const removable = versions.filter(
+    const archivable = versions.filter(
       (v) =>
+        !v.archived &&
         v.origin === "ai" &&
         v.n !== 1 &&
         v.id !== iterBest.id &&
         v.id !== chosenVersionId &&
         v.id !== activeVersionId
     );
-    const removedIds = new Set<string>();
-    for (const v of removable) {
-      const res = await fetch(`/api/versions/${v.id}`, { method: "DELETE" });
-      if (res.ok) removedIds.add(v.id);
-    }
-    if (removedIds.size) {
-      setVersions((prev) => prev.filter((v) => !removedIds.has(v.id)));
-      setArtifacts((prev) => {
-        const n = { ...prev };
-        for (const id of removedIds) delete n[id];
-        return n;
+    const archivedIds = new Set<string>();
+    for (const v of archivable) {
+      const res = await fetch(`/api/versions/${v.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
       });
+      if (res.ok) archivedIds.add(v.id);
+    }
+    if (archivedIds.size) {
+      setVersions((prev) =>
+        prev.map((v) => (archivedIds.has(v.id) ? { ...v, archived: 1 } : v))
+      );
     }
     setIterBest(null);
+  }
+
+  // Un-archive a hidden version — brings it back into the switcher/compare lists.
+  async function unarchiveVersion(id: string) {
+    const res = await fetch(`/api/versions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: false }),
+    });
+    if (res.ok) {
+      setVersions((prev) => prev.map((v) => (v.id === id ? { ...v, archived: 0 } : v)));
+    }
   }
 
   async function remove() {
@@ -846,10 +893,10 @@ export default function IdeaWorkspace({
 
         {/* version switcher */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          {versions.map((v) => {
+          {visibleVersions.map((v) => {
             const vbusy = [...busy].some((k) => k.startsWith(v.id + ":"));
             const isActive = v.id === activeVersionId;
-            const isBest = v.score != null && v.score === bestScore && versions.length > 1;
+            const isBest = v.score != null && v.score === bestScore && visibleVersions.length > 1;
             return (
               <button
                 key={v.id}
@@ -880,7 +927,7 @@ export default function IdeaWorkspace({
               </button>
             );
           })}
-          {versions.length > 1 && (
+          {visibleVersions.length > 1 && (
             <button
               onClick={() => setComparing((c) => !c)}
               className={`rounded-lg border px-3 py-1.5 text-sm transition ${
@@ -891,10 +938,47 @@ export default function IdeaWorkspace({
               ⇄ Compare
             </button>
           )}
+          {archivedVersions.length > 0 && (
+            <button
+              onClick={() => setShowArchived((s) => !s)}
+              className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                showArchived ? "border-border bg-panel2 text-fg" : "border-border/60 text-muted hover:text-fg"
+              }`}
+              title="Versions hidden by cleanup — kept as research"
+            >
+              {showArchived ? "hide archived" : `show archived (${archivedVersions.length})`}
+            </button>
+          )}
         </div>
 
+        {/* archived versions — hidden by default; each can be viewed or restored */}
+        {showArchived && archivedVersions.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border/70 bg-panel/30 px-3 py-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Archived</span>
+            {archivedVersions.map((v) => (
+              <span key={v.id} className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-panel2/50 px-2.5 py-1 text-sm text-muted">
+                <button onClick={() => switchVersion(v.id)} className="flex items-center gap-1.5 hover:text-fg" title={v.label ?? v.statement}>
+                  <span className="font-mono font-semibold">v{v.n}</span>
+                  {v.score != null ? (
+                    <span className="font-mono font-bold" style={{ color: scoreColor(v.score, goalBands) }}>{v.score}</span>
+                  ) : (
+                    <span className="text-xs">—</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => unarchiveVersion(v.id)}
+                  className="rounded border border-border/70 px-1.5 py-px font-mono text-[10px] uppercase tracking-wide text-accent2 hover:bg-accent2/10"
+                  title="Restore this version to the switcher"
+                >
+                  ⤴ restore
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* side-by-side version comparison */}
-        {comparing && versions.length > 1 && (
+        {comparing && visibleVersions.length > 1 && (
           <div className="mb-5 overflow-x-auto rounded-xl border border-border bg-panel">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
@@ -907,7 +991,7 @@ export default function IdeaWorkspace({
                 </tr>
               </thead>
               <tbody>
-                {versions.map((v) => {
+                {visibleVersions.map((v) => {
                   const val = artifacts[v.id]?.validation?.data as { verdict?: string } | undefined;
                   return (
                     <tr key={v.id} className={`border-b border-border/60 last:border-0 ${v.id === activeVersionId ? "bg-panel2/50" : ""}`}>
@@ -941,6 +1025,20 @@ export default function IdeaWorkspace({
                 })}
               </tbody>
             </table>
+            {/* per-criterion Δ vs the baseline version — the refine loop's real work,
+                read client-side from each version's stored validation artifact. */}
+            {(() => {
+              const deltaVersions: DeltaVersion[] = visibleVersions
+                .map((v): DeltaVersion | null => {
+                  const val = artifacts[v.id]?.validation?.data as Validation | undefined;
+                  if (!val?.criteria?.length) return null;
+                  const criteria: Record<string, number> = {};
+                  for (const c of val.criteria) criteria[c.name] = c.score;
+                  return { id: v.id, n: v.n, label: v.label, criteria };
+                })
+                .filter((x): x is DeltaVersion => x !== null);
+              return <CriteriaDeltaTable versions={deltaVersions} />;
+            })()}
           </div>
         )}
 
@@ -1282,7 +1380,7 @@ export default function IdeaWorkspace({
             )}
             {iterBest &&
               versions.filter(
-                (v) => v.origin === "ai" && v.n !== 1 && v.id !== iterBest.id && v.id !== chosenVersionId && v.id !== activeVersionId
+                (v) => !v.archived && v.origin === "ai" && v.n !== 1 && v.id !== iterBest.id && v.id !== chosenVersionId && v.id !== activeVersionId
               ).length > 0 && (
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-sm">
                   <span>
@@ -1314,7 +1412,7 @@ export default function IdeaWorkspace({
               research.
             </p>
             <div className="mt-4 space-y-2">
-              {versions.map((v) => {
+              {visibleVersions.map((v) => {
                 const isChosen = v.id === chosenVersionId;
                 return (
                   <div
@@ -1384,6 +1482,10 @@ export default function IdeaWorkspace({
                     evidence: evidence[activeVersionId] ?? null,
                     onRefreshEvidence: refreshEvidence,
                     refreshingEvidence,
+                    // Where the score sits across all ideas (percentile) + the active
+                    // k for the k-sample scoring mechanics HowScored documents.
+                    scorePercentile: activePercentile,
+                    scoringSamples,
                   }}
                 />
                 <SourcesList sources={activeArtifacts.validation.sources} />
@@ -1455,7 +1557,7 @@ export default function IdeaWorkspace({
                 key={`${activeVersionId}:${m.kind}`}
                 kind={m.kind}
                 data={activeArtifacts[m.kind].data}
-                extra={{ print: true, goal: goalBucket }}
+                extra={{ print: true, goal: goalBucket, scoringSamples }}
               />
               {/* the "model estimate — see sources" tags need the sources in the PDF too */}
               <SourcesList sources={activeArtifacts[m.kind].sources} />

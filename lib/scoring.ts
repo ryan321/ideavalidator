@@ -188,6 +188,21 @@ export function acceptanceMargin(): number {
   return Math.max(3, 1.5 * MEASURED_SCORE_SD);
 }
 
+// ---- percentile ------------------------------------------------------------------------
+
+/** Where `score` sits among the full population of non-archived version scores
+ * (db.scoreDistribution()), as a 0-100 percentile — the share of the population this
+ * score is strictly HIGHER than. Returns null when there is nothing to rank against (an
+ * empty population or an unscored version) — the UI then shows no percentile rather than
+ * a meaningless "100th". The distribution always includes the version's own score, so the
+ * count is strictly-below to match the UI's "scores higher than N%" framing: a top or
+ * tied-top score can never read 100% (it is not higher than itself or its ties). */
+export function percentileOf(score: number | null | undefined, distribution: number[]): number | null {
+  if (score == null || !distribution.length) return null;
+  const below = distribution.filter((s) => s < score).length;
+  return Math.round((below / distribution.length) * 100);
+}
+
 // ---- derived sub-scores ---------------------------------------------------------------
 
 // demand.strength is DERIVED from the Demand Strength criterion score — the report can

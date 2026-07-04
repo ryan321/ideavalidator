@@ -18,7 +18,7 @@ export type Refinement = z.infer<typeof RefinementSchema>;
 
 type ValidationLike = {
   score?: number;
-  criteria?: { name: string; score: number; group?: string; explanation?: string }[];
+  criteria?: { name: string; score: number; group?: string; explanation?: string; lever?: string }[];
   stop_signals?: {
     critical_risks?: { text: string }[];
     areas_of_concern?: { text: string }[];
@@ -42,18 +42,25 @@ export async function proposeRefinement(
   // Refiner isolation: the refiner sees the weakest criteria NAMES + the validator's
   // explanations (plus stop signals + the corpus digest) — never the numeric scores,
   // band definitions, weights, or anchor panel. It must fix substance it can't game.
-  // FLOWS-PHASE: exclude lever === "evidence" criteria from this weakest-criteria
-  // selection (only real-world data can move them — they route to next_test, and the
-  // refine prompt should say so); refine attacks only positioning/execution levers.
+  // Exclude lever === "evidence" criteria from the weakest-criteria selection: only
+  // real-world data can move them (they route to next_test, not rewording). Refine
+  // attacks only positioning/execution levers. If EVERY weak criterion is evidence-lever
+  // (nothing reweordable is weak), fall back to the full weakest set so refine still
+  // returns a proposal that sharpens positioning/framing rather than hard-failing.
+  const allCriteria = validation?.criteria ?? [];
+  const sortedWeak = allCriteria.slice().sort((a, b) => a.score - b.score);
+  const reweordable = sortedWeak.filter((c) => c.lever !== "evidence");
+  const weakForRefine = (reweordable.length ? reweordable : sortedWeak).slice(0, 4);
+  const allWeakAreEvidence = reweordable.length === 0 && sortedWeak.length > 0;
+
   const evidence = validation
     ? `Weakest criteria to attack (worst first — the criterion name and WHY the validator found it weak):
-${(validation.criteria ?? [])
-        .slice()
-        .sort((a, b) => a.score - b.score)
-        .slice(0, 4)
-        .map((c) => `  - ${c.name}: ${c.explanation ?? ""}`)
-        .join("\n")}
-Critical risks: ${(validation.stop_signals?.critical_risks ?? []).map((r) => r.text).join("; ")}
+${weakForRefine.map((c) => `  - ${c.name}: ${c.explanation ?? ""}`).join("\n")}
+${
+        allWeakAreEvidence
+          ? "NOTE: every weak criterion here is an EVIDENCE problem (only a real-world test can move it — see next_test), NOT a wording problem. Do NOT try to reword your way past them; instead sharpen the POSITIONING and FRAMING (segment, wedge, defensibility) so the idea is as strong as it can be BEFORE that test.\n"
+          : "These are POSITIONING/EXECUTION weaknesses you can sharpen by re-scoping the idea. (Evidence-only criteria — where nothing but a real-world test can move the score — were deliberately excluded; they belong in the next test, not a rewrite.)\n"
+      }Critical risks: ${(validation.stop_signals?.critical_risks ?? []).map((r) => r.text).join("; ")}
 Concerns: ${(validation.stop_signals?.areas_of_concern ?? []).map((r) => r.text).join("; ")}
 Top risk-matrix items: ${(validation.risk_matrix ?? [])
         .slice()

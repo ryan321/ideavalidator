@@ -5,8 +5,9 @@ bands become numbers, where the founder's goal enters, which code-level gates ca
 and why the framework is built this way. Companion to [ARCHITECTURE.md](./ARCHITECTURE.md) (the
 plumbing) and [MODELS.md](./MODELS.md) (per-role model routing).
 
-Status: **Wave 1** of a three-wave redesign is the implemented baseline described here. The
-[roadmap](#roadmap--waves-2-and-3) lists what Waves 2 and 3 add.
+Status: **Waves 1 and 2** of a three-wave redesign are the implemented baseline described here.
+The [roadmap](#roadmap--wave-3) lists what Wave 3 adds; the
+[Wave 2 mechanics](#wave-2-mechanics-implemented) section documents the decision layer.
 
 ---
 
@@ -31,11 +32,12 @@ Status: **Wave 1** of a three-wave redesign is the implemented baseline describe
    (68 ± measured SD), and never let any loop accept a delta smaller than the measured noise.
 6. **Founder assertions are typed evidence, not truth.** Authoritative about their own skills,
    network, capital, and intent; hypotheses about customers, competitors, and willingness to
-   pay. Untiered enthusiasm can never raise a score. (Full Mom-Test tier ledger lands in Wave 2.)
+   pay. Untiered enthusiasm can never raise a score. (The full Mom-Test tier ledger is implemented
+   — see [Wave 2 mechanics](#wave-2-mechanics-implemented).)
 7. **The deliverable is a decision plus the cheapest way to change it.** Every verdict should
    ship with the riskiest assumption, a ≤1-week kill-test routed to the corpus communities, and
    "what evidence would flip this" — re-validation ingests observed results, not re-argument.
-   (The `next_test` block is Wave 2; Wave 1 lays the scoring ground it depends on.)
+   (The `next_test` block is implemented — see [Wave 2 mechanics](#wave-2-mechanics-implemented).)
 8. **Uncertainty is legible and load-bearing.** Confidence gates the verdict (a fourth
    INSUFFICIENT EVIDENCE state), silent-zero failure modes become loud flags, and disagreement
    is surfaced instead of averaged away.
@@ -48,7 +50,7 @@ Status: **Wave 1** of a three-wave redesign is the implemented baseline describe
 
 ---
 
-## The 9 criteria (Wave 1 definitions)
+## The 10 criteria
 
 Two presentation groups (demand / build) survive **as UI grouping only** — weighting is a
 per-criterion map (below), not group membership.
@@ -58,12 +60,13 @@ per-criterion map (below), not group membership.
 | 1 | Demand Strength | demand | How badly the target customer wants this, from corpus evidence |
 | 2 | Willingness to Pay | demand | How readily they pay, and how much |
 | 3 | Problem-Solution Fit | demand | Evidence that THIS solution mechanism delivers the outcome |
-| 4 | Market Timing | demand | A verified "why now" — the specific enabling change |
-| 5 | Competitive Position | demand | Market-structure openness, independent of the founder |
-| 6 | Differentiation / Moat | build | The founder's specific edge, classified as a 7 Powers type |
-| 7 | Acquisition Ease | build | Market channel structure only |
-| 8 | Founder Fit | build | Skills, domain insight, capital, distribution access |
-| 9 | Goal Fit | build | Effort/time/capital fit against the declared goal |
+| 4 | Retention & Recurrence | demand | How often the problem recurs and whether value compounds with use |
+| 5 | Market Timing | demand | A verified "why now" — the specific enabling change |
+| 6 | Competitive Position | demand | Market-structure openness, independent of the founder |
+| 7 | Differentiation / Moat | build | The founder's specific edge, classified as a 7 Powers type |
+| 8 | Acquisition Ease | build | Market channel structure only |
+| 9 | Founder Fit | build | Skills, domain insight, capital, distribution access |
+| 10 | Goal Fit | build | Effort/time/capital fit against the declared goal |
 
 **Demand Strength** — evidenced pain intensity from the fetched HN/Reddit corpus and cited web
 sources. Profitable incumbents are *evidence routing* for this criterion (see de-yoking below),
@@ -107,8 +110,11 @@ here and in `goal_fit_note`; every other criterion measures goal-neutrally. The 
 through weights, verdict bands, and the Goal Fit gate — in code, where it is visible and
 consistent.
 
-Wave 2 adds a 10th criterion, **Retention & Recurrence** (natural problem cadence, compounding
-value) — see the roadmap.
+**Retention & Recurrence** — how often the problem RECURS and whether value COMPOUNDS with use.
+A daily/weekly workflow whose value grows with accumulated data or habit bands high; an episodic
+or once-ever need (wedding planning, a one-time migration) bands C or below even when demand for
+that single episode is intense. Unit-economics language folds into Willingness to Pay (net of
+realistic acquisition cost), so this criterion measures cadence, not price.
 
 ### De-yoking and redefinitions
 
@@ -176,6 +182,7 @@ emphasizes.
 | Demand Strength | 1.6 | — | — | — | — |
 | Willingness to Pay | 1.5 | — | — | ×1.7 | — |
 | Problem-Solution Fit | 1.2 | — | — | — | — |
+| Retention & Recurrence | 1.4 | ×1.2 | — | — | — |
 | Market Timing | 1.1 | ×1.3 | — | — | — |
 | Competitive Position | 1.1 | — | — | — | — |
 | Differentiation / Moat | 1.0 | ×1.5 | ×0.6 | ×0.5 | — |
@@ -185,7 +192,7 @@ emphasizes.
 
 ("—" = ×1.0, i.e. the base weight applies.)
 
-Overall = round(Σ w·s / Σ w) over the 9 criteria, computed server-side; the model's own headline
+Overall = round(Σ w·s / Σ w) over the 10 criteria, computed server-side; the model's own headline
 score is discarded, as before.
 
 ### Per-goal verdict bands
@@ -236,6 +243,10 @@ the model's self-report:
   WTP-flagged items.
 - **Web part (0–25):** 25 × min(distinct cited sources, 10)/10.
 - **Self-report part (0–15):** model self-report /100 × 15.
+
+When `corpus.stats.audience_online === "low"` the split reweights toward the web (corpus 60 → 45,
+web 25 → 40): the buyer doesn't post on HN/Reddit, so a thin corpus is expected and must not read
+as "no demand". See [Wave 2 mechanics](#wave-2-mechanics-implemented).
 
 Wave 1 closes the two silent-zero failure modes:
 
@@ -321,9 +332,9 @@ with single-sample acceptance is **noise-harvesting** — order statistics manuf
    spawn a clarifying question.
 5. **Confidence comparability.** Auto-iterate refuses to compare versions whose confidence
    differs by > 20 — a score bought by evidence disappearing is not an improvement.
-6. **Audit trail (Wave 2).** Intermediate versions are archived instead of deleted, with a
-   statement-diff + per-criterion delta table; rounds where > 70% of the gain came from
-   judgment-only criteria are flagged. The loop's real output is a claims-diff ("the new
+6. **Audit trail.** Intermediate versions are archived instead of deleted (`versions.archived`),
+   revealed behind "show archived (N)" with an unarchive control; the compare table shows a
+   per-criterion delta vs the baseline version. The loop's real output is a claims-diff ("the new
    statement now ASSUMES X"), not a bigger number.
 
 ---
@@ -351,34 +362,98 @@ tested artifact:
 
 ---
 
-## Roadmap — Waves 2 and 3
+## Wave 2 mechanics (implemented)
 
-**Wave 2 — "From grade to decision"** (~a week, up to ~2× per-run cost):
+Wave 2 turned the product from a grade into a **decision + the cheapest way to change it**. The
+scoring backbone from Wave 1 is unchanged; these are the layers on top.
 
-- `next_test` block rendered above the score: riskiest assumption (one the corpus does NOT
-  already prove), cheapest test (≤ 1 week, ≤ $100, routed to `corpus.stats.communities` — "post
-  in r/freight_brokers, DM the 8 corpus authors"), pre-registered pass/kill thresholds, and
-  `would_flip` in both directions. MAYBE must name the ONE criterion whose resolution exits the
-  band.
-- Lever tags on every criterion (positioning | evidence | execution | exogenous) with a one-line
-  action; evidence-lever criteria route to `next_test` and are off-limits to refine.
-- Founder-input split: `facts_to_confirm` (authoritative — own skills/network/capital/intent) vs
-  `assumptions_to_test` (customers/competitors/market — corroborated, marked
-  "founder-asserted, unverified", ≤ ~10-point movement on assertion alone), replacing the
-  blanket AUTHORITATIVE `founderContext`.
-- Mom-Test evidence-tier ledger over corpus + founder claims (T1 money/behavior, T2 costly
-  commitment, T3 specific past fact, T4 compliments/hypotheticals ≈ zero weight; "50 people said
-  they loved it" auto-flags T4).
-- **Retention & Recurrence** as the 10th criterion (problem cadence, compounding value);
-  unit-economics language folded into WTP.
-- `audience_online` high/medium/low from query generation: when low, thin corpus is EXPECTED —
-  confidence reweights web 25→40 / corpus 60→45 and adds G2/Capterra-targeted queries (fixes the
-  coverage artifact that punishes ideas whose buyers don't post on HN/Reddit).
-- k=3 self-consistency scoring samples with per-criterion medians; spread > 10 renders a
-  low-confidence flag on that criterion; inter-run agreement feeds confidence.
-- `revalidateWithAlpha` merges the alpha into the statement so evidence queries target the
-  pivot; version archiving with diff trail; local percentile ("scored higher than N% of ideas
-  validated here") + histogram drift alarm in-app.
+### The kill-test (`next_test`)
+
+Every verdict ships with a `next_test` block, rendered as the report's **lead — above the verdict
+meter**: `riskiest_assumption` (the ONE load-bearing belief the evidence corpus does NOT already
+settle, naming the criteria it underpins), `cheapest_test` (concrete, ≤ 1 week / ≤ $100, naming a
+channel from the corpus's own communities — "post in r/freightbrokers; DM the 8 corpus authors"),
+pre-registered `pass_threshold` / `kill_threshold` (shown as one paired commitment so the founder
+can't move the goalposts after the result), `would_flip` in both directions, and — for a
+borderline MAYBE only — `pivotal_criterion`, the ONE criterion whose resolution exits the band.
+Schema in `lib/generators/validation.ts` (`NextTest`); UI in `components/report/NextTest.tsx`.
+
+### Lever taxonomy
+
+Every criterion carries a **lever** (`lib/scoring.ts` `LEVERS` / `LEVER_MEANING`) and a one-line
+`lever_action`:
+
+| Lever | Meaning | Who acts |
+|-------|---------|----------|
+| positioning | fixable by re-scoping or re-positioning the idea | refine |
+| evidence | only real-world data can move it | the kill-test (never refine) |
+| execution | founder capability or plan | founder |
+| exogenous | timing / market structure nobody controls | watch-item |
+
+The refine loop targets only positioning/execution levers; **evidence-lever criteria are excluded
+from re-wording and routed to `next_test`** (`lib/generators/refine.ts`), and the UI marks them
+"→ test it, don't reword it". If every weak criterion is evidence-lever, refine still returns a
+positioning/framing proposal rather than hard-failing.
+
+### Mom-Test evidence tiers
+
+Each corpus item carries a `tier: 1|2|3|4` (`lib/evidence/types.ts`), assigned in the fast-model
+ranking pass (`lib/evidence/rank.ts`), with a keyword fallback when ranking degrades
+(`wtp_signal → 1`, else 3):
+
+| Tier | Shows | Weight |
+|------|-------|--------|
+| T1 | money or behavior actually changed (paid, switched, built a workaround) | heaviest |
+| T2 | a costly commitment (time, reputation, a deposit) | heavy |
+| T3 | a specific past fact or complaint | real but weaker |
+| T4 | a compliment or hypothetical ("I'd totally buy that") | ≈ zero |
+
+The evidence prompt block instructs T1/T2 weigh heavily and T4 ≈ zero; "50 people said they loved
+it" auto-flags T4. The report renders a tier chip on every corpus item and on the claims-audit
+ledger (self-facts vs market-assumptions), T4 visually deprecated but readable. Old persisted
+corpora lack a tier — the renderer defaults a missing tier to 3 and never crashes.
+
+### Self-consistency sampling (k)
+
+A validation fires **k = `SCORING_SAMPLES`** (default 3, floor 1) parallel scoring calls sharing
+the same claims brief + corpus prefix. Per criterion, the numeric score is the **median** of the
+k band-scores, and the band shown is the middle sample's. When the k scores for a criterion span
+more than 10 points, the criterion stores a `spread` and the UI shows a low-agreement marker
+("the k runs disagreed by N points"). All non-criteria content (summary, narrative, market,
+next_test, etc.) comes from the **median-overall** sample (the k samples ranked by weighted
+pre-gate overall, middle one taken). Overall agreement then adjusts confidence: max−min ≤ 5 →
++15 (cap 100); > 12 → −10 (floor 0), each as a `system_adjustment`. Summed usage of all k calls
+is logged once. **k = 1 behaves exactly like a single-sample run** — no medians, no spread fields,
+no agreement adjustment. Constant in `lib/scoring.ts` (`scoringSamples()`); the "How this is
+scored" disclosure documents the mechanics and shows the active k.
+
+### `audience_online`
+
+Query generation (`lib/evidence/queries.ts`) classifies whether the idea's BUYER hangs out on
+HN/Reddit as `high | medium | low`, stored on `corpus.stats`. When **low**, the thin-corpus rule
+inverts (a thin corpus is EXPECTED — demand is not penalized for it), the validation prompt adds
+G2/Capterra/review-mining search instructions, and `computeConfidence` reweights corpus 60 → 45 /
+web 25 → 40. `high`/`medium` keep the Wave-1 behavior. Absent on old corpora — treated as the
+default.
+
+### Percentile, archiving, alpha-merge
+
+- **Local percentile.** `percentileOf` (`lib/scoring.ts`) over `db.scoreDistribution()` (all
+  non-archived scored versions across every idea) yields "scores higher than N% of ideas validated
+  here", rendered beside the score band. Plumbed through the idea GET payload and the server-
+  rendered page; surfaced only once there are enough scores to rank against meaningfully.
+- **Version archiving.** `versions.archived` (idempotent migration) hides intermediate hill-climb
+  tries from the switcher/compare/Decide/best-score lists without deleting them (rows + artifacts
+  survive, so history and the score distribution stay intact). The original and chosen versions
+  can never be archived. Cleanup archives via the `/api/versions/[id]` PATCH; the switcher reveals
+  archived versions behind "show archived (N)" with an unarchive control, and the compare table
+  gains per-criterion delta arrows vs the baseline version.
+- **`revalidateWithAlpha`.** Merges the chosen alpha into the new version's statement
+  (`statement + "\n\nAngle: <alpha> — <rationale>"`) so evidence queries target the pivot.
+
+---
+
+## Roadmap — Wave 3
 
 **Wave 3 — "Judging depth and auditability"** (larger build; ~3–4× cost, only for deep-validation
 mode, iterate winners, and final GOs):
@@ -398,11 +473,11 @@ mode, iterate winners, and final GOs):
 - Verbalized probabilities for forecast-shaped criteria (Why Now, Competitive Position) — elicit
   P(defined event) alongside the band, making the tool's track record auditable later.
 
-Order rationale: Wave 1 is nearly free and removes the failure modes that would corrupt any
+Order rationale: Wave 1 was nearly free and removed the failure modes that would corrupt any
 later investment (a Goodharted loop and a compressed scale poison added judging depth); Wave 2
-changes what the product *is* (decision + kill-test, not grade) using Wave 1's measured noise;
-Wave 3 buys discrimination quality per dollar only once the scale, gates, and loop integrity
-exist to preserve it.
+changed what the product *is* (decision + kill-test, not grade) on Wave 1's measured noise; Wave 3
+buys discrimination quality per dollar only now that the scale, gates, and loop integrity exist to
+preserve it.
 
 ---
 
@@ -474,12 +549,14 @@ holds, any added judging quality would be optimized against, not benefited from.
 
 | Thing | Location |
 |-------|----------|
-| Band→number map, base weights, per-goal vectors, verdict bands, gate thresholds | `lib/scoring.ts` (single exported module; UI imports and publishes) |
+| Band→number map, base weights, per-goal vectors, verdict bands, gate thresholds, levers, `scoringSamples()`, `percentileOf` | `lib/scoring.ts` (single exported module; UI imports and publishes) |
 | Anchor panel | `lib/generators/anchors.ts` (`ANCHOR_PANEL`, frozen) |
-| Recompute, gates, confidence, derived sub-scores, consistency lint | `lib/generators/index.ts` |
-| Criterion definitions, band emission format, pre-mortem | `lib/generators/validation.ts` (system prompt + Zod schema) |
-| Goal rubrics, `goalContext`, `COMPETITION_GUIDANCE`, founder profile | `lib/generators/shared.ts` |
+| Recompute, gates, confidence, derived sub-scores, consistency lint, k-sample medians + agreement | `lib/generators/index.ts` |
+| Criterion definitions, band emission format, pre-mortem, `next_test`, claims audit, per-criterion `spread` | `lib/generators/validation.ts` (system prompt + Zod schema) |
+| Goal rubrics, `goalContext`, `COMPETITION_GUIDANCE`, founder profile, founder-input split | `lib/generators/shared.ts` |
 | Claims-brief pre-pass | validation pipeline, `writing` role (`lib/ai/models.ts`) |
+| Evidence tiers, `audience_online`, query generation, ranking + tier assignment | `lib/evidence/types.ts`, `lib/evidence/queries.ts`, `lib/evidence/rank.ts`, `lib/evidence/index.ts` |
+| Version archiving, `scoreDistribution()` | `lib/db.ts`; refine lever exclusion in `lib/generators/refine.ts` |
 | Variance study / calibration suite | `scripts/variance.ts`, `npm run calibrate` |
 
 Changing any scoring constant or prompt is a **judge change**: re-run `npm run calibrate` and

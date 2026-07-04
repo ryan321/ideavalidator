@@ -1,5 +1,7 @@
 import { Card } from "@/components/ui";
 import { criterionTone as scoreColor } from "@/lib/scoring";
+import { LeverChip } from "./chips";
+import { SpreadMarker } from "./SpreadMarker";
 
 type Criterion = {
   name: string;
@@ -8,6 +10,9 @@ type Criterion = {
   group: "demand" | "build";
   category: string;
   explanation: string;
+  lever?: string; // positioning | evidence | execution | exogenous
+  lever_action?: string; // the ONE concrete line that would move this criterion
+  spread?: number; // k-sample disagreement (max−min) when it exceeded threshold
 };
 
 function FactorColumn({
@@ -33,10 +38,15 @@ function FactorColumn({
           {items.map((c, i) => {
             const score = Math.max(0, Math.min(100, Number(c.score) || 0));
             const color = scoreColor(score);
+            const evidenceLever = c.lever === "evidence";
             return (
               <div key={`${c.name}-${i}`}>
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm text-fg/90">{c.name}</span>
+                  <span className="flex flex-wrap items-center gap-1.5 text-sm text-fg/90">
+                    {c.name}
+                    <LeverChip lever={c.lever} />
+                    <SpreadMarker spread={c.spread} />
+                  </span>
                   <span
                     className="shrink-0 font-mono text-sm font-bold tabular-nums"
                     style={{ color }}
@@ -52,6 +62,16 @@ function FactorColumn({
                     style={{ width: `${score}%`, background: color }}
                   />
                 </div>
+                {c.lever_action && (
+                  <p className="mt-1.5 text-[11px] leading-snug text-muted">
+                    {evidenceLever ? (
+                      <span className="text-warn">→ test it, don&apos;t reword it: </span>
+                    ) : (
+                      <span className="text-muted/70">→ </span>
+                    )}
+                    {c.lever_action}
+                  </p>
+                )}
               </div>
             );
           })}

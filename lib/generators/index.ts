@@ -19,6 +19,7 @@ import {
   criterionWeight,
   demandStrengthLabel,
   normalizeGoal,
+  scoringSamples,
   verdictBands,
 } from "../scoring";
 import { ClaimsAudit, Generator, GenContext, steerContext } from "./shared";
@@ -116,24 +117,19 @@ export async function runGenerator(
   }
 
   // Steer is appended generically so it works for every generator without each
-  // one having to opt in.
-  // FLOWS-PHASE: k=scoringSamples() self-consistency lands here — k parallel
-  // generateStructured scoring calls sharing this exact prompt (cache-friendly),
-  // per-criterion median band-scores + spread flags, prose from the median-overall
-  // sample, agreement → confidence adjustment, and ONE logUsage with summed tokens.
-  // k=1 must behave exactly like this single call.
-  const { data: elicited, sources, model, usage } = await generateStructured(def.schema, {
-    role: def.role,
-    grounded: def.grounded,
-    webMaxResults: def.webMaxResults,
-    maxTokens: def.maxTokens,
-    system: def.system,
-    // pass the current draft of this kind so a steer is a targeted edit, not a regen
-    prompt:
-      def.buildPrompt(ctx) +
-      (corpus ? evidencePromptBlock(corpus) : "") +
-      steerContext(ctx, prior[kind]),
-  });
+  // one having to opt in. The full prompt (identical across the k scoring samples) is
+  // built once so the samples share a cache-friendly prefix.
+  const fullPrompt =
+    def.buildPrompt(ctx) +
+    (corpus ? evidencePromptBlock(corpus) : "") +
+    steerContext(ctx, prior[kind]);
+
+  // k=scoringSamples() self-consistency (validation only): fire k parallel scoring
+  // calls, then reduce them to one elicited result (per-criterion median band-scores,
+  // spread flags) plus the overall-agreement confidence delta. k=1 collapses to a
+  // single call with none of that machinery — see runScoringSamples.
+  const k = kind === "validation" ? scoringSamples() : 1;
+  const { elicited, sources, model, usage, agreement } = await runScoringSamples(def, fullPrompt, k, adjustments);
 
   let data: unknown = elicited;
   if (kind === "validation") {
@@ -145,6 +141,7 @@ export async function runGenerator(
       sources,
       claimsAudit: ctx.claimsAudit ?? null,
       adjustments,
+      agreement,
     });
 
     // Rewrite demand signals from the corpus (real url/engagement) and drop any
@@ -161,6 +158,167 @@ export async function runGenerator(
 
   logUsage({ ideaId: version.idea_id, versionId, kind, model, usage });
   return saveArtifact(versionId, kind, data, sources, model, usage);
+}
+
+// ---- k-sample self-consistency scoring --------------------------------------------
+
+type Usage = { prompt_tokens: number; completion_tokens: number; cost: number };
+
+/** The pre-gate weighted overall of one elicited sample (bands → numbers, weighted mean
+ * by criterionWeight, NO gates/clamps) — used only to RANK the k samples so the prose
+ * comes from the middle one and to measure overall agreement. Goal-neutral ranking:
+ * weights use the base map (goal null) so the ranking can't be gamed by the goal. */
+function preGateOverall(e: ValidationElicited): number {
+  let num = 0;
+  let den = 0;
+  for (const c of e.criteria) {
+    const w = criterionWeight(c.name, null);
+    num += w * bandScore(c.band);
+    den += w;
+  }
+  return den > 0 ? num / den : 0;
+}
+
+const median = (xs: number[]): number => {
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+};
+
+/** How much the k samples disagreed overall — max−min of their pre-gate overalls.
+ * finalizeValidation turns this into a confidence delta (≤5 tightens, >12 loosens). */
+export type ScoringAgreement = { spread: number } | null;
+
+/**
+ * Run the scoring generator k times and reduce the samples to ONE elicited result:
+ * - k=1 (or a single survivor): behaves EXACTLY like a single generateStructured call —
+ *   no medians, no per-criterion spread, no agreement delta (agreement=null).
+ * - k>1: per criterion, numeric score = median of the k band-scores and the reported
+ *   band = the band of the MIDDLE sample (ranked by that criterion's band-score);
+ *   a max−min band-score spread over SPREAD_FLAG appends a system_adjustment naming the
+ *   criterion and sets that criterion's `spread` field. All NON-criteria content
+ *   (summary, narrative, market, next_test, demand, financials, plan, …) is taken whole
+ *   from the MEDIAN-OVERALL sample (the k samples ranked by pre-gate overall, middle one)
+ *   so it stays internally consistent. Usage is the SUMMED usage of every call.
+ * A sample that throws is dropped; if ALL throw, the last error surfaces as today.
+ */
+async function runScoringSamples(
+  def: Generator,
+  prompt: string,
+  k: number,
+  adj: SystemAdjustment[]
+): Promise<{
+  elicited: unknown;
+  sources: Source[];
+  model: string;
+  usage: Usage;
+  agreement: ScoringAgreement;
+}> {
+  const call = () =>
+    generateStructured(def.schema, {
+      role: def.role,
+      grounded: def.grounded,
+      webMaxResults: def.webMaxResults,
+      maxTokens: def.maxTokens,
+      system: def.system,
+      prompt,
+    });
+
+  // k=1: a single call, identical to the pre-k behavior (agreement stays null).
+  if (k <= 1) {
+    const r = await call();
+    return { elicited: r.data, sources: r.sources, model: r.model, usage: r.usage, agreement: null };
+  }
+
+  const settled = await Promise.allSettled(Array.from({ length: k }, () => call()));
+  const ok = settled.filter(
+    (s): s is PromiseFulfilledResult<Awaited<ReturnType<typeof call>>> => s.status === "fulfilled"
+  );
+  // Summed usage across EVERY call that actually ran (survivors only — a rejected call
+  // never returned usage; the client already billed its own retry internally).
+  const usage: Usage = { prompt_tokens: 0, completion_tokens: 0, cost: 0 };
+  for (const s of ok) {
+    usage.prompt_tokens += s.value.usage.prompt_tokens;
+    usage.completion_tokens += s.value.usage.completion_tokens;
+    usage.cost += s.value.usage.cost;
+  }
+
+  if (ok.length === 0) {
+    // All samples failed — surface the error exactly as a single failed call would.
+    const firstReject = settled.find((s) => s.status === "rejected") as PromiseRejectedResult | undefined;
+    throw firstReject?.reason ?? new Error("All scoring samples failed");
+  }
+
+  const results = ok.map((s) => s.value);
+  const samples = results.map((r) => r.data as ValidationElicited);
+
+  // A lone survivor is the single-call path: no medians/spread/agreement to compute.
+  if (samples.length === 1) {
+    if (results.length < k) {
+      adj.push({
+        rule: "scoring-samples-degraded",
+        detail: `Only 1 of ${k} scoring samples succeeded; this run is effectively single-sample (no median smoothing or agreement check was applied).`,
+      });
+    }
+    return { elicited: samples[0], sources: results[0].sources, model: results[0].model, usage, agreement: null };
+  }
+
+  if (results.length < k) {
+    adj.push({
+      rule: "scoring-samples-degraded",
+      detail: `${results.length} of ${k} scoring samples succeeded; medians and the agreement check used the ${results.length} survivors.`,
+    });
+  }
+
+  // Rank samples by pre-gate overall; the MEDIAN-OVERALL sample supplies all non-criteria
+  // prose (and its cited web sources) so summary/narrative/market/etc. stay mutually
+  // consistent. `results[i]` and `samples[i]` share an index, so carry it through.
+  const ranked = samples
+    .map((s, i) => ({ s, i, overall: preGateOverall(s) }))
+    .sort((a, b) => a.overall - b.overall);
+  const mid = ranked[Math.floor(ranked.length / 2)];
+  const medianSample = mid.s;
+
+  // Per-criterion median band-score + middle-sample band + flagged spread. Criteria are
+  // keyed by name (the schema guarantees each of the 10 names exactly once per sample).
+  const SPREAD_FLAG = 10;
+  const mergedCriteria = medianSample.criteria.map((mc) => {
+    const perSample = samples
+      .map((s) => s.criteria.find((c) => c.name === mc.name))
+      .filter((c): c is ValidationElicited["criteria"][number] => !!c);
+    const scores = perSample.map((c) => bandScore(c.band));
+    const med = median(scores);
+    // The reported band is the MIDDLE sample's band for this criterion (ranked by score).
+    const bandRanked = [...perSample].sort((a, b) => bandScore(a.band) - bandScore(b.band));
+    const midBand = bandRanked[Math.floor(bandRanked.length / 2)].band;
+    const spread = Math.max(...scores) - Math.min(...scores);
+    // band = middle sample's band; score = median of band-scores (finalize honors a
+    // pre-set score over re-deriving it from the band, so the two can legitimately
+    // differ on an even survivor count without the band lying about the number).
+    const out: ValidationElicited["criteria"][number] & { spread?: number; score?: number } = {
+      ...mc,
+      band: midBand,
+      score: Math.round(med),
+    };
+    if (spread > SPREAD_FLAG) {
+      out.spread = spread;
+      adj.push({
+        rule: "criterion-sample-disagreement",
+        detail: `The ${results.length} scoring samples disagreed materially on "${mc.name}" (band-scores spanned ${spread} points, ${Math.min(
+          ...scores
+        )}–${Math.max(...scores)}); the reported band is the median. Treat this criterion as less certain.`,
+      });
+    }
+    return out;
+  });
+
+  const elicited: ValidationElicited = { ...medianSample, criteria: mergedCriteria };
+
+  // Overall agreement across the k samples (max−min of pre-gate overalls).
+  const overalls = ranked.map((r) => r.overall);
+  const agreement: ScoringAgreement = { spread: Math.max(...overalls) - Math.min(...overalls) };
+
+  return { elicited, sources: results[mid.i].sources, model: results[mid.i].model, usage, agreement };
 }
 
 // ---- sycophancy firewall: the claims-audit pre-pass -------------------------------
@@ -226,6 +384,8 @@ type FinalizeOpts = {
   sources: Source[];
   claimsAudit: ClaimsAudit | null;
   adjustments: SystemAdjustment[];
+  /** k-sample overall agreement (max−min of the k pre-gate overalls); null for k=1. */
+  agreement: ScoringAgreement;
 };
 
 const byName = (criteria: ValidationCriterion[], name: string) =>
@@ -246,11 +406,18 @@ const byName = (criteria: ValidationCriterion[], name: string) =>
 function finalizeValidation(elicited: ValidationElicited, opts: FinalizeOpts): Validation {
   const adj = opts.adjustments;
 
-  // 1. bands → numbers (stored per criterion so radar/recompute/UI keep working)
-  const criteria: ValidationCriterion[] = elicited.criteria.map((c) => ({
-    ...c,
-    score: bandScore(c.band),
-  }));
+  // 1. bands → numbers (stored per criterion so radar/recompute/UI keep working).
+  // The k-sample merge may pre-set `score` (median of the k band-scores) and `spread`
+  // (the flagged sample disagreement) on a criterion — honor a pre-set score over
+  // re-deriving it from the band, and carry the spread through to the stored artifact.
+  const criteria: ValidationCriterion[] = elicited.criteria.map((c) => {
+    const pre = c as typeof c & { score?: number; spread?: number };
+    return {
+      ...c,
+      score: typeof pre.score === "number" ? pre.score : bandScore(c.band),
+      ...(typeof pre.spread === "number" ? { spread: pre.spread } : {}),
+    };
+  });
 
   const ds = byName(criteria, "Demand Strength");
   const wtp = byName(criteria, "Willingness to Pay");
@@ -354,6 +521,28 @@ function finalizeValidation(elicited: ValidationElicited, opts: FinalizeOpts): V
 
   // 5. deterministic confidence (with degraded-corpus cap + silent-zero flags)
   let confidence = computeConfidence(opts.corpus, opts.sources, elicited.confidence, adj);
+
+  // 5-agreement: k-sample overall agreement adjusts confidence. Tight agreement across
+  // the samples (max−min of pre-gate overalls ≤ 5) is corroboration → +15 (cap 100);
+  // wide disagreement (> 12) means the score is noisy → −10 (floor 0). k=1 → null → skip.
+  if (opts.agreement) {
+    const sp = opts.agreement.spread;
+    if (sp <= 5) {
+      const before = confidence;
+      confidence = Math.min(100, confidence + 15);
+      adj.push({
+        rule: "sample-agreement-high",
+        detail: `The scoring samples agreed tightly (overall spread ${sp.toFixed(1)} ≤ 5); confidence +15 (${before} → ${confidence}).`,
+      });
+    } else if (sp > 12) {
+      const before = confidence;
+      confidence = Math.max(0, confidence - 10);
+      adj.push({
+        rule: "sample-agreement-low",
+        detail: `The scoring samples disagreed on the overall (spread ${sp.toFixed(1)} > 12); confidence −10 (${before} → ${confidence}) — treat this verdict as noisy and re-run.`,
+      });
+    }
+  }
 
   // 5b. consistency lint: <2 named competitors → confidence -10
   const namedCompetitors =
@@ -569,7 +758,8 @@ function enrichDemandSignals(signals: DemandSignal[], corpus: EvidenceCorpus | n
  *   grounded call returning ZERO sources gets a loud flag (probable plugin regression)
  *   instead of silently scoring low;
  * - the model's self-report contributes at most 15 (self-report/100 × 15).
- * Clamped to 0-100. Fired rules append to `adj`.
+ * Clamped to 0-100. Fired rules append to `adj`. When audience_online === "low" the
+ * corpus/web split is reweighted 45/40 (from 60/25) — see the body.
  */
 function computeConfidence(
   corpus: EvidenceCorpus | null,
@@ -577,23 +767,34 @@ function computeConfidence(
   selfReport: number | undefined,
   adj: SystemAdjustment[]
 ): number {
-  // FLOWS-PHASE: when corpus.stats.audience_online === "low" (buyer doesn't hang out
-  // on HN/Reddit), reweight corpus 60→45 / web 25→40 — a thin corpus is expected, not
-  // a demand finding. Also the k-sample overall-agreement adjustment (±15/−10) lands
-  // adjacent to this function.
+  // When corpus.stats.audience_online === "low" (the buyer doesn't hang out on HN/Reddit),
+  // a thin corpus is EXPECTED, not a demand finding — reweight the corpus 60→45 and web
+  // 25→40 so the report leans on web/review sources instead of penalizing demand. The
+  // corpus sub-weights (40 / 10 / 10) and the degraded cap scale by the same factor.
+  const lowAudience = corpus?.stats.audience_online === "low";
+  const corpusMax = lowAudience ? 45 : 60;
+  const webMax = lowAudience ? 40 : 25;
+  const cScale = corpusMax / 60; // 0.75 when low, else 1
   const relevant = corpus?.items.filter((i) => i.relevance >= 2).length ?? 0;
   const communities = corpus?.stats.communities.length ?? 0;
   const wtp = corpus?.items.filter((i) => i.wtp_signal).length ?? 0;
   let corpusPart =
-    40 * (Math.min(relevant, 15) / 15) + (communities >= 3 ? 10 : 0) + (wtp >= 2 ? 10 : 0);
+    cScale * (40 * (Math.min(relevant, 15) / 15) + (communities >= 3 ? 10 : 0) + (wtp >= 2 ? 10 : 0));
   if (corpus?.stats.degraded) {
-    corpusPart = Math.min(corpusPart, GATES.degradedCorpusConfidenceCap);
+    const cap = GATES.degradedCorpusConfidenceCap * cScale;
+    corpusPart = Math.min(corpusPart, cap);
     adj.push({
       rule: "degraded-corpus",
-      detail: `The evidence relevance ranking failed and every item was kept at a default relevance — the corpus contribution to confidence is capped at ${GATES.degradedCorpusConfidenceCap}/60. Refresh the evidence to get a real ranking.`,
+      detail: `The evidence relevance ranking failed and every item was kept at a default relevance — the corpus contribution to confidence is capped at ${Math.round(cap)}/${corpusMax}. Refresh the evidence to get a real ranking.`,
     });
   }
-  const webPart = 25 * (Math.min(sources.length, 10) / 10);
+  if (lowAudience) {
+    adj.push({
+      rule: "offline-audience-reweight",
+      detail: `This idea's buyer doesn't typically discuss the problem on Reddit/Hacker News (audience_online = low), so a thin forum corpus is expected. Confidence weighting shifted toward web/review sources (corpus max ${corpusMax}, web max ${webMax}) rather than penalizing demand for the thin corpus.`,
+    });
+  }
+  const webPart = webMax * (Math.min(sources.length, 10) / 10);
   if (sources.length === 0) {
     adj.push({
       rule: "zero-web-sources",

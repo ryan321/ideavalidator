@@ -85,6 +85,10 @@ function init(): Database.Database {
   // founder context on versions + goal on ideas (added in upgrades).
   addColumn(db, "versions", "context", "TEXT");
   addColumn(db, "versions", "revenue", "TEXT");
+  // Archived versions are hidden from the switcher/compare/Decide and excluded from
+  // best_score and the score distribution, but the row (and its artifacts) survive so
+  // the history isn't destroyed — cleanupVersions archives instead of deleting.
+  addColumn(db, "versions", "archived", "INTEGER DEFAULT 0");
   addColumn(db, "ideas", "goal", "TEXT");
   addColumn(db, "ideas", "goal_detail", "TEXT");
   addColumn(db, "ideas", "stage", "TEXT");
@@ -205,6 +209,7 @@ export type Version = {
   context: string | null;
   score: number | null;
   revenue: string | null; // cached obtainable_revenue from validation (the forecast)
+  archived: number; // 0 = active, 1 = archived (hidden from switcher/compare/Decide/best_score)
   created_at: string;
 };
 
@@ -275,6 +280,7 @@ export function createIdea(
     context: null,
     score: null,
     revenue: null,
+    archived: 0,
     created_at: now,
   };
   const tx = db.transaction(() => {
@@ -294,10 +300,10 @@ export function listIdeas(): IdeaSummary[] {
   return db
     .prepare(
       `SELECT i.*,
-              (SELECT MAX(v.score) FROM versions v WHERE v.idea_id = i.id) AS best_score,
-              (SELECT COUNT(*) FROM versions v WHERE v.idea_id = i.id) AS version_count,
+              (SELECT MAX(v.score) FROM versions v WHERE v.idea_id = i.id AND v.archived = 0) AS best_score,
+              (SELECT COUNT(*) FROM versions v WHERE v.idea_id = i.id AND v.archived = 0) AS version_count,
               (SELECT COALESCE(SUM(u.cost), 0) FROM usage_log u WHERE u.idea_id = i.id) AS cost,
-              (SELECT v.revenue FROM versions v WHERE v.idea_id = i.id AND v.revenue IS NOT NULL
+              (SELECT v.revenue FROM versions v WHERE v.idea_id = i.id AND v.revenue IS NOT NULL AND v.archived = 0
                  ORDER BY v.score DESC LIMIT 1) AS revenue
        FROM ideas i ORDER BY i.created_at DESC`
     )
@@ -426,6 +432,7 @@ export function createVersion(
     context: opts.context ?? null,
     score: null,
     revenue: null,
+    archived: 0,
     created_at: new Date().toISOString(),
   };
   db.prepare(
@@ -437,6 +444,30 @@ export function createVersion(
 
 export function setVersionScore(versionId: string, score: number): void {
   db.prepare("UPDATE versions SET score = ? WHERE id = ?").run(Math.round(score), versionId);
+}
+
+// Archive (or un-archive) a version — the cleanup path hides intermediate tries without
+// destroying them. Refuses to archive the original (n=1) or the chosen version, exactly
+// like deleteVersion, so cleanup can't hide important history. Un-archiving (archived=0)
+// is always allowed. Returns whether the change was applied.
+export function setVersionArchived(versionId: string, archived: boolean): boolean {
+  if (archived) {
+    const v = getVersion(versionId);
+    if (!v || v.n === 1) return false;
+    const idea = getIdea(v.idea_id);
+    if (idea?.chosen_version_id === versionId) return false;
+  }
+  db.prepare("UPDATE versions SET archived = ? WHERE id = ?").run(archived ? 1 : 0, versionId);
+  return true;
+}
+
+// Every non-archived, scored version across ALL ideas — the population the current
+// version's score is ranked against for a percentile (the UI plots where this idea sits).
+export function scoreDistribution(): number[] {
+  const rows = db
+    .prepare("SELECT score FROM versions WHERE score IS NOT NULL AND archived = 0")
+    .all() as { score: number }[];
+  return rows.map((r) => r.score);
 }
 
 export function setVersionRevenue(versionId: string, revenue: string): void {

@@ -21,8 +21,13 @@ export function hasWtpSignal(text: string): boolean {
   return WTP_PATTERNS.some((p) => t.includes(p));
 }
 
-// no .max — the result is sliced to 8 below, so an over-eager model can't fail the parse
-const QueriesSchema = z.object({ queries: z.array(z.string()).min(1) });
+// no .max — the result is sliced to 8 below, so an over-eager model can't fail the parse.
+// audience_online: does this idea's BUYER hang out on HN/Reddit? .catch keeps a stray
+// value from failing the parse (defaults to "medium" = the neutral, current behavior).
+const QueriesSchema = z.object({
+  queries: z.array(z.string()).min(1),
+  audience_online: z.enum(["high", "medium", "low"]).catch("medium"),
+});
 
 /**
  * Generate 4-8 targeted search queries from the idea statement + goal using the
@@ -32,7 +37,7 @@ const QueriesSchema = z.object({ queries: z.array(z.string()).min(1) });
 export async function generateQueries(
   statement: string,
   goal: string | null
-): Promise<{ queries: string[]; usage: Usage; model: string }> {
+): Promise<{ queries: string[]; audience_online: "high" | "medium" | "low"; usage: Usage; model: string }> {
   const { data, usage, model } = await generateStructured(QueriesSchema, {
     role: "writing",
     grounded: false,
@@ -40,7 +45,8 @@ export async function generateQueries(
     system:
       "You write keyword search queries for Reddit and Hacker News search. " +
       "Queries are SHORT (2-5 core terms, no quotes, no operators) — they hit a " +
-      "keyword engine, not an LLM.",
+      "keyword engine, not an LLM. You also judge whether this idea's BUYER is the kind " +
+      "of person who discusses their problems on Reddit/Hacker News at all.",
     prompt: `Startup idea: ${statement}${goal ? `\nFounder's goal: ${goal}` : ""}
 
 Write 4-8 search queries that would surface real people talking about this problem. Mix:
@@ -48,7 +54,12 @@ Write 4-8 search queries that would surface real people talking about this probl
 - competitor / alternative queries (e.g. "<category> alternative")
 - willingness-to-pay queries (e.g. "pay for <category> tool")
 
-Return JSON: {"queries": ["...", "..."]}`,
+Also set "audience_online": would this idea's BUYER realistically discuss this problem on Reddit or Hacker News?
+- "high": developers, founders, tech-savvy consumers, hobbyists — HN/Reddit natives.
+- "medium": mixed / some online presence (many SMB and prosumer tools).
+- "low": the buyer rarely posts on HN/Reddit about this (e.g. plumbers, dentists, freight brokers, restaurant owners, field-service, most local/offline SMBs, enterprise procurement) — expect a thin forum corpus even for a strong idea.
+
+Return JSON: {"queries": ["...", "..."], "audience_online": "high"|"medium"|"low"}`,
   });
   // keyword engines choke on long strings — keep each query tight
   const queries = data.queries
@@ -56,7 +67,7 @@ Return JSON: {"queries": ["...", "..."]}`,
     .filter(Boolean)
     .map((q) => q.split(/\s+/).slice(0, 6).join(" "))
     .slice(0, 8);
-  return { queries, usage, model };
+  return { queries, audience_online: data.audience_online, usage, model };
 }
 
 // If the query LLM fails we still collect: fall back to naive keyword queries

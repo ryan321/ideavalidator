@@ -1,5 +1,7 @@
 import { Card, Section, Badge } from "@/components/ui";
 import { criterionTone as scoreColor } from "@/lib/scoring";
+import { LeverChip } from "./chips";
+import { SpreadMarker } from "./SpreadMarker";
 
 type Pillar = { score: number; rationale: string };
 
@@ -10,6 +12,9 @@ type Criterion = {
   group: "demand" | "build";
   category: string;
   explanation: string;
+  lever?: string; // positioning | evidence | execution | exogenous
+  lever_action?: string; // the ONE concrete line that would move this criterion
+  spread?: number; // k-sample disagreement (max−min) when it exceeded threshold
 };
 
 function clampScore(n: number) {
@@ -73,9 +78,11 @@ function CriterionCard({ criterion }: { criterion: Criterion }) {
             {criterion?.name || "Untitled criterion"}
             {CRITERIA_HELP[criterion?.name] && <span className="ml-1 cursor-help text-xs text-muted">ⓘ</span>}
           </div>
-          {criterion?.category ? (
-            <div className="mt-1.5">
-              <Badge tone={tone}>{criterion.category}</Badge>
+          {(criterion?.category || criterion?.lever || criterion?.spread) ? (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {criterion?.category ? <Badge tone={tone}>{criterion.category}</Badge> : null}
+              <LeverChip lever={criterion?.lever} />
+              <SpreadMarker spread={criterion?.spread} />
             </div>
           ) : null}
         </div>
@@ -91,6 +98,16 @@ function CriterionCard({ criterion }: { criterion: Criterion }) {
       {criterion?.explanation ? (
         <p className="mt-2.5 text-xs leading-relaxed text-muted">
           {criterion.explanation}
+        </p>
+      ) : null}
+      {criterion?.lever_action ? (
+        <p className="mt-2 text-[11px] leading-snug">
+          {criterion.lever === "evidence" ? (
+            <span className="text-warn">→ test it, don&apos;t reword it: </span>
+          ) : (
+            <span className="text-muted/70">→ </span>
+          )}
+          <span className="text-muted">{criterion.lever_action}</span>
         </p>
       ) : null}
     </div>

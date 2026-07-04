@@ -2,6 +2,7 @@
 
 import type { EvidenceCorpus, EvidenceItem } from "@/lib/evidence/types";
 import { Eyebrow, Panel, Tag } from "@/components/ui";
+import { TierChip, TierLegend } from "./chips";
 
 // Relative date from a unix-seconds timestamp — honest recency without fake precision.
 export function relDate(utc: number): string {
@@ -44,6 +45,7 @@ function EvidenceRow({ item }: { item: EvidenceItem }) {
           {item.created_utc ? ` · ${relDate(item.created_utc)}` : ""}
         </span>
         {item.wtp_signal && <WtpTag />}
+        <TierChip tier={item.tier} compact />
         <span className="ml-auto"><FetchedBadge source={item.source} /></span>
       </div>
       {item.title && <div className="mt-1.5 text-sm font-medium text-fg/90">{item.title}</div>}
@@ -119,6 +121,10 @@ export function EvidencePanel({
         <div className="text-xs text-muted">
           Search queries: {corpus.queries.map((q) => `“${q}”`).join(" · ")}
         </div>
+
+        {/* Mom-Test tier ledger: each item is chipped by what it actually SHOWS
+            (T1 money/behavior … T4 compliment), not how encouraging it sounds. */}
+        {corpus.items.length > 0 && <TierLegend />}
 
         {corpus.items.length === 0 && (
           <p className="text-sm text-muted">

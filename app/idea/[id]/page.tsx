@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import IdeaWorkspace from "@/components/IdeaWorkspace";
-import { getArtifactsByVersion, getEvidenceByVersion, getIdea, getIdeaCost, listVersions } from "@/lib/db";
+import { getArtifactsByVersion, getEvidenceByVersion, getIdea, getIdeaCost, listVersions, scoreDistribution } from "@/lib/db";
 import { generatorMeta } from "@/lib/generators";
+import { scoringSamples } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,8 @@ export default async function IdeaPage({
       meta={generatorMeta()}
       initialCost={getIdeaCost(id)}
       initialStage={stage ?? idea.stage ?? "validate"}
+      initialScoreDistribution={scoreDistribution()}
+      scoringSamples={scoringSamples()}
     />
   );
 }
