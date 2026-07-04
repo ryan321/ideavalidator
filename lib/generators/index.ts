@@ -21,8 +21,9 @@ import {
   normalizeGoal,
   verdictBands,
 } from "../scoring";
-import { Generator, GenContext, steerContext } from "./shared";
+import { ClaimsAudit, Generator, GenContext, steerContext } from "./shared";
 import {
+  ClaimSchema,
   validationGenerator,
   type SystemAdjustment,
   type Validation,
@@ -94,23 +95,33 @@ export async function runGenerator(
   if (kind === "validation") {
     corpus = getEvidence(versionId) ?? (await collectEvidence(versionId));
 
+    // The next_test's cheapest_test must name a channel from the corpus's own
+    // communities — hand them to the prompt builder.
+    ctx.corpusCommunities = corpus?.stats.communities ?? null;
+
     // Sycophancy firewall: a fast-model pre-pass rewrites the pitch into a neutral
-    // third-person claims brief; the scorer judges the brief, not the enthusiasm.
+    // third-person claims brief + a typed, evidence-tiered claim ledger; the scorer
+    // judges the audit, not the enthusiasm.
     try {
-      const brief = await generateClaimsBrief(ctx);
-      ctx.claimsBrief = brief.text;
-      logUsage({ ideaId: version.idea_id, versionId, kind: "claims_brief", model: brief.model, usage: brief.usage });
+      const audit = await generateClaimsAudit(ctx);
+      ctx.claimsAudit = audit.audit;
+      logUsage({ ideaId: version.idea_id, versionId, kind: "claims_brief", model: audit.model, usage: audit.usage });
     } catch (e) {
-      ctx.claimsBrief = null;
+      ctx.claimsAudit = null;
       adjustments.push({
         rule: "claims-brief-fallback",
-        detail: `Neutral claims-brief pre-pass failed (${e instanceof Error ? e.message : String(e)}); the scorer saw the founder's raw statement — sycophancy stripping was NOT applied to this run.`,
+        detail: `Neutral claims-audit pre-pass failed (${e instanceof Error ? e.message : String(e)}); the scorer saw the founder's raw statement — sycophancy stripping was NOT applied to this run.`,
       });
     }
   }
 
   // Steer is appended generically so it works for every generator without each
   // one having to opt in.
+  // FLOWS-PHASE: k=scoringSamples() self-consistency lands here — k parallel
+  // generateStructured scoring calls sharing this exact prompt (cache-friendly),
+  // per-criterion median band-scores + spread flags, prose from the median-overall
+  // sample, agreement → confidence adjustment, and ONE logUsage with summed tokens.
+  // k=1 must behave exactly like this single call.
   const { data: elicited, sources, model, usage } = await generateStructured(def.schema, {
     role: def.role,
     grounded: def.grounded,
@@ -132,7 +143,7 @@ export async function runGenerator(
       goal: idea.goal,
       corpus,
       sources,
-      claimsBrief: ctx.claimsBrief ?? null,
+      claimsAudit: ctx.claimsAudit ?? null,
       adjustments,
     });
 
@@ -152,31 +163,47 @@ export async function runGenerator(
   return saveArtifact(versionId, kind, data, sources, model, usage);
 }
 
-// ---- sycophancy firewall: the claims-brief pre-pass -------------------------------
+// ---- sycophancy firewall: the claims-audit pre-pass -------------------------------
 
-const ClaimsBriefSchema = z.object({ claims_brief: z.string().min(40) });
+const ClaimsAuditElicitSchema = z.object({
+  brief: z.string().min(40),
+  claims: z.array(ClaimSchema).catch([]),
+});
 
 /**
  * Rewrite the idea statement + founder-supplied context into a neutral third-person
- * CLAIMS BRIEF: enthusiasm and superlatives stripped, every claim listed flatly.
- * The scoring pass judges this brief; the original statement is reference only.
+ * CLAIMS BRIEF plus a typed claim ledger: every claim classified as self_fact (founder
+ * about themselves — authoritative) or market_assumption (founder about customers/
+ * competitors/market — corroborate before it moves a band) and Mom-Test-tiered by the
+ * support offered for it. The scoring pass judges this audit; the original statement
+ * is reference only.
  */
-async function generateClaimsBrief(
+async function generateClaimsAudit(
   ctx: GenContext
-): Promise<{ text: string; model: string; usage: { prompt_tokens: number; completion_tokens: number; cost: number } }> {
-  const { data, model, usage } = await generateStructured(ClaimsBriefSchema, {
+): Promise<{ audit: ClaimsAudit; model: string; usage: { prompt_tokens: number; completion_tokens: number; cost: number } }> {
+  const { data, model, usage } = await generateStructured(ClaimsAuditElicitSchema, {
     role: "writing",
     grounded: false,
-    maxTokens: 900,
+    maxTokens: 1400,
     temperature: 0.1,
     system:
-      "You rewrite startup pitches into neutral third-person claims briefs for an analyst. Strip ALL " +
-      "enthusiasm, superlatives, and persuasion ('revolutionary', 'massive', 'game-changing', first-person " +
-      "passion). List what is actually being claimed, flatly and completely: the proposed product/mechanism, " +
-      "the target customer, the problem asserted, any asserted market/competitor/pricing facts (prefix " +
-      'unverified ones with "Founder asserts:"), and any founder capabilities/assets mentioned. Do not add ' +
-      "claims, do not evaluate, do not soften or sharpen — neutral restatement only. Keep it under 180 words.",
-    prompt: `Rewrite the following as a neutral third-person claims brief.
+      "You rewrite startup pitches into neutral third-person claims briefs for an analyst, then type each " +
+      "claim. Strip ALL enthusiasm, superlatives, and persuasion ('revolutionary', 'massive', 'game-changing', " +
+      "first-person passion). The 'brief' lists what is actually being claimed, flatly and completely: the " +
+      "proposed product/mechanism, the target customer, the problem asserted, any asserted market/competitor/" +
+      'pricing facts (prefix unverified ones with "Founder asserts:"), and any founder capabilities/assets ' +
+      "mentioned. Do not add claims, do not evaluate, do not soften or sharpen — neutral restatement only. " +
+      "Keep it under 180 words.\n" +
+      "Then extract 'claims': every distinct factual claim as { text, kind, tier }.\n" +
+      'kind: "self_fact" = a founder statement about THEMSELVES (skills, network, capital, time, intent); ' +
+      '"market_assumption" = a statement about customers, competitors, pricing, or the market.\n' +
+      "tier = the Mom-Test evidence tier of the SUPPORT OFFERED for the claim, not its plausibility: " +
+      "1 = money or behavior actually changed hands/happened (paying users, a signed pilot, built workarounds); " +
+      "2 = a costly commitment (significant time, reputation, a scheduled pilot); " +
+      "3 = a specific past fact or complaint; " +
+      '4 = compliments, hypotheticals, or generic enthusiasm ("50 people said they loved it" is tier 4). ' +
+      "A bare assertion with no support offered is tier 4 for market claims, tier 3 for plain self-facts.",
+    prompt: `Rewrite the following as a neutral third-person claims brief, then extract the typed claim ledger.
 
 IDEA STATEMENT:
 """
@@ -186,9 +213,9 @@ ${ctx.idea.prompt}
 ${ctx.founderFit?.trim() ? `\nFOUNDER'S SELF-DESCRIPTION:\n"""\n${ctx.founderFit.trim()}\n"""\n` : ""}${
       ctx.context?.trim() ? `\nFOUNDER'S ADDED CONTEXT:\n"""\n${ctx.context.trim()}\n"""\n` : ""
     }
-Return JSON: {"claims_brief": string}`,
+Return JSON: {"brief": string, "claims": [{"text": string, "kind": "self_fact"|"market_assumption", "tier": 1|2|3|4}]}`,
   });
-  return { text: data.claims_brief, model, usage };
+  return { audit: data, model, usage };
 }
 
 // ---- band → score recompute + gates ------------------------------------------------
@@ -197,7 +224,7 @@ type FinalizeOpts = {
   goal: string | null;
   corpus: EvidenceCorpus | null;
   sources: Source[];
-  claimsBrief: string | null;
+  claimsAudit: ClaimsAudit | null;
   adjustments: SystemAdjustment[];
 };
 
@@ -349,13 +376,14 @@ function finalizeValidation(elicited: ValidationElicited, opts: FinalizeOpts): V
     }
   }
 
-  // 5d. lint: an explanation admits an unverified founder claim while banded above C —
-  // the prompt instructs a cap at C for founder assets absent from the founder profile.
+  // 5d. lint: an explanation admits an unverified/founder-asserted claim while banded
+  // above C — the prompt instructs a cap at C for founder assets absent from the
+  // founder profile, and ≤ one band step for uncorroborated founder market-claims.
   for (const c of criteria) {
-    if (c.score > bandScore("C") && /unverified founder claim/i.test(c.explanation)) {
+    if (c.score > bandScore("C") && /unverified founder claim|founder-asserted/i.test(c.explanation)) {
       adj.push({
         rule: "unverified-founder-claim",
-        detail: `"${c.name}" rests on a founder capability/asset not present in the founder profile yet is banded ${c.band} (${c.score}); unverified founder claims cap the affected criterion at C — treat this band as optimistic and confirm the claim (or add it to the founder profile).`,
+        detail: `"${c.name}" rests on an unverified founder claim (a capability/asset absent from the founder profile, or an uncorroborated founder-asserted market claim) yet is banded ${c.band} (${c.score}) — treat this band as optimistic and confirm the claim (or add it to the founder profile).`,
       });
     }
   }
@@ -432,7 +460,7 @@ function finalizeValidation(elicited: ValidationElicited, opts: FinalizeOpts): V
       ? { ...demand, strength: demandStrengthLabel(ds?.score ?? 0) }
       : undefined,
     system_adjustments: adj,
-    claims_brief: opts.claimsBrief ?? undefined,
+    claims_audit: opts.claimsAudit ?? undefined,
     goal_scored: normalizeGoal(opts.goal),
   };
 }
@@ -549,6 +577,10 @@ function computeConfidence(
   selfReport: number | undefined,
   adj: SystemAdjustment[]
 ): number {
+  // FLOWS-PHASE: when corpus.stats.audience_online === "low" (buyer doesn't hang out
+  // on HN/Reddit), reweight corpus 60→45 / web 25→40 — a thin corpus is expected, not
+  // a demand finding. Also the k-sample overall-agreement adjustment (±15/−10) lands
+  // adjacent to this function.
   const relevant = corpus?.items.filter((i) => i.relevance >= 2).length ?? 0;
   const communities = corpus?.stats.communities.length ?? 0;
   const wtp = corpus?.items.filter((i) => i.wtp_signal).length ?? 0;

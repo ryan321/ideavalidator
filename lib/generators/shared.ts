@@ -2,6 +2,20 @@ import { z } from "zod";
 import type { ModelRole } from "../ai/models";
 import type { ArtifactKind } from "../db";
 
+// One typed claim from the claims-audit pre-pass: what kind of statement it is
+// (founder-about-self vs founder-about-market) and the Mom-Test evidence tier of the
+// support offered for it (1 = money/behavior actually happened … 4 = compliments/
+// hypotheticals ≈ zero weight).
+export type FounderClaim = {
+  text: string;
+  kind: "self_fact" | "market_assumption";
+  tier: 1 | 2 | 3 | 4;
+};
+
+/** The claims-audit pre-pass output: the neutral third-person brief plus the typed,
+ * evidence-tiered claim ledger (stored on the artifact as `claims_audit`). */
+export type ClaimsAudit = { brief: string; claims: FounderClaim[] };
+
 // Context handed to every generator: the idea plus any already-generated artifacts
 // (steer anchors its revision on the current draft of the same kind).
 export type GenContext = {
@@ -15,8 +29,11 @@ export type GenContext = {
   steer?: string | null;
   /** Founder's market knowledge / build experience / network (sharpens scoring). */
   founderFit?: string | null;
-  /** Neutral third-person claims brief (sycophancy firewall pre-pass); null when the pre-pass failed. */
-  claimsBrief?: string | null;
+  /** Neutral claims brief + typed claim ledger (sycophancy firewall pre-pass); null when the pre-pass failed. */
+  claimsAudit?: ClaimsAudit | null;
+  /** Communities the evidence corpus was drawn from (corpus.stats.communities) — the
+   * next_test's cheapest_test must name its channel from these. */
+  corpusCommunities?: string[] | null;
 };
 
 // Goal/ambition buckets. The goal does NOT bend the measurement: criteria are scored
@@ -97,7 +114,7 @@ function stripDerivedGrades(d: unknown): unknown {
     score: _s,
     confidence: _c,
     system_adjustments: _sa,
-    claims_brief: _cb,
+    claims_audit: _cb,
     validations: _val,
     goal_scored: _g,
     ...rest
@@ -141,9 +158,14 @@ export function founderProfile(ctx: GenContext): string {
   return `\n\nFOUNDER PROFILE — score "Founder Fit" for THIS founder, not a generic one: "${f}". Founder Fit covers their skills, domain insight, capital, AND distribution access (warm intros / an owned audience count HERE, not in Acquisition Ease — that criterion measures the market's channel structure for any entrant). An insider who has lived the pain is more credible; no prior building experience raises execution risk. Reflect this ONLY in Founder Fit (and demand credibility where they supply firsthand evidence) and say so in the explanation.`;
 }
 
-// Authoritative founder clarifications, injected into analysis prompts when present.
+// Founder clarifications, injected into analysis prompts when present. NOT a blanket
+// "authoritative" override: statements about the founder themselves are facts;
+// statements about customers/competitors/market are assumptions to corroborate.
 export function founderContext(ctx: GenContext): string {
   const c = ctx.context?.trim();
   if (!c) return "";
-  return `\n\nFOUNDER CONTEXT — the founder reviewed a prior analysis and is clarifying or pushing back. Treat the following as AUTHORITATIVE and correct earlier mistakes accordingly (e.g. if it says certain "competitors" aren't real competitors, re-evaluate the competition criterion in that light). Address these points directly and acknowledge them in the summary:\n"""\n${c}\n"""`;
+  return `\n\nFOUNDER CONTEXT — the founder reviewed a prior analysis and is clarifying or pushing back. Split their statements by SUBJECT before using them:
+- Statements about THEMSELVES (their skills, network, capital, time, intent): AUTHORITATIVE FACTS — correct earlier mistakes accordingly and reflect them where founder attributes are measured (Founder Fit, Goal Fit).
+- Statements about CUSTOMERS, COMPETITORS, or the MARKET (e.g. "those aren't real competitors", "customers told me they'd pay"): ASSUMPTIONS TO TEST, not facts. Corroborate each against the evidence corpus and your web searches BEFORE letting it move any band; cite the corroboration in the explanation. An uncorroborated market claim must be marked "founder-asserted, unverified" in the affected criterion's explanation and may move that criterion by AT MOST one band step on the founder's word alone.
+Address these points directly and acknowledge them in the summary:\n"""\n${c}\n"""`;
 }

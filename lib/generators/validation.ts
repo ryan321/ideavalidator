@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BANDS, CRITERIA } from "../scoring";
+import { BANDS, CRITERIA, LEVERS, LEVER_MEANING } from "../scoring";
 import { ANCHOR_PANEL } from "./anchors";
 import {
   COMPETITION_GUIDANCE,
@@ -23,12 +23,43 @@ const ElicitedCriterion = z.object({
   group: z.enum(["demand", "build"]),
   category: z.string(), // MARKET | EXECUTION | DEMAND ...
   explanation: z.string(), // evidence-for / evidence-against, written BEFORE the band
+  // What could actually move this score (lib/scoring.ts LEVERS) — refine attacks only
+  // positioning/execution levers; evidence levers route to next_test.
+  lever: z.enum(LEVERS),
+  lever_action: z.string(), // ONE concrete line: what would actually move this criterion
   // Normalize trivial deviations ("b+", "A -") before the strict enum — a full
   // self-repair retry of a 16k-token call is too expensive for a stray space.
   band: z.preprocess(
     (v) => (typeof v === "string" ? v.replace(/\s+/g, "").toUpperCase() : v),
     z.enum(BANDS)
   ),
+});
+
+// The kill-test: the cheapest way to change this verdict, pre-registered before any
+// real-world result exists. First-class — rendered ABOVE the score in the report.
+const NextTest = z.object({
+  riskiest_assumption: z.string(), // a belief the corpus does NOT already prove + the criteria it underpins
+  cheapest_test: z.string(), // concrete, ≤1 week, ≤$100, names a channel from the corpus's own communities
+  pass_threshold: z.string(), // pre-registered numeric/observable bar: the assumption held
+  kill_threshold: z.string(), // pre-registered bar: kill or pivot
+  would_flip: z.object({
+    to_go: z.string(), // what evidence would flip this verdict up
+    to_no_go: z.string(), // what evidence would flip it down
+  }),
+  pivotal_criterion: z.string().catch(""), // borderline verdicts: the ONE criterion whose resolution exits the band; else ""
+});
+
+// One typed claim from the claims-audit pre-pass (see lib/generators/shared.ts
+// FounderClaim): self_fact vs market_assumption, plus the Mom-Test evidence tier of
+// the support offered (1 money/behavior … 4 compliments/hypotheticals).
+export const ClaimSchema = z.object({
+  text: z.string(),
+  kind: z.enum(["self_fact", "market_assumption"]),
+  tier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).catch(3),
+});
+export const ClaimsAuditSchema = z.object({
+  brief: z.string(),
+  claims: z.array(ClaimSchema).catch([]),
 });
 
 // The headline demand read as ELICITED — "strength" is intentionally absent: it is
@@ -74,7 +105,7 @@ export const ValidationElicitSchema = z.object({
   // (after code maps each band to a numeric score).
   criteria: z
     .array(ElicitedCriterion)
-    .length(9) // exactly the 9 named criteria the radar expects
+    .length(CRITERIA.length) // exactly the 10 named criteria the radar expects
     // A duplicated name (with another dropped) passes length+enum, and the gates keyed
     // on the missing name would silently no-op — fail parse so self-repair fires.
     .superRefine((cs, ctx) => {
@@ -83,9 +114,12 @@ export const ValidationElicitSchema = z.object({
         if (!names.has(n))
           ctx.addIssue({
             code: "custom",
-            message: `missing criterion "${n}" — output each of the 9 names exactly once`,
+            message: `missing criterion "${n}" — output each of the ${CRITERIA.length} names exactly once`,
           });
     }),
+
+  // The kill-test — pre-registered next step that could change this verdict.
+  next_test: NextTest,
 
   go_signals: z.object({
     positive_signals: z.array(Signal).min(1),
@@ -271,14 +305,14 @@ export type SystemAdjustment = z.infer<typeof SystemAdjustmentSchema>;
 /**
  * The stored ARTIFACT shape (what the UI validates against and renders): the elicited
  * fields plus everything the server derives — verdict/score, per-criterion numeric
- * scores, the validations roll-ups, demand.strength, system_adjustments, claims_brief.
+ * scores, the validations roll-ups, demand.strength, system_adjustments, claims_audit.
  */
 export const ValidationSchema = ValidationElicitSchema.extend({
   verdict: z.enum(["GO", "MAYBE", "NO-GO", "INSUFFICIENT EVIDENCE"]),
   score: z.number().min(0).max(100),
   criteria: z
     .array(ElicitedCriterion.extend({ score: z.number().min(0).max(100) }))
-    .length(9),
+    .length(CRITERIA.length),
   // Evidence-base scorecard — DERIVED roll-ups of the criteria (problem = Demand
   // Strength; solution = Problem-Solution Fit; market = mean of Market Timing +
   // Competitive Position), reusing the corresponding criterion explanations.
@@ -289,8 +323,9 @@ export const ValidationSchema = ValidationElicitSchema.extend({
   }),
   demand: DemandBlock.extend({ strength: z.enum(["Weak", "Moderate", "Strong"]) }).optional(),
   system_adjustments: z.array(SystemAdjustmentSchema),
-  // The neutral third-person restatement the scorer judged (sycophancy firewall).
-  claims_brief: z.string().optional(),
+  // The neutral third-person restatement the scorer judged (sycophancy firewall),
+  // plus the typed, evidence-tiered claim ledger the pre-pass extracted from it.
+  claims_audit: ClaimsAuditSchema.optional(),
   // The goal the weights/bands/gates actually used — the UI judges the stored score
   // against THIS, not the live goal picker, so verdict and meter can't desynchronize.
   goal_scored: z.enum(["lifestyle", "side_hustle", "venture", "unsure"]).optional(),
@@ -302,10 +337,16 @@ export type ValidationCriterion = Validation["criteria"][number];
 // The subject block: the neutral claims brief is the primary object of analysis; the
 // founder's original wording is reference only (its tone must not move any band).
 function subjectBlock(ctx: Parameters<Generator["buildPrompt"]>[0]): string {
-  const brief = ctx.claimsBrief?.trim();
+  const brief = ctx.claimsAudit?.brief?.trim();
   if (!brief) return ideaHeader(ctx);
+  const claims = ctx.claimsAudit?.claims ?? [];
+  const ledger = claims.length
+    ? `\n\nCLAIM LEDGER — each claim typed and evidence-tiered by a pre-pass (T1 = money/behavior actually changed hands/happened; T2 = costly commitment; T3 = specific past fact; T4 = compliments/hypotheticals — weigh T1/T2 heavily, T4 ≈ zero). "self_fact" claims (about the founder themselves) are authoritative; "market_assumption" claims (about customers/competitors/market) must be corroborated against the corpus/web before they move a band:\n${claims
+        .map((c) => `- [${c.kind} · T${c.tier}] ${c.text}`)
+        .join("\n")}`
+    : "";
   return `CLAIMS BRIEF — the neutral restatement you are validating. Score THIS, claim by claim:
-${brief}
+${brief}${ledger}
 
 ORIGINAL STATEMENT (reference only — consult it for details the brief may have dropped; its tone, enthusiasm, and superlatives carry ZERO evidential weight):
 Idea: "${ctx.idea.title}"
@@ -324,7 +365,7 @@ export const validationGenerator: Generator<ValidationElicited> = {
   system:
     "You are a brutally honest startup analyst. Validate ideas against real market evidence from web " +
     "search, not hype. Be specific and quantitative, never generic.\n" +
-    "BAND SCORING PROTOCOL — for each of the 9 criteria you emit a coarse letter band, not a number: " +
+    "BAND SCORING PROTOCOL — for each of the 10 criteria you emit a coarse letter band, not a number: " +
     'one of "A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F". Meaning: A = directly ' +
     "demonstrated / as strong as the strongest anchor below; B = a real, evidenced signal; C = plausible " +
     "but unvalidated; D = weak, contradicted, or unclassifiable; F = fatal flaw or the evidence is absent/" +
@@ -397,16 +438,17 @@ obtainable dollars judged against the GOAL: a small slice of a huge market can b
 one. Make the "summary" lead with what the founder can realistically expect (the obtainable revenue vs
 their goal), then the crux of the assessment.
 
-Band these 9 criteria (rationale first, then band — HIGHER ALWAYS MEANS MORE FAVORABLE, no inverted axes).
+Band these 10 criteria (rationale first, then band — HIGHER ALWAYS MEANS MORE FAVORABLE, no inverted axes).
 Let the bands TRACK THE EVIDENCE and differ — well-evidenced criteria belong at B+/A-, genuinely unproven
 ones at C or below; resist huddling everything in one band, but don't invent a weakness the evidence
 doesn't show. Score each GOAL-NEUTRALLY — the system applies the goal's weights and verdict bands in code.
-Output ALL 9 — never fewer, never renamed, never merged (the radar maps these exact names). Use EXACTLY
+Output ALL 10 — never fewer, never renamed, never merged (the radar maps these exact names). Use EXACTLY
 these names and groups:
 - group "demand" (will people buy?):
   - Demand Strength — how badly the target customer wants this, from real behavioral signals (money spent, workarounds built, complaints with effort behind them — compliments and survey enthusiasm count for ~nothing)
-  - Willingness to Pay — how readily they will pay, and how much (anchored to real incumbent pricing or WTP-flagged evidence)
+  - Willingness to Pay — PRICING POWER NET OF REALISTIC ACQUISITION COST: how readily they will pay and how much (anchored to real incumbent pricing or WTP-flagged evidence), judged against what winning one customer realistically costs — a $5/mo consumer product that depends on paid acquisition bands LOW even if many people would pay
   - Problem-Solution Fit — SOLUTION-SHAPE evidence: proof this solution MECHANISM demonstrably delivers the outcome (competitor adoption of the same mechanism, reviews praising the outcome, the founder's own pilot results). A novel, unproven mechanism caps at C-/C — being plausible is not evidence.
+  - Retention & Recurrence — how often the problem RECURS and whether value COMPOUNDS with use: a daily/weekly workflow whose value grows with accumulated data/habit bands high; an episodic or once-ever need (wedding planning, a one-time migration) bands C or BELOW even when demand for that single episode is intense — band the best-case usage pattern honestly
   - Market Timing — the verified "Why Now": NAME the specific enabling change (tech cost curve, platform shift, regulation, behavior change) and CITE a retrieved source for it in the explanation. "Nobody thought of it before" bands LOW; without a verifiable trend/momentum the system clamps this criterion.
   - Competitive Position — MARKET-STRUCTURE OPENNESS ONLY: incumbent customer satisfaction, switching costs, fragmentation, underserved segments — how enterable this market is for ANY good new entrant, INDEPENDENT of this founder's edge
 - group "build" (can you win, deliver, and keep it?):
@@ -418,11 +460,25 @@ For each: set "category" to one of DEMAND, REVENUE, MARKET, DEFENSIBILITY, EXECU
 2-3 sentence "explanation" citing a specific named competitor, number, or source (no generic phrasing),
 comparing against the calibration anchors where relevant — and only then the "band".
 
+Each criterion also carries a LEVER — which force could actually MOVE its score — and a "lever_action":
+- "positioning": ${LEVER_MEANING.positioning} (a narrower segment, a different wedge)
+- "evidence": ${LEVER_MEANING.evidence} — no rewording or re-scoping can, only a test, a pilot, or observed behavior
+- "execution": ${LEVER_MEANING.execution} (skills, hires, channels the founder controls)
+- "exogenous": ${LEVER_MEANING.exogenous}
+"lever_action" is ONE concrete line: what would actually move THIS criterion (for "evidence" levers, the
+exact observation to collect; for "exogenous", what to watch for). Tag honestly — an "evidence" criterion
+mislabeled "positioning" sends the founder rewording instead of testing.
+
 ${COMPETITION_GUIDANCE}
 
 Also produce:
-- "confidence" (0-100) = how much corroborating evidence you actually found (lower it when you relied on assumption). The system RECOMPUTES confidence from the fetched corpus + citation counts (your self-report only nudges it), and COMPUTES the overall score and verdict from your 9 bands via published weights and non-compensatory gates — so put your effort into banding the 9 criteria honestly and distinctly, NOT into tuning headline numbers. Add a TIGHT evidence-based "summary" — AT MOST 2 sentences (~45 words) — that leads with what the founder can realistically expect (obtainable revenue vs goal), then the crux.
+- "confidence" (0-100) = how much corroborating evidence you actually found (lower it when you relied on assumption). The system RECOMPUTES confidence from the fetched corpus + citation counts (your self-report only nudges it), and COMPUTES the overall score and verdict from your 10 bands via published weights and non-compensatory gates — so put your effort into banding the 10 criteria honestly and distinctly, NOT into tuning headline numbers. Add a TIGHT evidence-based "summary" — AT MOST 2 sentences (~45 words) — that leads with what the founder can realistically expect (obtainable revenue vs goal), then the crux.
 - "pre_mortem": the 3-5 failure-cause bullets described above (each ONE sentence, specific to THIS idea, naming the criterion it maps to).
+- "next_test": the KILL-TEST — the deliverable is a decision plus the cheapest way to change it, and this block is that way (it renders above the score). { riskiest_assumption (the ONE load-bearing belief the EVIDENCE CORPUS does NOT already prove — never something the corpus settles — naming the criteria it underpins, e.g. "brokers will pay for this, not just complain — underpins Willingness to Pay and Demand Strength"), cheapest_test (a concrete test runnable in ≤1 WEEK for ≤$100 that MUST name its channel from the corpus's own communities${
+      ctx.corpusCommunities?.filter(Boolean).length
+        ? ` — this corpus came from: ${ctx.corpusCommunities.filter(Boolean).join(", ")}`
+        : " named in the EVIDENCE section"
+    } — e.g. "post the one-line pitch in r/freightbrokers; DM the 8 corpus authors who complained"), pass_threshold (a PRE-REGISTERED numeric/observable bar meaning the assumption held, e.g. "≥3 of 10 DMed brokers book a call"), kill_threshold (the pre-registered bar meaning kill or pivot, e.g. "0 replies from 20 DMs"), would_flip: { to_go (the specific evidence that would flip this assessment UP a verdict), to_no_go (the specific evidence that would flip it DOWN) }, pivotal_criterion (if this assessment is borderline — could plausibly land MAYBE — the ONE criterion whose resolution would exit the band; otherwise "") }.
 - "go_signals": positive_signals (why it has momentum) and key_strengths; "stop_signals": critical_risks and areas_of_concern. Each item is { text, category } where category is ONE of MARKET, DEMAND, DEFENSIBILITY, REVENUE, EXECUTION, TECH and "text" references something specific to THIS idea (a named competitor, a real number, or a cited signal) — no statement that could apply to any startup. Keep each "text" to ONE sentence, ~20 words max.
 - "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation — consistent with the pre_mortem.
 - "clarifying_questions": 2-4 pointed questions whose answers would most change this assessment (e.g. exact target segment, what truly distinguishes this from the named competitors, pricing/distribution). If FOUNDER CONTEXT above already answered earlier questions, ask new ones (or fewer) — don't repeat answered ones.
@@ -441,7 +497,8 @@ Return JSON exactly matching (field order matters: pre_mortem before criteria; i
 {
   "confidence": number, "summary": string, "goal_fit_note": string,
   "pre_mortem": [string],
-  "criteria": [{"name": string, "group": "demand"|"build", "category": string, "explanation": string, "band": "A+"|"A"|"A-"|"B+"|"B"|"B-"|"C+"|"C"|"C-"|"D+"|"D"|"D-"|"F"}],
+  "criteria": [{"name": string, "group": "demand"|"build", "category": string, "explanation": string, "lever": "positioning"|"evidence"|"execution"|"exogenous", "lever_action": string, "band": "A+"|"A"|"A-"|"B+"|"B"|"B-"|"C+"|"C"|"C-"|"D+"|"D"|"D-"|"F"}],
+  "next_test": {"riskiest_assumption": string, "cheapest_test": string, "pass_threshold": string, "kill_threshold": string, "would_flip": {"to_go": string, "to_no_go": string}, "pivotal_criterion": string},
   "go_signals": {"positive_signals": [{"text": string, "category": string}], "key_strengths": [{"text": string, "category": string}]},
   "stop_signals": {"critical_risks": [{"text": string, "category": string}], "areas_of_concern": [{"text": string, "category": string}]},
   "risk_matrix": [{"title": string, "category": "tech"|"market"|"financial", "probability": number, "impact": number, "mitigation": string}],

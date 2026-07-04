@@ -23,6 +23,7 @@ const CRITERIA_HELP: Record<string, string> = {
   "Demand Strength": "How many people actively feel this problem and want it solved.",
   "Willingness to Pay": "Whether those people will actually open their wallet, and how much.",
   "Problem-Solution Fit": "Evidence this solution mechanism demonstrably delivers the outcome.",
+  "Retention & Recurrence": "How often the problem comes back, and whether value compounds with use.",
   "Market Timing": "Why now — a verified enabling change that makes this the right moment.",
   "Competitive Position": "How open the market structure is to any good new entrant.",
   "Differentiation / Moat": "Your specific edge, classified as a real power (or not one).",

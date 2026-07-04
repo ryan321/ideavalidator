@@ -41,11 +41,12 @@ export function criterionTone(n: number): string {
 
 // ---- criteria + weights ------------------------------------------------------------
 
-// The 9 criteria (exact names the schema, radar, and weight map key on).
+// The 10 criteria (exact names the schema, radar, and weight map key on).
 export const CRITERIA = [
   "Demand Strength",
   "Willingness to Pay",
   "Problem-Solution Fit",
+  "Retention & Recurrence",
   "Market Timing",
   "Competitive Position",
   "Differentiation / Moat",
@@ -62,6 +63,7 @@ export const BASE_WEIGHTS: Record<CriterionName, number> = {
   "Demand Strength": 1.6,
   "Willingness to Pay": 1.5,
   "Problem-Solution Fit": 1.2,
+  "Retention & Recurrence": 1.4,
   "Market Timing": 1.1,
   "Competitive Position": 1.1,
   "Differentiation / Moat": 1.0,
@@ -70,12 +72,39 @@ export const BASE_WEIGHTS: Record<CriterionName, number> = {
   "Goal Fit": 0.8,
 };
 
+// ---- levers ---------------------------------------------------------------------
+
+// What could actually MOVE each criterion's score — tagged by the model per criterion.
+// refine attacks only positioning/execution levers; evidence levers route to next_test
+// (only real-world data can move them); exogenous levers are watch-items, not to-dos.
+export const LEVERS = ["positioning", "evidence", "execution", "exogenous"] as const;
+export type Lever = (typeof LEVERS)[number];
+
+// The one-line taxonomy, shared by the prompt and the UI so the definitions can't drift.
+export const LEVER_MEANING: Record<Lever, string> = {
+  positioning: "fixable by re-scoping or re-positioning the idea",
+  evidence: "only real-world data can move it — route to the next test",
+  execution: "founder capability or plan",
+  exogenous: "timing / market structure nobody controls",
+};
+
+// ---- self-consistency sampling -------------------------------------------------------
+
+/** How many parallel scoring samples a validation run fires (k-sample self-consistency:
+ * per-criterion score = median of k band-scores). Env `SCORING_SAMPLES`, default 3,
+ * floor 1 — k=1 must behave exactly like a single-sample run (no medians, no
+ * agreement adjustments). */
+export function scoringSamples(): number {
+  const n = Math.floor(Number(process.env.SCORING_SAMPLES ?? ""));
+  return Number.isFinite(n) ? Math.max(1, n) : 3;
+}
+
 export type GoalBucket = "lifestyle" | "side_hustle" | "venture" | "unsure";
 
 // Criteria are scored goal-NEUTRALLY by the model; the founder's goal enters HERE,
 // as an explicit multiplier vector on the base weights.
 export const GOAL_WEIGHTS: Record<GoalBucket, Partial<Record<CriterionName, number>>> = {
-  venture: { "Differentiation / Moat": 1.5, "Market Timing": 1.3 },
+  venture: { "Differentiation / Moat": 1.5, "Market Timing": 1.3, "Retention & Recurrence": 1.2 },
   side_hustle: {
     "Acquisition Ease": 1.4,
     "Founder Fit": 1.5,

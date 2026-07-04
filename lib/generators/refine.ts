@@ -42,6 +42,9 @@ export async function proposeRefinement(
   // Refiner isolation: the refiner sees the weakest criteria NAMES + the validator's
   // explanations (plus stop signals + the corpus digest) — never the numeric scores,
   // band definitions, weights, or anchor panel. It must fix substance it can't game.
+  // FLOWS-PHASE: exclude lever === "evidence" criteria from this weakest-criteria
+  // selection (only real-world data can move them — they route to next_test, and the
+  // refine prompt should say so); refine attacks only positioning/execution levers.
   const evidence = validation
     ? `Weakest criteria to attack (worst first — the criterion name and WHY the validator found it weak):
 ${(validation.criteria ?? [])

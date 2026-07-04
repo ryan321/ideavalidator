@@ -427,14 +427,17 @@ export function ValidationView({
         ) : null}
 
         {/* the neutral restatement the scorer actually judged (sycophancy firewall) */}
-        {d.claims_brief && (
+        {/* SURFACE-PHASE: render d.claims_audit.claims as a typed/tiered ledger (kind
+            + T1-T4 chips) under the brief, and the next_test kill-test panel ABOVE the
+            score in the hero region. */}
+        {d.claims_audit?.brief && (
           <details className="group" open={print}>
             <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
               <span className="transition group-open:rotate-90">▸</span>
               What we scored — the neutral claims brief
             </summary>
             <div className="mt-3 max-w-2xl border-l border-border pl-4">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{d.claims_brief}</p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{d.claims_audit.brief}</p>
               <p className="mt-2 text-xs text-muted/80">
                 The scorer judged this third-person restatement — the enthusiasm and superlatives
                 in the original wording carry no evidential weight.

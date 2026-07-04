@@ -1176,8 +1176,10 @@ export default function IdeaWorkspace({
               💬 Respond to the validator
             </div>
             <p className="mb-2 text-xs text-muted">
-              Push back on what it got wrong, add context, or answer its questions. The next validation
-              treats your input as authoritative and re-evaluates (e.g. competitors, market) accordingly.
+              Push back on what it got wrong, add context, or answer its questions. Facts about
+              yourself (skills, network, capital, time) are taken as authoritative; claims about
+              customers, competitors, or the market get verified against the evidence — not taken
+              on faith.
             </p>
             {activeQuestions.length > 0 && (
               <div className="mb-2 rounded-lg border border-border bg-panel2 p-3">
