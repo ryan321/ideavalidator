@@ -66,7 +66,10 @@ export async function dedupeAndRank(
     const res = await generateStructured(RatingsSchema, {
       role: "writing",
       grounded: false,
-      maxTokens: Math.min(200 + deduped.length * 30, 4000),
+      // ~45-70 tokens per pretty-printed {n,relevance,wtp,tier} entry — the old
+      // 200 + n*30 budget truncated ~30-item batches (finish=length), forcing the
+      // degrade path. Give the whole batch room to land in one response.
+      maxTokens: Math.min(400 + deduped.length * 70, 8000),
       system:
         "You judge whether forum posts are relevant evidence for validating a startup idea. " +
         "Rate each item 0-3: 0 = unrelated noise; 1 = same general space; 2 = discusses this " +

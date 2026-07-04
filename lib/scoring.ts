@@ -237,9 +237,12 @@ export const GATES = {
 // ---- hill-climb acceptance margin ----------------------------------------------------
 
 /** Measured run-to-run SD of the overall score (same statement, same pinned corpus).
- * Measured 2026-07-03 via `npm run variance` (12 runs / 3 fixtures, pooled SD 3.4);
- * re-measure after any prompt or model change and paste the value it prints. */
-export const MEASURED_SCORE_SD = 3;
+ * Re-measured 2026-07-04 via `npm run variance` on the full 10-criteria + Wave-3 scoring
+ * (12 runs / 3 fixtures, pooled SD 3.9). Note the forecast-derived criteria (Market
+ * Timing especially, ~16 SD) swing much more than the weighted overall because a small
+ * change in the stated probability can cross a band boundary. Re-measure after any
+ * scoring-prompt or model change and paste the value it prints. */
+export const MEASURED_SCORE_SD = 4;
 
 /** Auto-iterate accepts a new best only if it clears the champion by this margin —
  * a lucky re-roll of scoring noise must not count as an improvement. */
