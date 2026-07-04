@@ -10,19 +10,31 @@ preview slugs change, so re-check `https://openrouter.ai/api/v1/models` before r
 
 ---
 
-## TL;DR — recommended config
+## TL;DR — recommended config (premier, 2026-07-04)
 
 | Role | Used by | Pick | $/Mtok (in/out) | Budget alt |
 |------|---------|------|-----------------|------------|
-| **scoring** | validation (grounded), refine, deep-mode bull/bear/reconcile | `anthropic/claude-sonnet-4.6` | 3 / 15 | `google/gemini-3.5-flash` (1.5/9) |
-| **writing** | evidence queries + ranking, analysis Q&A chat, deep-mode CoVe | `google/gemini-3-flash-preview` | 0.5 / 3 | `google/gemini-2.5-flash` (0.3/2.5 — see caveat) |
-| **audit** | the second-family Goodhart check (deep mode, every-3rd iterate round, calibrate) | `google/gemini-3-flash-preview` | 0.5 / 3 | any distinct family (gpt/grok) |
+| **scoring** | validation (grounded), refine, deep-mode bull/bear/reconcile | `anthropic/claude-opus-4.8` | 5 / 25 | `anthropic/claude-sonnet-5` (3/15, intro 2/10) |
+| **writing** | evidence queries + ranking, analysis Q&A chat, deep-mode CoVe | `google/gemini-3-flash-preview` | 0.5 / 3 | keep — the cheap high-volume role |
+| **audit** | the second-family Goodhart check (deep mode, every-3rd iterate round, calibrate) | `openai/gpt-5.1` | ~1.25 / 10 | `x-ai/grok-4.3` (any distinct family) |
 
-The scoring role dominates spend (the grounded validation pass + the auto-iterate loop);
-the writing calls are small and cheap by design. The **audit** role must be a **different model
-FAMILY** from `scoring` — it exists to catch scorer-specific Goodharting, so pointing it at the
-same family defeats the purpose. Default gemini differs from the anthropic scorer; if you change
-`MODEL_SCORING` to a Google model, move `MODEL_AUDIT` to gpt/grok to keep them cross-family.
+**k = `SCORING_SAMPLES` = 2.** k-sample self-consistency exists to average out a *noisy* judge; Opus is a
+strong single-sample scorer, so 2 cuts run-to-run noise without k=3's cost. Use 3 with a weaker/cheaper
+scorer, 1 for single-sample.
+
+**Why this shape.** Scoring **is** the product, so spend there: Opus 4.8 gives the best calibration and the
+sharpest bull/bear/reconcile. Writing is high-volume and mechanical (queries, relevance/tier judgments) — a
+fast Flash is correct, not a compromise. The **audit** role must be a **different model FAMILY** from
+`scoring` (it catches scorer-specific Goodharting); GPT-5.1 was chosen over Gemini 3.1 Pro after a live probe:
+**Gemini Pro fell back to prose under `json_object` mode** (the long-JSON flakiness that also dogs Flash),
+while GPT-5.1 returned clean JSON. It also makes the pipeline **three distinct families** — Anthropic scorer +
+Google CoVe + OpenAI audit — for maximum independence.
+
+**Cost.** A standard validation was ~$0.13 on Sonnet 4.6; on Opus 4.8 at k=2 it's ~$0.20–0.30, a *deep* run
+(bull + bear + reconcile + CoVe + audit) ~$0.60–0.90. Deep mode is opt-in / reserved for auto-iterate winners.
+
+**Re-calibrate after any scoring-model or k change** — the 0-100 scale is tuned per model. Run
+`npm run calibrate` (band assertions) and `npm run variance` (updates `MEASURED_SCORE_SD`).
 
 Run validation + refine at **max reasoning effort** whatever model you pick, and keep the one self-repair retry.
 
@@ -43,9 +55,10 @@ The code has 3 roles:
 
 ```bash
 # .env.local
-MODEL_SCORING=anthropic/claude-sonnet-4.6
+MODEL_SCORING=anthropic/claude-opus-4.8
 MODEL_WRITING=google/gemini-3-flash-preview
-MODEL_AUDIT=google/gemini-3-flash-preview   # must be a DIFFERENT family from MODEL_SCORING
+MODEL_AUDIT=openai/gpt-5.1        # must be a DIFFERENT family from MODEL_SCORING
+SCORING_SAMPLES=2
 ```
 
 ---
