@@ -5,6 +5,7 @@ import { Card, Metric, Section, SectionHead } from "./ui";
 import type { Source } from "@/lib/ai/client";
 import type { Validation } from "@/lib/generators/validation";
 import type { EvidenceCorpus } from "@/lib/evidence/types";
+import { GATES, MEASURED_SCORE_SD, normalizeGoal, verdictBands } from "@/lib/scoring";
 
 // Report subcomponents (built as standalone files).
 import { CriteriaRadar } from "./report/CriteriaRadar";
@@ -13,50 +14,37 @@ import { ValidationSummary } from "./report/ValidationSummary";
 import { ValidationScorecard } from "./report/ValidationScorecard";
 import { RiskMatrix } from "./report/RiskMatrix";
 import { MarketSizing } from "./report/MarketSizing";
+import { SystemAdjustments } from "./report/SystemAdjustments";
+import { HowScored } from "./report/HowScored";
 import { EvidencePanel, FetchedBadge, WtpTag, relDate, sourceLabel } from "./report/EvidencePanel";
 
-function scoreColor(n: number): string {
-  if (n >= 70) return "var(--color-good)";
-  if (n >= 45) return "var(--color-warn)";
+// The overall score is judged against the GOAL's verdict bands (lib/scoring.ts) —
+// there is no fixed 70/45 line; a venture GO sits higher than a side-hustle GO.
+type Bands = { go: number; maybe: number };
+
+function scoreColor(n: number, b: Bands): string {
+  if (n >= b.go) return "var(--color-good)";
+  if (n >= b.maybe) return "var(--color-warn)";
   return "var(--color-bad)";
 }
 
-// Plain-English calibration for the 0-100 score (already judged relative to the goal),
+// Plain-English calibration for the 0-100 score, against the goal's real thresholds,
 // so a founder knows whether the number is good without startup intuition.
-function scoreBand(n: number): { label: string; hint: string } {
-  if (n >= 70) return { label: "Strong signal", hint: "clears the bar for your goal — worth committing and moving to build/sell." };
-  if (n >= 45) return { label: "Mixed", hint: "promising but not there yet — refine the weak criteria below, then re-validate." };
-  return { label: "Weak as written", hint: "doesn't clear the bar for your goal — iterate hard or reconsider the wedge." };
+function scoreBand(n: number, b: Bands): { label: string; hint: string } {
+  if (n >= b.go)
+    return { label: "Strong signal", hint: `clears the ${b.go}+ GO bar for your goal — worth committing and moving to build/sell.` };
+  if (n >= b.maybe)
+    return { label: "Mixed", hint: `in the MAYBE band (${b.maybe}–${b.go - 1}) for your goal — refine the weak criteria below, then re-validate.` };
+  return { label: "Weak as written", hint: `below the ${b.maybe} MAYBE bar for your goal — iterate hard or reconsider the wedge.` };
 }
 
-export function ScoreGauge({ score, size = 120 }: { score: number; size?: number }) {
-  const r = size / 2 - 8;
-  const c = 2 * Math.PI * r;
-  const dash = (Math.max(0, Math.min(100, score)) / 100) * c;
-  const color = scoreColor(score);
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-border)" strokeWidth={8} />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke={color}
-        strokeWidth={8}
-        strokeLinecap="round"
-        strokeDasharray={`${dash} ${c}`}
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-      />
-      <text x="50%" y="48%" textAnchor="middle" fontSize={size * 0.28} fontWeight={700} fill={color} fontFamily="var(--font-mono)">
-        {Math.round(score)}
-      </text>
-      <text x="50%" y="66%" textAnchor="middle" fontSize={size * 0.1} fill="var(--color-muted)">
-        / 100
-      </text>
-    </svg>
-  );
-}
+// Human noun for the goal, used in goal-conditional copy.
+const GOAL_NOUN: Record<string, string> = {
+  lifestyle: "lifestyle",
+  side_hustle: "side-hustle",
+  venture: "venture",
+  unsure: "unspecified",
+};
 
 export function SourcesList({ sources }: { sources: Source[] }) {
   if (!sources?.length) return null;
@@ -139,13 +127,25 @@ function PainkillerTag({ verdict }: { verdict: "Painkiller" | "Vitamin" }) {
 }
 
 // Signature instrument: a calibrated 0-100 verdict meter. The three zones are the
-// REAL scoring thresholds (NO-GO <45, MAYBE 45-69, GO ≥70), with a needle at the
-// score — so the founder reads not just "59" but "59, in MAYBE, 11 below the GO line".
-function VerdictMeter({ score }: { score: number }) {
+// REAL per-goal thresholds from lib/scoring.ts (e.g. venture NO-GO <50 / MAYBE / GO ≥78),
+// with a needle at the score — so the founder reads not just "59" but "59, in MAYBE,
+// N below this goal's GO line". A ±SD ribbon around the needle shows scoring noise.
+function VerdictMeter({
+  score,
+  bands,
+  insufficient = false,
+}: {
+  score: number;
+  bands: Bands;
+  insufficient?: boolean;
+}) {
   const s = Math.max(0, Math.min(100, Math.round(score)));
   const pos = Math.max(5, Math.min(95, s)); // keep the needle chip on-canvas at extremes
-  const color = scoreColor(s);
-  const toGo = s >= 70 ? null : 70 - s;
+  // Under INSUFFICIENT EVIDENCE the whole instrument goes neutral — a green needle
+  // would imply a read the confidence doesn't support.
+  const color = insufficient ? "var(--color-muted)" : scoreColor(s, bands);
+  const toGo = s >= bands.go ? null : bands.go - s;
+  const sd = MEASURED_SCORE_SD;
   return (
     <div className="keep-color">
       {/* score needle + chip */}
@@ -167,12 +167,22 @@ function VerdictMeter({ score }: { score: number }) {
       {/* the calibrated track */}
       <div className="relative h-2.5">
         <div className="absolute inset-0 flex overflow-hidden rounded-full">
-          <div style={{ width: "45%", background: "color-mix(in srgb, var(--color-bad) 30%, transparent)" }} />
-          <div style={{ width: "25%", background: "color-mix(in srgb, var(--color-warn) 30%, transparent)" }} />
-          <div style={{ width: "30%", background: "color-mix(in srgb, var(--color-good) 30%, transparent)" }} />
+          <div style={{ width: `${bands.maybe}%`, background: "color-mix(in srgb, var(--color-bad) 30%, transparent)" }} />
+          <div style={{ width: `${bands.go - bands.maybe}%`, background: "color-mix(in srgb, var(--color-warn) 30%, transparent)" }} />
+          <div style={{ width: `${100 - bands.go}%`, background: "color-mix(in srgb, var(--color-good) 30%, transparent)" }} />
         </div>
-        {/* GO line */}
-        <div className="absolute -top-1 -bottom-1 w-px bg-fg/40" style={{ left: "70%" }} />
+        {/* ±SD noise ribbon around the needle (run-to-run variance of the same idea) */}
+        <div
+          className="absolute -top-0.5 -bottom-0.5 rounded"
+          title={`±${sd} run-to-run scoring noise`}
+          style={{
+            left: `${Math.max(0, s - sd)}%`,
+            width: `${Math.min(100, s + sd) - Math.max(0, s - sd)}%`,
+            background: `color-mix(in srgb, ${color} 22%, transparent)`,
+          }}
+        />
+        {/* GO line — this goal's threshold */}
+        <div className="absolute -top-1 -bottom-1 w-px bg-fg/40" style={{ left: `${bands.go}%` }} />
         {/* needle on the track */}
         <div
           className="absolute -top-1 -bottom-1 w-[3px] rounded"
@@ -181,14 +191,16 @@ function VerdictMeter({ score }: { score: number }) {
       </div>
       {/* zone labels under their bands */}
       <div className="relative mt-1.5 h-3 font-mono text-[10px] uppercase tracking-wider">
-        <span className="absolute -translate-x-1/2 text-bad/70" style={{ left: "22.5%" }}>No-go</span>
-        <span className="absolute -translate-x-1/2 text-warn/80" style={{ left: "57.5%" }}>Maybe</span>
-        <span className="absolute -translate-x-1/2 text-good/80" style={{ left: "85%" }}>Go · 70+</span>
+        <span className="absolute -translate-x-1/2 text-bad/70" style={{ left: `${bands.maybe / 2}%` }}>No-go</span>
+        <span className="absolute -translate-x-1/2 text-warn/80" style={{ left: `${(bands.maybe + bands.go) / 2}%` }}>Maybe</span>
+        <span className="absolute -translate-x-1/2 text-good/80" style={{ left: `${(bands.go + 100) / 2}%` }}>Go · {bands.go}+</span>
       </div>
       <div className="mt-2.5 font-mono text-xs" style={{ color }}>
-        {toGo != null
-          ? `${toGo} point${toGo === 1 ? "" : "s"} below the GO line`
-          : `clears the GO line`}
+        {insufficient
+          ? "score shown for reference — confidence is too low to grade this idea"
+          : toGo != null
+            ? `${toGo} point${toGo === 1 ? "" : "s"} below this goal's GO line (${bands.go})`
+            : `clears this goal's GO line (${bands.go})`}
       </div>
     </div>
   );
@@ -225,14 +237,36 @@ function ModelEstimateTag() {
   );
 }
 
+// What evidence is missing, in plain words — derived from the corpus stats and the
+// fired adjustments, for the INSUFFICIENT EVIDENCE header.
+function missingEvidence(d: Validation, evidence?: EvidenceCorpus | null): string {
+  const rules = new Set((d.system_adjustments ?? []).map((a) => a.rule));
+  const parts: string[] = [];
+  // corpus size: prefer the live corpus, fall back to the numbers the recompute
+  // recorded in the insufficient-evidence adjustment ("Corpus: N items; cited web sources: M").
+  const insuffDetail = d.system_adjustments?.find((a) => a.rule === "insufficient-evidence")?.detail ?? "";
+  const corpusCount =
+    evidence?.items.length ?? (insuffDetail.match(/Corpus:\s*(\d+)\s*items/i) ? Number(insuffDetail.match(/Corpus:\s*(\d+)\s*items/i)![1]) : null);
+  if (corpusCount === 0) parts.push("no relevant Reddit/HN evidence was found");
+  else if (corpusCount != null && corpusCount < 8) parts.push(`only ${corpusCount} Reddit/HN evidence item${corpusCount === 1 ? "" : "s"} were found`);
+  if (rules.has("degraded-corpus")) parts.push("the evidence relevance ranking degraded (refresh the evidence)");
+  if (rules.has("zero-web-sources")) parts.push("the grounded pass cited zero web sources (possible search-plugin regression)");
+  if (rules.has("few-competitors")) parts.push("fewer than 2 real competitors were named");
+  if (!parts.length) parts.push("the fetched corpus and cited web sources were too thin to ground a verdict");
+  return parts.join("; ");
+}
+
 export function ValidationView({
   d,
+  goal,
   evidence,
   onRefreshEvidence,
   refreshingEvidence,
   print = false,
 }: {
   d: Validation;
+  /** The founder's goal bucket — selects the verdict bands/weights this report is judged by. */
+  goal?: string | null;
   /** The fetched Reddit/HN corpus behind the demand read (shown as its own section). */
   evidence?: EvidenceCorpus | null;
   onRefreshEvidence?: () => void;
@@ -242,8 +276,18 @@ export function ValidationView({
 }) {
   const navLink =
     "rounded-md px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-muted transition hover:bg-panel2 hover:text-fg";
-  const color = scoreColor(d.score);
-  const band = scoreBand(d.score);
+  // Judge the stored score by the goal it was actually computed under (goal_scored),
+  // not the live goal picker — otherwise a goal edit re-colors a stale verdict.
+  const goalKey = d.goal_scored ?? normalizeGoal(goal);
+  const bands = verdictBands(goalKey);
+  const insufficient = d.verdict === "INSUFFICIENT EVIDENCE";
+  // INSUFFICIENT EVIDENCE is a neutral state — no verdict color may imply a read.
+  const color = insufficient ? "var(--color-muted)" : scoreColor(d.score, bands);
+  const band = scoreBand(d.score, bands);
+  // "68 ± 4" sitting within the noise band of a threshold is a coin flip, not a verdict.
+  const sd = MEASURED_SCORE_SD;
+  const nearLine =
+    Math.abs(d.score - bands.go) <= sd ? ("GO" as const) : Math.abs(d.score - bands.maybe) <= sd ? ("MAYBE" as const) : null;
 
   // only show a section (and its nav link) when it actually has content — a partial
   // analysis shouldn't leave a nav link that jumps to a blank section.
@@ -294,7 +338,7 @@ export function ValidationView({
         <a href="#brief" className={navLink}>Brief</a>
         {showMarket && <a href="#market" className={navLink}>Market</a>}
         {showMoney && <a href="#money" className={navLink}>Money</a>}
-        {d.risk_matrix?.length ? <a href="#risks" className={navLink}>Risks</a> : null}
+        {d.risk_matrix?.length || d.pre_mortem?.length ? <a href="#risks" className={navLink}>Risks</a> : null}
         {showPlan && <a href="#plan" className={navLink}>Plan</a>}
         {evidence && <a href="#evidence" className={navLink}>Evidence</a>}
       </nav>
@@ -318,18 +362,41 @@ export function ValidationView({
 
             <div className="mt-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
               <div className="min-w-0">
-                <div className="flex items-baseline gap-3">
-                  <span className="font-display text-5xl font-bold leading-none tracking-tight sm:text-6xl" style={{ color }}>
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <span
+                    className={`font-display font-bold leading-none tracking-tight ${
+                      insufficient ? "text-3xl sm:text-4xl" : "text-5xl sm:text-6xl"
+                    }`}
+                    style={{ color }}
+                  >
                     {d.verdict}
                   </span>
                   <span className="font-mono text-2xl font-bold tabular-nums" style={{ color }}>
                     {Math.round(d.score)}
+                    <span className="text-base font-semibold text-muted"> ± {sd}</span>
                     <span className="text-base text-muted">/100</span>
                   </span>
+                  {nearLine && !insufficient && (
+                    <span
+                      className="rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-warn"
+                      title={`The score sits within the ±${sd}-point run-to-run scoring noise of this goal's ${nearLine} threshold (${nearLine === "GO" ? bands.go : bands.maybe}) — a re-run could land on the other side.`}
+                    >
+                      borderline · ±{sd} of the {nearLine} line
+                    </span>
+                  )}
                 </div>
-                <div className="mt-2.5 max-w-md text-sm leading-relaxed text-muted">
-                  <b className="text-fg/80">{band.label}.</b> {band.hint}
-                </div>
+                {insufficient ? (
+                  <div className="mt-2.5 max-w-md text-sm leading-relaxed text-muted">
+                    <b className="text-fg/80">Not enough evidence to grade this idea:</b>{" "}
+                    {missingEvidence(d, evidence)}. The weighted score is shown, but at{" "}
+                    {d.confidence}% confidence (floor: {GATES.insufficientEvidenceConfidence}%) it
+                    is a guess — refresh the evidence or add founder context, then re-run.
+                  </div>
+                ) : (
+                  <div className="mt-2.5 max-w-md text-sm leading-relaxed text-muted">
+                    <b className="text-fg/80">{band.label}.</b> {band.hint}
+                  </div>
+                )}
               </div>
               <div className="max-w-[15rem] text-right">
                 <div className="font-mono text-2xl font-bold leading-tight text-accent2 [overflow-wrap:anywhere] sm:text-3xl">
@@ -340,7 +407,7 @@ export function ValidationView({
             </div>
 
             <div className="mt-7">
-              <VerdictMeter score={d.score} />
+              <VerdictMeter score={d.score} bands={bands} insufficient={insufficient} />
             </div>
           </div>
 
@@ -353,6 +420,31 @@ export function ValidationView({
           <ClampText text={d.summary} print={print} className="max-w-2xl text-[15px] text-fg/90" />
           {d.narrative && <PainkillerTag verdict={d.narrative.verdict} />}
         </div>
+
+        {/* code-level rules that fired on this run — visible enforcement */}
+        {d.system_adjustments?.length ? (
+          <SystemAdjustments adjustments={d.system_adjustments} goalLabel={GOAL_NOUN[goalKey]} />
+        ) : null}
+
+        {/* the neutral restatement the scorer actually judged (sycophancy firewall) */}
+        {d.claims_brief && (
+          <details className="group" open={print}>
+            <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
+              <span className="transition group-open:rotate-90">▸</span>
+              What we scored — the neutral claims brief
+            </summary>
+            <div className="mt-3 max-w-2xl border-l border-border pl-4">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{d.claims_brief}</p>
+              <p className="mt-2 text-xs text-muted/80">
+                The scorer judged this third-person restatement — the enthusiasm and superlatives
+                in the original wording carry no evidential weight.
+              </p>
+            </div>
+          </details>
+        )}
+
+        {/* the published scoring machinery, from lib/scoring.ts */}
+        <HowScored goal={goalKey} print={print} />
       </section>
 
       {/* ============================== THE BRIEF ============================== */}
@@ -626,10 +718,30 @@ export function ValidationView({
       )}
 
       {/* ============================ RISKS ============================ */}
-      {d.risk_matrix?.length ? (
+      {d.risk_matrix?.length || d.pre_mortem?.length ? (
         <section id="risks" className="scroll-mt-20">
-          <SectionHead n="04" title="Risks" hint="probability × impact" />
-          <RiskMatrix risks={d.risk_matrix} />
+          <SectionHead n="04" title="Risks" hint="pre-mortem + probability × impact" />
+          {/* prospective hindsight, written BEFORE the bands — the report leads with it */}
+          {d.pre_mortem?.length ? (
+            <div className="mb-5 rounded-xl border border-bad/25 bg-bad/5 p-4">
+              <div className="mb-1 font-mono text-[13px] uppercase tracking-[0.12em] text-bad">Pre-mortem</div>
+              <p className="mb-2.5 text-xs text-muted">
+                Written before any criterion was scored: it&apos;s 18 months later and this business
+                is dead — here&apos;s why.
+              </p>
+              <ul className="space-y-1.5">
+                {d.pre_mortem.map((p, i) => (
+                  <li key={i} className="flex gap-2.5 text-sm leading-snug text-fg/90">
+                    <span className="mt-px shrink-0 font-mono text-xs tabular-nums text-bad" aria-hidden>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {d.risk_matrix?.length ? <RiskMatrix risks={d.risk_matrix} /> : null}
           {d.downside && (
             <div className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
               <Metric label="Capital at risk" value={d.downside.capital_at_risk} />

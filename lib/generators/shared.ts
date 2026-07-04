@@ -15,29 +15,34 @@ export type GenContext = {
   steer?: string | null;
   /** Founder's market knowledge / build experience / network (sharpens scoring). */
   founderFit?: string | null;
+  /** Neutral third-person claims brief (sycophancy firewall pre-pass); null when the pre-pass failed. */
+  claimsBrief?: string | null;
 };
 
-// Goal/ambition buckets. "Good idea" is judged relative to the founder's goal, not a generic VC lens.
+// Goal/ambition buckets. The goal does NOT bend the measurement: criteria are scored
+// goal-neutrally and the goal enters through code (per-goal weight vectors + verdict
+// bands in lib/scoring.ts, plus the Goal Fit criterion). The rubric describes what the
+// founder is aiming at so Goal Fit and the narrative framing can be judged.
 export const GOALS: Record<string, { label: string; rubric: string }> = {
   lifestyle: {
     label: "Lifestyle / replace my job",
     rubric:
-      "a sustainable lifestyle business that replaces a salary (~$100-300k/yr profit for a solo founder or tiny team). A DEFENSIBLE NICHE is ideal — a huge TAM is NOT required and a small reachable SOM ($1-10M) can be plenty. Weight fast time-to-revenue, low burn, and a profitable wedge HIGH; weight venture-scale moats and winner-take-most dynamics LOW. Competition is acceptable as long as the founder can own a profitable slice. Such an idea can earn a GO even with a modest TAM.",
+      "a sustainable lifestyle business that replaces a salary (~$100-300k/yr profit for a solo founder or tiny team). A defensible niche with fast time-to-revenue and low burn fits this goal; a small reachable SOM ($1-10M) can be plenty and venture-scale moats/winner-take-most dynamics are NOT required. Competition is acceptable if the founder can own a profitable slice.",
   },
   side_hustle: {
     label: "Side hustle / extra income",
     rubric:
-      "a side hustle producing extra income with minimal time. Weight speed-to-first-dollar, low effort/maintenance, and low startup cost HIGHEST; TAM, moat, and scale barely matter. Penalize anything needing heavy ongoing effort, big capital, long sales cycles, or a team.",
+      "a side hustle producing extra income with minimal time. Speed-to-first-dollar, low effort/maintenance, and low startup cost fit this goal; TAM, moat, and scale barely matter to it. Heavy ongoing effort, big capital, long sales cycles, or needing a team are mismatches.",
   },
   venture: {
     label: "Venture-scale / raising funding",
     rubric:
-      "a venture-scale startup meant to raise funding. Apply the VC bar: require a large TAM (~$1B+), fast growth, a credible path to category leadership / winner-take-most, and real defensibility. A merely-profitable niche is a NO-GO because it cannot return a fund. Entrenched, well-funded, well-liked incumbents are a serious risk. Reserve high scores for a believable 10x+ outcome.",
+      "a venture-scale startup meant to raise funding: a large TAM (~$1B+), fast growth, a credible path to category leadership / winner-take-most, and real defensibility. A merely-profitable niche does not fit this goal because it cannot return a fund; a believable 10x+ outcome does.",
   },
   unsure: {
     label: "Not sure yet",
     rubric:
-      "not yet decided. Score with a balanced lens AND state the tradeoff in the summary (e.g. 'a solid lifestyle business but sub-scale for venture') so the founder can choose a direction.",
+      "not yet decided. Judge Goal Fit with a balanced lens AND state the tradeoff in the summary and goal_fit_note (e.g. 'a solid lifestyle business but sub-scale for venture') so the founder can choose a direction.",
   },
 };
 
@@ -46,18 +51,19 @@ export function goalContext(ctx: GenContext): string {
   if (!g) return "";
   const base = GOALS[g.bucket]?.rubric ?? g.bucket;
   const detail = g.detail?.trim() ? ` The founder adds: "${g.detail.trim()}".` : "";
-  return `\n\nFOUNDER'S GOAL — judge this idea RELATIVE TO this goal, not a generic VC lens: ${base}${detail}\nWhat counts as a "good idea", the verdict bands, and how much competition should worry the founder all depend on this goal. ALSO weigh the idea's required EFFORT, TIME commitment, and CAPITAL/cost against what the founder is willing to put in (from the goal/detail above) — penalize a mismatch (e.g. an idea needing a full-time team and heavy capital when the founder wants a low-effort, low-cost side project), even if the idea is otherwise strong.`;
+  return `\n\nFOUNDER'S GOAL: ${base}${detail}
+GOAL SCOPING — this is a MEASUREMENT rule, follow it exactly: score the first 8 criteria GOAL-NEUTRALLY (the same idea gets the same Demand Strength whether the founder wants a side hustle or a fund-returner — the system applies goal-specific weights and verdict bands in code, so do NOT bake the goal into them). Any mismatch between the idea's required EFFORT, TIME, and CAPITAL and this goal is reflected in EXACTLY TWO places: the "Goal Fit" criterion score and the "goal_fit_note" — never spread across other criteria. Use the goal to frame the summary and obtainable-revenue judgment ("what can this founder expect, given what they want"), not to bend the measurements.`;
 }
 
-// Shared competition reasoning — used by validation, market, and refine.
+// Shared competition reasoning — used by validation and refine. Competitive Position
+// and Differentiation / Moat are ORTHOGONAL constructs: the market's openness vs the
+// founder's specific edge. The founder's alpha is measured ONLY in Moat.
 export const COMPETITION_GUIDANCE = `Judge COMPETITION carefully, never crudely (do NOT just count competitors):
-- Competition is first of all DEMAND VALIDATION — people already pay to solve this. Zero competitors is usually a red flag, not a plus.
-- Assess incumbent CUSTOMER SATISFACTION from real signals (G2/Capterra/Trustpilot reviews, Reddit/HN/forum complaints, churn chatter): are customers happy or frustrated? "Frustrated customers with no good alternative" is one of the best openings; genuinely happy customers are the hardest moat to break.
-- Assess SWITCHING COSTS / lock-in: even frustrated customers can't leave if lock-in is high (data, integrations, contracts, embedded workflows). High incumbent lock-in = harder to capture; low lock-in = a better product can take share.
-- Measure the ALPHA / differentiator: an occupied category is fine IF there is a real edge. The edge can be (a) PRODUCT — better on a dimension that matters; (b) a NICHE / different angle the incumbents serve badly (e.g. CLI dev tools vs a team product); or (c) POSITIONING — being the credible ALTERNATIVE to a dominant player for a segment that rejects it for non-product reasons (privacy, trust, ideology, lock-in/vendor-diversification, simplicity, "anyone-but-BigCo"). A not-better-but-not-the-incumbent option can still capture enough of a disaffected segment to be worthwhile.
-- CATEGORY EDUCATION (counterintuitive): an established category (competitors already exist) usually makes selling EASIER — buyers understand the category, have a budget line, and you'd be best-in-category rather than only-in-category. Creating a brand-new category means an education tax and long sales cycles even when demand is real. So "no competitors" can mean harder customer acquisition, not easier.
-- Name the specific alpha and the target segment, weighted RELATIVE TO THE GOAL (a lifestyle business can thrive amid competition by owning a slice; a venture bet usually cannot if incumbents are entrenched AND well-liked).
-Reflect this in the "Competitive Position" score (HIGH = favorable position GIVEN the alpha, not merely "few competitors") and in "Differentiation / Moat" (how strong/defensible the alpha is).`;
+- Competition is first of all DEMAND VALIDATION — people already pay to solve this. Zero competitors is usually a red flag, not a plus. Route that evidence to Demand Strength and Willingness to Pay (see the criterion definitions), not to a better competition score.
+- "Competitive Position" measures MARKET-STRUCTURE OPENNESS ONLY — how enterable this market is for ANY well-executed new entrant, independent of this founder's edge: incumbent CUSTOMER SATISFACTION from real signals (G2/Capterra/Trustpilot reviews, Reddit/HN/forum complaints, churn chatter — frustrated customers with no good alternative = open; genuinely happy customers = closed), SWITCHING COSTS / lock-in (data, integrations, contracts, embedded workflows — high lock-in = closed even when customers grumble), FRAGMENTATION (many small players = open; one entrenched winner = closed), and UNDERSERVED SEGMENTS incumbents structurally ignore. Do NOT count the founder's differentiator here.
+- "Differentiation / Moat" measures THE FOUNDER'S SPECIFIC EDGE and nothing else. Classify the claimed edge into one of the 7 Powers: scale economies, network effects, counter-positioning, switching costs, brand, cornered resource, process power. Apply the benefit+barrier test — a real power delivers a benefit AND has a barrier stopping competitors from copying it. Unclassifiable claims ("first-mover", "better UX", "our AI", "we'll care more") band D or F. At the idea stage, only COUNTER-POSITIONING and a CORNERED RESOURCE can band A — network effects and scale are routes to verify later, not assets you have.
+- CATEGORY EDUCATION (counterintuitive, belongs in "Acquisition Ease"): an established category usually makes selling EASIER — buyers understand it and have a budget line; creating a new category means an education tax and long sales cycles even when demand is real. So "no competitors" can mean harder customer acquisition, not easier.
+- Name the specific segment and, when scoring Moat, name the specific power (or say "no classifiable power").`;
 
 export type Generator<T = unknown> = {
   kind: ArtifactKind;
@@ -79,6 +85,34 @@ export function ideaHeader(ctx: GenContext): string {
   return `Idea: "${ctx.idea.title}"\n\nDescription: ${ctx.idea.prompt}`;
 }
 
+// A finalized validation artifact carries computed grades (verdict, scores, gates).
+// A steered regen must not see them — "preserve everything" would otherwise instruct
+// the model to parrot the previous verdict/scores instead of re-judging the evidence.
+function stripDerivedGrades(d: unknown): unknown {
+  if (!d || typeof d !== "object" || Array.isArray(d)) return d;
+  const o = d as Record<string, unknown>;
+  if (!Array.isArray(o.criteria) || !("verdict" in o || "system_adjustments" in o)) return d;
+  const {
+    verdict: _v,
+    score: _s,
+    confidence: _c,
+    system_adjustments: _sa,
+    claims_brief: _cb,
+    validations: _val,
+    goal_scored: _g,
+    ...rest
+  } = o;
+  const copy: Record<string, unknown> = { ...rest };
+  copy.criteria = (o.criteria as Array<Record<string, unknown>>).map(
+    ({ score: _cs, ...c }) => c
+  );
+  if (copy.demand && typeof copy.demand === "object") {
+    const { strength: _st, ...dm } = copy.demand as Record<string, unknown>;
+    copy.demand = dm;
+  }
+  return copy;
+}
+
 // Per-regeneration steer: how the founder wants THIS deliverable adjusted. Applied
 // generically on top of any generator's prompt so steering works on every stage.
 export function steerContext(ctx: GenContext, currentDraft?: unknown): string {
@@ -87,7 +121,7 @@ export function steerContext(ctx: GenContext, currentDraft?: unknown): string {
   // Anchor the revision to the existing draft so "adjust this" is a targeted edit,
   // not a blind regenerate that lands in the same place.
   const draftBlock = currentDraft
-    ? `\n\nCURRENT DRAFT you are revising (preserve everything the instruction does NOT ask to change; apply the requested change clearly):\n${JSON.stringify(currentDraft).slice(0, 8000)}`
+    ? `\n\nCURRENT DRAFT you are revising (preserve everything the instruction does NOT ask to change; apply the requested change clearly):\n${JSON.stringify(stripDerivedGrades(currentDraft)).slice(0, 8000)}`
     : "";
   return `\n\n=== FOUNDER STEER (highest priority — this is why you are regenerating) ===
 The founder reviewed the current draft and wants it changed as described below. Apply this instruction directly and make the change clearly visible in the new output; rewrite as much as needed to satisfy it. Stay grounded in the artifacts above (don't invent or contradict their figures), and for any analytical task keep the scoring/verdict rules from the system message intact — but otherwise the founder's instruction takes precedence over your default choices.${draftBlock}
@@ -98,12 +132,13 @@ ${s}
 """`;
 }
 
-// Who the founder is — used to ground Feasibility, Acquisition Ease, and the demand
-// read on the actual person, not a generic stranger.
+// Who the founder is — grounds Founder Fit on the actual person, not a generic
+// stranger. Founder-specific advantages (skills, domain insight, capital, warm
+// channels) are measured ONLY in Founder Fit; Acquisition Ease stays a market property.
 export function founderProfile(ctx: GenContext): string {
   const f = ctx.founderFit?.trim();
   if (!f) return "";
-  return `\n\nFOUNDER PROFILE — score Feasibility, Acquisition Ease, and demand credibility for THIS founder, not a generic one: "${f}". An insider who has lived the pain is more credible (raise Demand/Feasibility confidence); warm intros make early acquisition easier and should be the #1 channel when present; no prior building experience raises execution risk. Reflect this in the relevant criteria and say so in the explanations.`;
+  return `\n\nFOUNDER PROFILE — score "Founder Fit" for THIS founder, not a generic one: "${f}". Founder Fit covers their skills, domain insight, capital, AND distribution access (warm intros / an owned audience count HERE, not in Acquisition Ease — that criterion measures the market's channel structure for any entrant). An insider who has lived the pain is more credible; no prior building experience raises execution risk. Reflect this ONLY in Founder Fit (and demand credibility where they supply firsthand evidence) and say so in the explanation.`;
 }
 
 // Authoritative founder clarifications, injected into analysis prompts when present.

@@ -7,30 +7,39 @@ const KEEP_TOP = 30;
 
 // relevance is unbounded here — the clamp below handles a stray out-of-range rating,
 // so one bad entry can't fail the whole batch (and trigger the keep-all degrade path).
+// wtp is optional so an omitted flag falls back to the keyword match, never a parse fail.
 const RatingsSchema = z.object({
-  ratings: z.array(z.object({ n: z.number(), relevance: z.number() })),
+  ratings: z.array(
+    z.object({ n: z.number(), relevance: z.number(), wtp: z.boolean().optional() })
+  ),
 });
 
 /**
  * Dedupe fetched items by url, judge each one's relevance to the idea (one fast-model
- * batch call, 0-3), drop the irrelevant, sort (WTP first, then relevance, engagement,
- * recency) and assign stable E-ids. Ranking failures degrade (keep everything at
- * relevance 1) rather than throw — the corpus is still real fetched data.
+ * batch call, 0-3) AND confirm willingness-to-pay per item, drop the irrelevant, sort
+ * (WTP first, then relevance, engagement, recency) and assign stable E-ids.
+ * wtp_signal = keyword match AND model confirmation ("I'd pay for this" is a signal;
+ * "I'd pay for this... NOT" and "I wouldn't pay" are not). Ranking failures degrade
+ * (keep everything at relevance 1, keyword-only WTP) rather than throw — the corpus
+ * is still real fetched data.
  */
 export async function dedupeAndRank(
   raw: RawEvidenceItem[],
   statement: string
-): Promise<{ items: EvidenceItem[]; errors: string[]; usage: Usage | null }> {
+): Promise<{ items: EvidenceItem[]; errors: string[]; usage: Usage | null; degraded: boolean }> {
   const errors: string[] = [];
+  let degraded = false;
 
   // dedupe by url (the same post often matches several queries)
   const byUrl = new Map<string, RawEvidenceItem>();
   for (const item of raw) if (!byUrl.has(item.url)) byUrl.set(item.url, item);
   const deduped = [...byUrl.values()];
-  if (!deduped.length) return { items: [], errors, usage: null };
+  if (!deduped.length) return { items: [], errors, usage: null, degraded };
 
-  // one batch relevance call: number each item, judge title+quote vs the idea
+  // one batch call: number each item, judge title+quote vs the idea (relevance 0-3)
+  // and confirm any willingness-to-pay reading of the text (wtp boolean)
   let relevance = new Map<number, number>();
+  let wtpConfirm = new Map<number, boolean>();
   let usage: Usage | null = null;
   try {
     const list = deduped
@@ -39,27 +48,45 @@ export async function dedupeAndRank(
     const res = await generateStructured(RatingsSchema, {
       role: "writing",
       grounded: false,
-      maxTokens: Math.min(200 + deduped.length * 20, 4000),
+      maxTokens: Math.min(200 + deduped.length * 26, 4000),
       system:
         "You judge whether forum posts are relevant evidence for validating a startup idea. " +
         "Rate each item 0-3: 0 = unrelated noise; 1 = same general space; 2 = discusses this " +
-        "problem or its competitors; 3 = directly expresses this pain or willingness to pay for it.",
+        "problem or its competitors; 3 = directly expresses this pain or willingness to pay for it. " +
+        "Also set wtp per item: true ONLY if the text genuinely expresses real willingness to pay " +
+        "(stated or demonstrated — 'I'd pay for this', 'we currently pay $X'); sarcasm, jokes, " +
+        "refusals ('I would never pay for this'), hypotheticals about OTHER people paying, and " +
+        "complaints about price are wtp false.",
       prompt: `Startup idea: ${statement}
 
-Rate the relevance of each numbered item:
+Rate each numbered item:
 ${list}
 
-Return JSON: {"ratings": [{"n": 1, "relevance": 0-3}, ...]} — one entry per item, every item rated.`,
+Return JSON: {"ratings": [{"n": 1, "relevance": 0-3, "wtp": true|false}, ...]} — one entry per item, every item rated.`,
     });
     usage = res.usage;
     relevance = new Map(res.data.ratings.map((r) => [r.n, Math.max(0, Math.min(3, Math.round(r.relevance)))]));
+    wtpConfirm = new Map(
+      res.data.ratings
+        .filter((r): r is { n: number; relevance: number; wtp: boolean } => typeof r.wtp === "boolean")
+        .map((r) => [r.n, r.wtp])
+    );
   } catch (e) {
-    // degrade: keep everything at relevance 1 rather than lose the corpus
+    // degrade: keep everything at relevance 1 (and keyword-only WTP) rather than lose
+    // the corpus — but flag it so confidence caps the corpus contribution instead of
+    // reading fake relevance.
+    degraded = true;
     errors.push(`Relevance ranking failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   const rated = deduped
-    .map((it, i) => ({ ...it, relevance: relevance.get(i + 1) ?? 1 }))
+    .map((it, i) => ({
+      ...it,
+      relevance: relevance.get(i + 1) ?? 1,
+      // keyword match AND model confirmation; an omitted/failed confirmation falls
+      // back to the keyword-only match (degraded mode keeps the old behavior).
+      wtp_signal: it.wtp_signal && (wtpConfirm.get(i + 1) ?? true),
+    }))
     .filter((it) => it.relevance > 0);
 
   rated.sort(
@@ -73,5 +100,5 @@ Return JSON: {"ratings": [{"n": 1, "relevance": 0-3}, ...]} — one entry per it
   const items: EvidenceItem[] = rated
     .slice(0, KEEP_TOP)
     .map((it, i) => ({ ...it, id: `E${i + 1}` }));
-  return { items, errors, usage };
+  return { items, errors, usage, degraded };
 }

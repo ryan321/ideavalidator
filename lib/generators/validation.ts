@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { BANDS, CRITERIA } from "../scoring";
+import { ANCHOR_PANEL } from "./anchors";
 import {
   COMPETITION_GUIDANCE,
   Generator,
@@ -13,34 +15,77 @@ const Signal = z.object({
   category: z.string(), // MARKET | DEMAND | DEFENSIBILITY | REVENUE | EXECUTION | TECH ...
 });
 
-export const ValidationSchema = z.object({
-  verdict: z.enum(["GO", "MAYBE", "NO-GO"]),
-  score: z.number().min(0).max(100),
-  confidence: z.number().min(0).max(100),
+// One elicited criterion: the model writes the explanation (rationale) FIRST, then
+// commits to a coarse band — code maps bands to 0-100 (lib/scoring.ts BAND_SCORE).
+const ElicitedCriterion = z.object({
+  // gates/weights/roll-ups key on these exact names — drift must fail parse (self-repair fixes it)
+  name: z.enum(CRITERIA),
+  group: z.enum(["demand", "build"]),
+  category: z.string(), // MARKET | EXECUTION | DEMAND ...
+  explanation: z.string(), // evidence-for / evidence-against, written BEFORE the band
+  // Normalize trivial deviations ("b+", "A -") before the strict enum — a full
+  // self-repair retry of a 16k-token call is too expensive for a stray space.
+  band: z.preprocess(
+    (v) => (typeof v === "string" ? v.replace(/\s+/g, "").toUpperCase() : v),
+    z.enum(BANDS)
+  ),
+});
+
+// The headline demand read as ELICITED — "strength" is intentionally absent: it is
+// derived in code from the Demand Strength criterion score so the two can't contradict.
+const DemandBlock = z.object({
+  willingness_to_pay: z.string(), // what target customers would realistically pay
+  obtainable_revenue: z.string(), // realistic annual $ THIS founder could capture
+  reasoning: z.string(), // demand x WTP x capturable share
+  // The visible arithmetic behind obtainable_revenue.
+  math: z
+    .object({
+      reachable: z.string(), // customers you can realistically reach (the touchable SOM slice)
+      capture: z.string(), // share/conversion of those you can win
+      price: z.string(), // annual revenue per customer
+    })
+    .optional(),
+  // Range, so the founder sees the downside, not just a point estimate.
+  sensitivity: z
+    .object({
+      conservative: z.string().catch(""), // if it goes worse than expected
+      base: z.string().catch(""), // the headline
+      optimistic: z.string().catch(""), // if it goes well
+    })
+    .optional(),
+});
+
+/**
+ * What the MODEL returns (the generator's schema). No overall verdict/score — those
+ * are computed server-side from the criterion bands (weights + gates in lib/scoring.ts).
+ */
+export const ValidationElicitSchema = z.object({
+  confidence: z.number().min(0).max(100), // self-report only nudges the computed number
   summary: z.string(),
   // Explicit effort/capital/time vs the founder's goal; for goal="unsure", the
-  // lifestyle-vs-venture read. (optional for older results)
+  // lifestyle-vs-venture read. The ONLY place (with Goal Fit) a goal mismatch lands.
   goal_fit_note: z.string().catch("").optional(),
 
-  // Radar + Demand/Build factor bars + detailed explanations all read from this.
-  criteria: z
-    .array(
-      z.object({
-        name: z.string(),
-        score: z.number().min(0).max(100),
-        group: z.enum(["demand", "build"]),
-        category: z.string(), // MARKET | EXECUTION | DEMAND ...
-        explanation: z.string(),
-      })
-    )
-    .length(9), // exactly the 9 named criteria the radar expects
+  // Prospective hindsight, written BEFORE any bands: "18 months later this failed
+  // because..." — scores must be consistent with it. Rendered in the Risks section.
+  pre_mortem: z.array(z.string()).min(3).max(5),
 
-  // Evidence-base scorecard.
-  validations: z.object({
-    problem: z.object({ score: z.number().min(0).max(100), rationale: z.string() }),
-    solution: z.object({ score: z.number().min(0).max(100), rationale: z.string() }),
-    market: z.object({ score: z.number().min(0).max(100), rationale: z.string() }),
-  }),
+  // Radar + Demand/Build factor bars + detailed explanations all read from this
+  // (after code maps each band to a numeric score).
+  criteria: z
+    .array(ElicitedCriterion)
+    .length(9) // exactly the 9 named criteria the radar expects
+    // A duplicated name (with another dropped) passes length+enum, and the gates keyed
+    // on the missing name would silently no-op — fail parse so self-repair fires.
+    .superRefine((cs, ctx) => {
+      const names = new Set(cs.map((c) => c.name));
+      for (const n of CRITERIA)
+        if (!names.has(n))
+          ctx.addIssue({
+            code: "custom",
+            message: `missing criterion "${n}" — output each of the 9 names exactly once`,
+          });
+    }),
 
   go_signals: z.object({
     positive_signals: z.array(Signal).min(1),
@@ -50,8 +95,6 @@ export const ValidationSchema = z.object({
     critical_risks: z.array(Signal).min(1),
     areas_of_concern: z.array(Signal).min(1),
   }),
-
-  // (action plan removed — validation is the assessment; the journey is the plan)
 
   // Probability x Impact risk matrix (1-5 each).
   risk_matrix: z
@@ -83,31 +126,8 @@ export const ValidationSchema = z.object({
     })
     .optional(),
 
-  // The headline: demand → willingness to pay → realistically obtainable revenue (vs the goal).
-  demand: z
-    .object({
-      strength: z.enum(["Weak", "Moderate", "Strong"]),
-      willingness_to_pay: z.string(), // what target customers would realistically pay
-      obtainable_revenue: z.string(), // realistic annual $ THIS founder could capture
-      reasoning: z.string(), // demand x WTP x capturable share, judged against the goal
-      // The visible arithmetic behind obtainable_revenue (optional for older results).
-      math: z
-        .object({
-          reachable: z.string(), // customers you can realistically reach (the touchable SOM slice)
-          capture: z.string(), // share/conversion of those you can win
-          price: z.string(), // annual revenue per customer
-        })
-        .optional(),
-      // Range, so the founder sees the downside, not just a point estimate.
-      sensitivity: z
-        .object({
-          conservative: z.string().catch(""), // if it goes worse than expected
-          base: z.string().catch(""), // the headline
-          optimistic: z.string().catch(""), // if it goes well
-        })
-        .optional(),
-    })
-    .optional(),
+  // The headline: willingness to pay → realistically obtainable revenue (vs the goal).
+  demand: DemandBlock.optional(),
 
   // What running this business is actually like, day to day.
   operating: z
@@ -141,7 +161,7 @@ export const ValidationSchema = z.object({
     .default([]),
 
   // ---- Comprehensive analysis (one call covers it all) -----------------------
-  // Every field below is optional + .catch so a partial/older result still renders.
+  // Every field below is optional + .catch so a partial result still renders.
 
   // MARKET & COMPETITION
   market: z
@@ -241,55 +261,115 @@ export const ValidationSchema = z.object({
     .optional(),
 });
 
-export type Validation = z.infer<typeof ValidationSchema>;
+export type ValidationElicited = z.infer<typeof ValidationElicitSchema>;
 
-export const validationGenerator: Generator<Validation> = {
+// A visible note appended whenever a code-level rule fired (gates, clamps, lints) —
+// the report shows its own enforcement instead of hiding it.
+export const SystemAdjustmentSchema = z.object({ rule: z.string(), detail: z.string() });
+export type SystemAdjustment = z.infer<typeof SystemAdjustmentSchema>;
+
+/**
+ * The stored ARTIFACT shape (what the UI validates against and renders): the elicited
+ * fields plus everything the server derives — verdict/score, per-criterion numeric
+ * scores, the validations roll-ups, demand.strength, system_adjustments, claims_brief.
+ */
+export const ValidationSchema = ValidationElicitSchema.extend({
+  verdict: z.enum(["GO", "MAYBE", "NO-GO", "INSUFFICIENT EVIDENCE"]),
+  score: z.number().min(0).max(100),
+  criteria: z
+    .array(ElicitedCriterion.extend({ score: z.number().min(0).max(100) }))
+    .length(9),
+  // Evidence-base scorecard — DERIVED roll-ups of the criteria (problem = Demand
+  // Strength; solution = Problem-Solution Fit; market = mean of Market Timing +
+  // Competitive Position), reusing the corresponding criterion explanations.
+  validations: z.object({
+    problem: z.object({ score: z.number().min(0).max(100), rationale: z.string() }),
+    solution: z.object({ score: z.number().min(0).max(100), rationale: z.string() }),
+    market: z.object({ score: z.number().min(0).max(100), rationale: z.string() }),
+  }),
+  demand: DemandBlock.extend({ strength: z.enum(["Weak", "Moderate", "Strong"]) }).optional(),
+  system_adjustments: z.array(SystemAdjustmentSchema),
+  // The neutral third-person restatement the scorer judged (sycophancy firewall).
+  claims_brief: z.string().optional(),
+  // The goal the weights/bands/gates actually used — the UI judges the stored score
+  // against THIS, not the live goal picker, so verdict and meter can't desynchronize.
+  goal_scored: z.enum(["lifestyle", "side_hustle", "venture", "unsure"]).optional(),
+});
+
+export type Validation = z.infer<typeof ValidationSchema>;
+export type ValidationCriterion = Validation["criteria"][number];
+
+// The subject block: the neutral claims brief is the primary object of analysis; the
+// founder's original wording is reference only (its tone must not move any band).
+function subjectBlock(ctx: Parameters<Generator["buildPrompt"]>[0]): string {
+  const brief = ctx.claimsBrief?.trim();
+  if (!brief) return ideaHeader(ctx);
+  return `CLAIMS BRIEF — the neutral restatement you are validating. Score THIS, claim by claim:
+${brief}
+
+ORIGINAL STATEMENT (reference only — consult it for details the brief may have dropped; its tone, enthusiasm, and superlatives carry ZERO evidential weight):
+Idea: "${ctx.idea.title}"
+${ctx.idea.prompt}`;
+}
+
+export const validationGenerator: Generator<ValidationElicited> = {
   kind: "validation",
   label: "Validation",
   blurb: "One grounded pass: scored verdict + market, money, plan & risks.",
   role: "scoring",
   grounded: true,
   webMaxResults: 10, // the one big grounded pass gets a deeper result set
-  schema: ValidationSchema,
+  schema: ValidationElicitSchema,
   maxTokens: 16000, // one comprehensive analysis: verdict + market + money + plan
   system:
     "You are a brutally honest startup analyst. Validate ideas against real market evidence from web " +
     "search, not hype. Be specific and quantitative, never generic.\n" +
-    "CALIBRATE EACH OF THE 9 CRITERIA TO THE EVIDENCE on this 0-100 scale: 0-30 = the problem barely " +
-    "matters, or a fatal flaw; 40-55 = a plausible but unvalidated signal; 60-75 = a real, evidenced " +
-    "signal; 80-90 = strong and well-corroborated; 90-100 = directly demonstrated. Score HIGH where the " +
-    "evidence is strong and LOW only where it is genuinely absent — do NOT be stingy with criteria that " +
-    "ARE well-supported.\n" +
-    "CRUCIAL — established competitors PROFITABLY doing largely what this idea proposes is the STRONGEST " +
-    "demand signal there is: it proves customers exist and pay. When that's true, score Demand Strength, " +
-    "Willingness to Pay, and Problem-Solution Fit HIGH (80+), and concentrate any weakness where it " +
-    "actually belongs — Competitive Position and Differentiation / Moat (a crowded field with no clear " +
-    "edge) — NOT across the whole board. A 'proven demand, unclear edge' idea should land solid overall " +
-    "with its weakness isolated to competition, not a mediocre score everywhere.\n" +
-    "Let the 9 scores DIFFER and track the evidence — they should not all huddle in one band, but do NOT " +
-    "manufacture a weakness the evidence doesn't support. Score each criterion independently on its OWN " +
-    "evidence; never pick a target overall number and back-fill. The overall score is COMPUTED by the " +
-    "system from your criteria (demand-weighted). Judge RELATIVE TO the founder's stated goal — the same " +
-    "idea can be a GO for a lifestyle business and a NO-GO for venture scale.\n" +
+    "BAND SCORING PROTOCOL — for each of the 9 criteria you emit a coarse letter band, not a number: " +
+    'one of "A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F". Meaning: A = directly ' +
+    "demonstrated / as strong as the strongest anchor below; B = a real, evidenced signal; C = plausible " +
+    "but unvalidated; D = weak, contradicted, or unclassifiable; F = fatal flaw or the evidence is absent/" +
+    "against. For EVERY criterion write the explanation FIRST — evidence for, evidence against, and a " +
+    "comparison to the relevant anchors — and only THEN commit to the band. Never choose bands to hit a " +
+    "target overall result: the overall score and verdict are COMPUTED by the system from your bands " +
+    "(published weights + non-compensatory gates), so spend your effort scoring each criterion honestly " +
+    "and independently on its OWN evidence. Most real ideas have at least one criterion at C or below.\n" +
+    "EVIDENCE ROUTING — established competitors PROFITABLY doing largely what this idea proposes is strong " +
+    "demand evidence: anchor Demand Strength and Willingness to Pay to that evidence — typically B+ to A- " +
+    "depending on incumbent health and growth. It is EVIDENCE ROUTING, never a floor, and it says NOTHING " +
+    "about Problem-Solution Fit (that this solution's mechanism works), Competitive Position (how open the " +
+    "market structure is), or Differentiation / Moat (this founder's edge) — score those on their own " +
+    "evidence, where a me-too idea's weakness actually lives.\n" +
+    "The criteria are ORTHOGONAL constructs — one observation must not sweep several of them. Score each " +
+    "goal-neutrally (the goal enters through code-side weights and the Goal Fit criterion only).\n\n" +
+    ANCHOR_PANEL +
+    "\n\n" +
     "BE TERSE. This report is read on screen by a busy founder — every prose field must be tight and " +
     "skimmable. No preamble, no restating the idea, no hedging. Prefer the shortest wording that keeps the " +
     "specific evidence (a named competitor, a real figure). Long-windedness is a defect, not thoroughness.",
-  buildPrompt: (ctx) => `${ideaHeader(ctx)}${goalContext(ctx)}${founderProfile(ctx)}${founderContext(ctx)}
+  buildPrompt: (ctx) => `${subjectBlock(ctx)}${goalContext(ctx)}${founderProfile(ctx)}${founderContext(ctx)}
 
-This is the SINGLE comprehensive analysis — it must cover the verdict AND the market/competition, the money,
+FOUNDER-ASSET CLAIMS — verification rule: any founder capability or asset claimed in the statement or
+context (an audience, warm channels, domain experience, partnerships, proprietary data, capital) that
+does NOT appear in the FOUNDER PROFILE above is UNVERIFIED: cap every criterion that rests on it
+(usually Founder Fit or Differentiation / Moat) at band C, write "unverified founder claim" in that
+criterion's explanation, and add a clarifying question asking the founder to confirm it.${
+    ctx.founderFit?.trim() ? "" : " No founder profile was provided, so ALL founder-asset claims are unverified."
+  }
+
+This is the SINGLE comprehensive analysis — it must cover the assessment AND the market/competition, the money,
 and the plan, all consistent with each other (reuse the same figures across sections; don't contradict yourself).
 
 Validate this idea. You MUST issue web searches before answering and base every figure (market size,
 CAGR, competitor funding, pricing) on a result you actually retrieved. Name the
 source domain or publication inline in the relevant rationale/explanation/text (e.g. "(grandviewresearch.com, 2024)").
-If search returns no figure, write "no reliable source found" and LOWER that criterion's score and the
+If search returns no figure, write "no reliable source found" and LOWER that criterion's band and the
 overall confidence — do NOT invent a number, a competitor, or a Reddit thread. Name at least 2 real,
 currently-operating competitors by name in the explanations.
 
 An EVIDENCE section of real Reddit/Hacker News posts we fetched appears at the end of this prompt —
 it is the ONLY citable demand evidence. Ground Demand Strength, Willingness to Pay, and the
 demand_signals in those numbered items (weigh WILLINGNESS-TO-PAY-flagged ones heavily); if the corpus
-is thin for a dimension, say so and score that dimension lower.
+is thin for a dimension, say so and band that dimension lower.
 
 FIRST, glean the "pain → obvious solution" NARRATIVE from the idea — even if the founder didn't spell it
 out (this drives the demand judgment): WHO feels the pain; the PAIN itself, articulated so that person
@@ -297,69 +377,77 @@ would say "yes, that's exactly me"; what they do TODAY (status_quo: existing sol
 the COST OF INACTION (what staying the same costs them — quantify if you can); your SOLUTION; and the
 AFTER (the transformation). Then set the VERDICT: a PAINKILLER (an obvious solution to an acute, costly
 pain — people will buy) or a VITAMIN (a nice-to-have the status quo handles fine). A "Vitamin" verdict
-MUST cap Demand Strength low no matter how big the market, and usually means a harder, education-heavy sale.
+means Demand Strength cannot band above C- no matter how big the market (the system clamps its mapped score to 50),
+and usually means a harder, education-heavy sale.
+
+SECOND, write the "pre_mortem" BEFORE scoring any criterion: it is 18 months later and this business is
+dead — 3-5 bullets, each ONE sentence naming a specific, likely cause of death for THIS idea (not generic
+startup risks) and the criterion it maps to. Your bands must be consistent with this pre-mortem.
 
 DEMAND IS THE #1 SIGNAL — lead with it. This report is less "pass/fail" and more "here is what the founder
 can realistically EXPECT, then how to improve it." Assess, in order: (1) how badly target customers want
 this (from real demand signals), (2) what they would realistically pay, (3) given competitors + switching
-costs + the alpha, what SHARE this founder could capture. Synthesize into "demand": { strength
-(Weak/Moderate/Strong), willingness_to_pay, obtainable_revenue (realistic ANNUAL DOLLARS this founder could
-capture — NOT the TAM), reasoning, and "math": { reachable (how many customers this founder can realistically
-REACH — the touchable slice, not the whole market), capture (the share/conversion of those they'd actually
-win, e.g. "~3%"), price (annual revenue per customer) } — the three numbers must multiply to roughly the
-obtainable_revenue so the headline number is traceable }. What matters is the absolute obtainable dollars judged against the GOAL:
-a small slice of a huge market can beat a large slice of a tiny one. Make the "summary" lead with what the
-founder can realistically expect (the obtainable revenue vs their goal), then the verdict.
+costs + the alpha, what SHARE this founder could capture. Synthesize into "demand": { willingness_to_pay,
+obtainable_revenue (realistic ANNUAL DOLLARS this founder could capture — NOT the TAM), reasoning, and
+"math": { reachable (how many customers this founder can realistically REACH — the touchable slice, not the
+whole market), capture (the share/conversion of those they'd actually win, e.g. "~3%"), price (annual
+revenue per customer) } — the three numbers must multiply to roughly the obtainable_revenue (the system
+CHECKS this arithmetic and rewrites a headline that doesn't multiply) }. What matters is the absolute
+obtainable dollars judged against the GOAL: a small slice of a huge market can beat a large slice of a tiny
+one. Make the "summary" lead with what the founder can realistically expect (the obtainable revenue vs
+their goal), then the crux of the assessment.
 
-Score these 9 criteria 0-100, where HIGHER ALWAYS MEANS MORE FAVORABLE (no inverted axes). Let them TRACK
-THE EVIDENCE and differ — well-validated criteria (e.g. demand proven by profitable competitors) belong at
-80-90, genuinely unproven ones lower; resist huddling everything in the 70s, but don't invent a weakness the
-evidence doesn't show. Output ALL 9 —
-never fewer, never renamed, never merged (the radar maps these exact names). Use EXACTLY these names and groups:
+Band these 9 criteria (rationale first, then band — HIGHER ALWAYS MEANS MORE FAVORABLE, no inverted axes).
+Let the bands TRACK THE EVIDENCE and differ — well-evidenced criteria belong at B+/A-, genuinely unproven
+ones at C or below; resist huddling everything in one band, but don't invent a weakness the evidence
+doesn't show. Score each GOAL-NEUTRALLY — the system applies the goal's weights and verdict bands in code.
+Output ALL 9 — never fewer, never renamed, never merged (the radar maps these exact names). Use EXACTLY
+these names and groups:
 - group "demand" (will people buy?):
-  - Demand Strength — how badly the target customer wants this, from real signals
-  - Willingness to Pay — how readily they will pay, and how much
-  - Problem-Solution Fit — how well this actually solves their problem
-  - Market Timing — whether now is the right moment
-  - Competitive Position — how favorable your position is given competitors, their customer satisfaction, switching costs, and your alpha (crowded with NO edge = LOW; a clear wedge or disaffected incumbent customers = HIGH)
+  - Demand Strength — how badly the target customer wants this, from real behavioral signals (money spent, workarounds built, complaints with effort behind them — compliments and survey enthusiasm count for ~nothing)
+  - Willingness to Pay — how readily they will pay, and how much (anchored to real incumbent pricing or WTP-flagged evidence)
+  - Problem-Solution Fit — SOLUTION-SHAPE evidence: proof this solution MECHANISM demonstrably delivers the outcome (competitor adoption of the same mechanism, reviews praising the outcome, the founder's own pilot results). A novel, unproven mechanism caps at C-/C — being plausible is not evidence.
+  - Market Timing — the verified "Why Now": NAME the specific enabling change (tech cost curve, platform shift, regulation, behavior change) and CITE a retrieved source for it in the explanation. "Nobody thought of it before" bands LOW; without a verifiable trend/momentum the system clamps this criterion.
+  - Competitive Position — MARKET-STRUCTURE OPENNESS ONLY: incumbent customer satisfaction, switching costs, fragmentation, underserved segments — how enterable this market is for ANY good new entrant, INDEPENDENT of this founder's edge
 - group "build" (can you win, deliver, and keep it?):
-  - Differentiation / Moat — strength and defensibility of your alpha
-  - Acquisition Ease — how easy it is to actually WIN customers (an established category buyers already understand = HIGH; needing to educate / create a category = LOW)
-  - Feasibility — how realistically THIS founder can build and run it
-  - Goal Fit — how well the required effort, time, and capital fit the founder's goal
+  - Differentiation / Moat — the founder's SPECIFIC edge, classified into one of the 7 Powers (scale economies, network effects, counter-positioning, switching costs, brand, cornered resource, process power) via the benefit+barrier test. Name the power in the explanation. Unclassifiable claims ("first-mover", "better UX", "our AI") band D or F; at idea stage only counter-positioning or a cornered resource can band A.
+  - Acquisition Ease — the market's CHANNEL STRUCTURE only: is the category understood, does a budget line exist, how long is the sales cycle, how saturated are the channels, and is the price point in a dead zone (too cheap for sales, too dear for self-serve)? The founder's warm channels do NOT count here — they belong in Founder Fit.
+  - Founder Fit — how well THIS founder is set up to win: skills, domain insight, capital, and distribution access (warm intros, an owned audience). An insider who lived the pain bands higher; no relevant skills/channel/capital bands low.
+  - Goal Fit — how well the required effort, time, and capital fit the founder's stated goal (the ONLY criterion where the goal enters)
 For each: set "category" to one of DEMAND, REVENUE, MARKET, DEFENSIBILITY, EXECUTION, GTM, FIT; write a
-2-3 sentence "explanation" citing a specific named competitor, number, or source (no generic phrasing).
+2-3 sentence "explanation" citing a specific named competitor, number, or source (no generic phrasing),
+comparing against the calibration anchors where relevant — and only then the "band".
 
 ${COMPETITION_GUIDANCE}
 
 Also produce:
-- "confidence" (0-100) = how much corroborating evidence you actually found (lower it when you relied on assumption). The system RECOMPUTES confidence from the fetched corpus + citation counts (your self-report only nudges it), and RECOMPUTES the overall score as a demand-weighted average of your 9 criteria, deriving the verdict from it — so put your effort into scoring the 9 criteria honestly and distinctly, NOT into tuning the headline numbers. Add a TIGHT evidence-based "summary" — AT MOST 2 sentences (~45 words) — that leads with what the founder can realistically expect (obtainable revenue vs goal), then the verdict's crux. No preamble, no restating the idea.
-- "validations": problem, solution, and market validation each with a 0-100 score and an evidence-based rationale.
+- "confidence" (0-100) = how much corroborating evidence you actually found (lower it when you relied on assumption). The system RECOMPUTES confidence from the fetched corpus + citation counts (your self-report only nudges it), and COMPUTES the overall score and verdict from your 9 bands via published weights and non-compensatory gates — so put your effort into banding the 9 criteria honestly and distinctly, NOT into tuning headline numbers. Add a TIGHT evidence-based "summary" — AT MOST 2 sentences (~45 words) — that leads with what the founder can realistically expect (obtainable revenue vs goal), then the crux.
+- "pre_mortem": the 3-5 failure-cause bullets described above (each ONE sentence, specific to THIS idea, naming the criterion it maps to).
 - "go_signals": positive_signals (why it has momentum) and key_strengths; "stop_signals": critical_risks and areas_of_concern. Each item is { text, category } where category is ONE of MARKET, DEMAND, DEFENSIBILITY, REVENUE, EXECUTION, TECH and "text" references something specific to THIS idea (a named competitor, a real number, or a cited signal) — no statement that could apply to any startup. Keep each "text" to ONE sentence, ~20 words max.
-- "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation.
+- "risk_matrix": 4-6 risks, each with category (tech/market/financial), probability (1-5), impact (1-5), and mitigation — consistent with the pre_mortem.
 - "clarifying_questions": 2-4 pointed questions whose answers would most change this assessment (e.g. exact target segment, what truly distinguishes this from the named competitors, pricing/distribution). If FOUNDER CONTEXT above already answered earlier questions, ask new ones (or fewer) — don't repeat answered ones.
 - "narrative": { who, pain, status_quo, cost_of_inaction, solution, after, verdict ("Painkiller"|"Vitamin"), why (ONE sentence for the verdict) }. Each field is ONE short sentence (~15 words), concrete to THIS idea — no padding, no second sentence.
-- "demand": { strength (Weak/Moderate/Strong), willingness_to_pay (a SHORT $ figure ONLY, e.g. "$200–600/team/mo" — no timeframe words, no prose), obtainable_revenue (a SHORT $/yr figure ONLY, e.g. "$120K–360K/yr" — realistic annual dollars THIS founder could capture given competition + goal, NOT the TAM; do NOT append a timeframe like "by Year 2" or ANY prose), reasoning (2-3 sentences max: the pricing basis and the demand × capturable-share math), math { reachable, capture, price } (the three SHORT figures behind obtainable_revenue, as specified above), sensitivity { conservative, base, optimistic } (each a SHORT annual-$ figure — the downside, the headline, and the upside, so the founder sees the range not just a point) }.
-- "goal_fit_note": 1-2 sentences stating the EFFORT/CAPITAL/TIME this idea needs vs the founder's stated goal — call out a mismatch plainly (e.g. "needs a full-time team + ~$300K; that contradicts a nights-and-weekends side hustle"). If the goal is "unsure", give the lifestyle-vs-venture split explicitly (e.g. "a solid lifestyle GO; a venture NO-GO because the SOM caps out below fund-returnable scale").
+- "demand": { willingness_to_pay (a SHORT $ figure ONLY, e.g. "$200–600/team/mo" — no timeframe words, no prose), obtainable_revenue (a SHORT $/yr figure ONLY, e.g. "$120K–360K/yr" — realistic annual dollars THIS founder could capture given competition + goal, NOT the TAM; do NOT append a timeframe like "by Year 2" or ANY prose), reasoning (2-3 sentences max: the pricing basis and the demand × capturable-share math), math { reachable, capture, price } (the three SHORT figures behind obtainable_revenue, as specified above — they must multiply to the headline), sensitivity { conservative, base, optimistic } (each a SHORT annual-$ figure — the downside, the headline, and the upside, so the founder sees the range not just a point) }.
+- "goal_fit_note": 1-2 sentences stating the EFFORT/CAPITAL/TIME this idea needs vs the founder's stated goal — call out a mismatch plainly (e.g. "needs a full-time team + ~$300K; that contradicts a nights-and-weekends side hustle"). If the goal is "unsure", give the lifestyle-vs-venture split explicitly. This note and the Goal Fit criterion are the ONLY places a goal mismatch appears.
 - "operating": { effort_level (Low/Medium/High), description (2–3 sentences on what the founder would actually spend time DOING — e.g. "mostly async remote support" vs "high-touch outbound sales + in-person demos") }.
 - "acquisition": { difficulty (Easy/Moderate/Hard), reasoning (2–3 sentences; weigh the category-education tax — an established category buyers understand is EASIER, creating a category is HARDER; competitors can make selling easier) }.
 - "downside": { capital_at_risk (1–2 sentences, LEAD with the figure, e.g. "<$15K to MVP; main risk is foregone salary"), liability (1–2 sentences), if_it_fails (1–2 sentences) }.
 - "possible_alphas": 2-4 concrete differentiators/angles this idea COULD pursue to improve its odds — each { alpha (short, specific — a niche to own, a positioning as the alternative to a dominant player, a workflow/data edge, an underserved segment), rationale (1-2 sentences on why it would raise the obtainable revenue / lower risk for the goal) }. These are TESTABLE directions distinct from the current positioning.
-- "market": the deeper market & competition read — { sizing: { tam: {value (a figure, e.g. "$4.2B"), note (one line)}, sam: {value, note}, som: {value, note}, methodology (one line on how you derived them) }, cagr_pct (number, e.g. 18), search_trend { keyword (the core search term), direction ("Rising"|"Flat"|"Falling"), note (e.g. "+85% YoY interest, per Google Trends") }, momentum (one line on a recent funding/exit/shift in the category, if you found one — else ""), competitors: 2-4 of [{ name (a REAL, currently-operating company), note (what they do + how satisfied their customers are, from real signals), complaint_theme (the single biggest thing their customers complain about — from real reviews/threads), your_edge (your angle vs them) }], demand_signals: 3-5 of the strongest items from the EVIDENCE section — each { evidence_id (the corpus id, e.g. "E3"), quote (the relevant excerpt from THAT item, verbatim or trimmed — never paraphrased into something the person didn't say), tag ("PAIN POINT"|"FEATURE REQUEST"|"DISCUSSION") }. NO urls — the system attaches the real link from the corpus, and a signal citing an id not in the corpus is DROPPED. If the corpus has no relevant items, return an empty demand_signals array. Only include search_trend/momentum you actually found; never fabricate a figure, a thread, or a URL. Keep all of this CONSISTENT with the scores and obtainable_revenue above.
+- "market": the deeper market & competition read — { sizing: { tam: {value (a figure, e.g. "$4.2B"), note (one line)}, sam: {value, note}, som: {value, note}, methodology (one line on how you derived them) }, cagr_pct (number, e.g. 18), search_trend { keyword (the core search term), direction ("Rising"|"Flat"|"Falling"), note (e.g. "+85% YoY interest, per Google Trends") }, momentum (one line on a recent funding/exit/shift in the category, if you found one — else ""), competitors: 2-4 of [{ name (a REAL, currently-operating company), note (what they do + how satisfied their customers are, from real signals), complaint_theme (the single biggest thing their customers complain about — from real reviews/threads), your_edge (your angle vs them) }], demand_signals: 3-5 of the strongest items from the EVIDENCE section — each { evidence_id (the corpus id, e.g. "E3"), quote (the relevant excerpt from THAT item, verbatim or trimmed — never paraphrased into something the person didn't say), tag ("PAIN POINT"|"FEATURE REQUEST"|"DISCUSSION") }. NO urls — the system attaches the real link from the corpus, and a signal citing an id not in the corpus is DROPPED. If the corpus has no relevant items, return an empty demand_signals array. Only include search_trend/momentum you actually found (Market Timing is clamped when both are empty); never fabricate a figure, a thread, or a URL. Keep all of this CONSISTENT with the bands and obtainable_revenue above.
 - "financials": the money — { startup_cost (a figure to a usable MVP), unit_economics { cac, ltv, payback (each short) }, revenue_model (pricing + how money is made, one line), projections: 3 years of [{ year, revenue, customers, note }] where revenue ≈ customers × blended price each year and Year-1 is consistent with obtainable_revenue and the sales difficulty }.
 - "plan": the path — { milestones: 3-5 of [{ title, when (e.g. "Month 1-2"), metric (how you know it's done) }] ordered earliest-first, team_and_ops (one line: who/what it takes to build and run) }.
 
-Return JSON exactly matching:
+Return JSON exactly matching (field order matters: pre_mortem before criteria; in each criterion, explanation before band):
 {
-  "verdict": "GO"|"MAYBE"|"NO-GO", "score": number, "confidence": number, "summary": string, "goal_fit_note": string,
-  "criteria": [{"name": string, "score": number, "group": "demand"|"build", "category": string, "explanation": string}],
-  "validations": {"problem": {"score": number, "rationale": string}, "solution": {"score": number, "rationale": string}, "market": {"score": number, "rationale": string}},
+  "confidence": number, "summary": string, "goal_fit_note": string,
+  "pre_mortem": [string],
+  "criteria": [{"name": string, "group": "demand"|"build", "category": string, "explanation": string, "band": "A+"|"A"|"A-"|"B+"|"B"|"B-"|"C+"|"C"|"C-"|"D+"|"D"|"D-"|"F"}],
   "go_signals": {"positive_signals": [{"text": string, "category": string}], "key_strengths": [{"text": string, "category": string}]},
   "stop_signals": {"critical_risks": [{"text": string, "category": string}], "areas_of_concern": [{"text": string, "category": string}]},
   "risk_matrix": [{"title": string, "category": "tech"|"market"|"financial", "probability": number, "impact": number, "mitigation": string}],
   "clarifying_questions": [string],
   "narrative": {"who": string, "pain": string, "status_quo": string, "cost_of_inaction": string, "solution": string, "after": string, "verdict": "Painkiller"|"Vitamin", "why": string},
-  "demand": {"strength": "Weak"|"Moderate"|"Strong", "willingness_to_pay": string, "obtainable_revenue": string, "reasoning": string, "math": {"reachable": string, "capture": string, "price": string}, "sensitivity": {"conservative": string, "base": string, "optimistic": string}},
+  "demand": {"willingness_to_pay": string, "obtainable_revenue": string, "reasoning": string, "math": {"reachable": string, "capture": string, "price": string}, "sensitivity": {"conservative": string, "base": string, "optimistic": string}},
   "operating": {"effort_level": "Low"|"Medium"|"High", "description": string},
   "downside": {"capital_at_risk": string, "liability": string, "if_it_fails": string},
   "acquisition": {"difficulty": "Easy"|"Moderate"|"Hard", "reasoning": string},

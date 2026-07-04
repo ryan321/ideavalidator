@@ -1,19 +1,14 @@
 import { Card } from "@/components/ui";
+import { criterionTone as scoreColor } from "@/lib/scoring";
 
 type Criterion = {
   name: string;
   score: number;
+  band?: string; // the elicited letter band the score derives from
   group: "demand" | "build";
   category: string;
   explanation: string;
 };
-
-const scoreColor = (n: number) =>
-  n >= 70
-    ? "var(--color-good)"
-    : n >= 45
-      ? "var(--color-warn)"
-      : "var(--color-bad)";
 
 function FactorColumn({
   label,
@@ -45,7 +40,9 @@ function FactorColumn({
                   <span
                     className="shrink-0 font-mono text-sm font-bold tabular-nums"
                     style={{ color }}
+                    title={c.band ? `Banded ${c.band} by the model; the number is the code-side mapping.` : undefined}
                   >
+                    {c.band ? `${c.band} · ` : ""}
                     {score}/100
                   </span>
                 </div>

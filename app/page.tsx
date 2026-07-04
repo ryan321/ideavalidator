@@ -2,6 +2,7 @@ import Link from "next/link";
 import NewIdeaForm from "@/components/NewIdeaForm";
 import { SectionHead } from "@/components/ui";
 import { listIdeas } from "@/lib/db";
+import { verdictBands } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -42,10 +43,11 @@ export default function Home() {
                     <span
                       className="shrink-0 rounded-md px-2 py-0.5 font-mono text-sm font-bold"
                       style={{
+                        // judged against the idea's OWN goal bands (lib/scoring.ts)
                         color:
-                          idea.best_score >= 70
+                          idea.best_score >= verdictBands(idea.goal).go
                             ? "var(--color-good)"
-                            : idea.best_score >= 45
+                            : idea.best_score >= verdictBands(idea.goal).maybe
                               ? "var(--color-warn)"
                               : "var(--color-bad)",
                         background: "color-mix(in srgb, currentColor 14%, transparent)",

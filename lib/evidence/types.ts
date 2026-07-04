@@ -26,6 +26,10 @@ export type RawEvidenceItem = Omit<EvidenceItem, "id" | "relevance">;
 export type EvidenceCorpus = {
   version_id: string;
   collected_at: number;
+  /** Set when this corpus was COPIED from the parent version at version-creation time
+   * (corpus pinning) — hill-climb comparisons hold evidence constant. Absent on a
+   * freshly collected corpus. */
+  pinned_from?: string;
   queries: string[];
   items: EvidenceItem[];
   stats: {
@@ -33,6 +37,9 @@ export type EvidenceCorpus = {
     hn_count: number;
     communities: string[];
     reddit_skipped?: boolean;
+    /** Relevance ranking failed and every item defaulted to relevance 1 — the corpus
+     * contribution to confidence is capped and a visible note is rendered. */
+    degraded?: boolean;
     errors: string[];
   };
 };

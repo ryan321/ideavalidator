@@ -36,10 +36,18 @@ An **idea** is a container for **versions** (v1, v2, …) of its statement. Two 
    context, or an auto-iterate hill-climb toward a target score.
 2. **Decide** — mark the winning version; the others stay as research.
 
-Scoring is judged **relative to the founder's stated goal** (side hustle / lifestyle / venture),
-and the overall score is **recomputed server-side** as a demand-weighted average of the 9 criteria
-(the model's headline number is ignored). The verdict (GO ≥ 70 / MAYBE ≥ 45 / NO-GO) derives from
-that recomputed score.
+Scoring is **band-elicited, code-computed** (full rationale in [EVALUATION.md](./EVALUATION.md) —
+authoritative). The model scores each of the 9 criteria goal-neutrally as a coarse letter band
+(A+…F, rationale written first) against a frozen anchor panel; code maps bands to numbers,
+weights them with an explicit per-criterion map modulated by the founder's goal, and applies
+non-compensatory gates (fatal-criterion cap, GO demand/founder-fit floors, no-edge cap, Vitamin
+demand clamp, goal-fit cap, unverified-Why-Now clamp). Verdict thresholds are **per-goal**
+(e.g. venture GO ≥ 78, side hustle GO ≥ 66), with a fourth verdict — **INSUFFICIENT EVIDENCE** —
+when computed confidence falls below the floor. Every fired rule lands on the artifact as a
+visible `system_adjustment`. A sycophancy firewall (a fast-model pass rewrites the pitch into a
+neutral claims brief the scorer judges) and a pre-scoring pre-mortem round out the pass. All
+constants live in `lib/scoring.ts`; the UI imports the same module to publish the active
+weights, bands, and gates ("How this is scored").
 
 ---
 
@@ -117,12 +125,15 @@ lib/
     index.ts                      # collectEvidence + prompt block + refine digest
   generators/
     validation.ts                 # the one generator: prompt + Zod schema
+    anchors.ts                    # frozen calibration vignettes (the anchor panel)
     refine.ts                     # statement-refinement proposals
     ask.ts                        # grounded Q&A over the artifacts
     shared.ts                     # GenContext, goal rubrics, competition guidance
     index.ts                      # runGenerator: evidence injection, signal rewrite,
                                   # score + confidence recompute
   db.ts                           # better-sqlite3 setup + queries
+  scoring.ts                      # ALL scoring constants: band map, weights, per-goal
+                                  # verdict bands, gates, measured score SD
 components/
   IdeaWorkspace.tsx               # the workspace: versions, iterate, report shell
   artifacts.tsx                   # ValidationView (the report)

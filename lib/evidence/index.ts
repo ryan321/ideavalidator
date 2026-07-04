@@ -65,6 +65,7 @@ export async function collectEvidence(versionId: string): Promise<EvidenceCorpus
       hn_count: items.filter((i) => i.source === "hn").length,
       communities,
       reddit_skipped: !redditConfigured() || undefined,
+      degraded: ranked.degraded || undefined,
       errors,
     },
   };
@@ -97,7 +98,7 @@ export function evidencePromptBlock(corpus: EvidenceCorpus): string {
 Rules for this evidence:
 - Every "demand_signals" citation MUST reference one of the ids above via "evidence_id" (e.g. "E3"). Do NOT output URLs — the system attaches the real link from the corpus, and a signal citing an unknown id is DROPPED.
 - Weigh the WILLINGNESS-TO-PAY-flagged items heavily when scoring Willingness to Pay.
-- If this corpus is thin or empty for a dimension (e.g. no one discussing the pain), SAY SO in the relevant explanation and lower that criterion's score and the overall confidence — do not paper over missing evidence.`;
+- If this corpus is thin or empty for a dimension (e.g. no one discussing the pain), SAY SO in the relevant explanation and band that criterion lower and lower the overall confidence — do not paper over missing evidence.`;
   return `${header}\n${body}\n${rules}`;
 }
 

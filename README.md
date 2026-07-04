@@ -51,9 +51,12 @@ npm run dev      # http://localhost:3000
 
 1. Describe an idea on the home page → creates an idea (version 1) and opens its workspace.
 2. **Validate** — one comprehensive grounded pass: the app fetches an evidence corpus (real
-   Reddit/HN posts), the model scores 9 criteria against your goal, and the report shows the
+   Reddit/HN posts), the model bands 9 criteria goal-NEUTRALLY against a frozen anchor panel,
+   and the system maps bands to scores, weights them for your goal, and applies non-compensatory
+   gates (a fatal flaw can kill the verdict; see docs/EVALUATION.md). The report shows the
    verdict, obtainable revenue, market, money, risks, and plan. Confidence is computed from the
-   evidence, not self-reported.
+   evidence, not self-reported — and when it's too low, the verdict is INSUFFICIENT EVIDENCE
+   instead of a guess.
 3. Iterate: refine manually, let the AI suggest a sharper version, respond to the validator with
    context, or auto-iterate toward a target score. Each try is a new version you can compare.
 4. **Decide** — mark the winning version. **Print / PDF** exports the active version's report.
@@ -88,6 +91,14 @@ refresh button, and model-synthesized figures (TAM/SAM/SOM, trends, competitors)
   evidence panel, …). Persisted artifacts are schema-checked on render; stale ones prompt a regen.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
+
+## Calibration harness
+
+`npm run calibrate -- --yes` scores 14 known-outcome fixture ideas (Airbnb-2008-style winners,
+Juicero/Quibi-style failures, tarpits, absurdities) and asserts each lands in its expected verdict
+band; `npm run variance -- --yes` measures run-to-run score SD (pinned evidence) and prints the
+`MEASURED_SCORE_SD` to set in `lib/scoring.ts` (it drives auto-iterate's acceptance margin). Both
+spend OpenRouter credit and require `--yes`.
 
 ## Notes
 

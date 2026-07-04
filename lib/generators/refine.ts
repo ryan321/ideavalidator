@@ -39,14 +39,16 @@ export async function proposeRefinement(
 
   const validation = getArtifact(versionId, "validation")?.data as ValidationLike | undefined;
 
+  // Refiner isolation: the refiner sees the weakest criteria NAMES + the validator's
+  // explanations (plus stop signals + the corpus digest) — never the numeric scores,
+  // band definitions, weights, or anchor panel. It must fix substance it can't game.
   const evidence = validation
-    ? `Current overall score: ${validation.score ?? "?"}/100.
-Lowest-scoring criteria to attack (each: score — why it's low):
+    ? `Weakest criteria to attack (worst first — the criterion name and WHY the validator found it weak):
 ${(validation.criteria ?? [])
         .slice()
         .sort((a, b) => a.score - b.score)
         .slice(0, 4)
-        .map((c) => `  - ${c.name} (${c.score}): ${c.explanation ?? ""}`)
+        .map((c) => `  - ${c.name}: ${c.explanation ?? ""}`)
         .join("\n")}
 Critical risks: ${(validation.stop_signals?.critical_risks ?? []).map((r) => r.text).join("; ")}
 Concerns: ${(validation.stop_signals?.areas_of_concern ?? []).map((r) => r.text).join("; ")}
@@ -77,8 +79,13 @@ Top risk-matrix items: ${(validation.risk_matrix ?? [])
       "they get fact-checked and penalized. All criteria are scored high=favorable: a low 'Competitive " +
       "Position' or 'Acquisition Ease' means a crowded/contested market or a hard sell, and the fix is a " +
       "sharper differentiator/wedge (a niche, proprietary data, a hard-to-copy workflow, or being the " +
-      "trusted alternative) plus an easier go-to-market — NOT adding competitors or barriers. Make the " +
-      "SMALLEST change set that lifts the lowest criteria; if a prior refinement hurt a " +
+      "trusted alternative) plus an easier go-to-market — NOT adding competitors or barriers.\n" +
+      "HARD RULE — never invent founder capabilities or assets (an audience, warm channels, domain " +
+      "experience, partnerships, proprietary data, capital) that are not in the FOUNDER PROFILE below: " +
+      "the re-scorer treats founder-asset claims missing from that profile as unverified, caps the " +
+      "criteria resting on them, and asks the founder to confirm — an invented asset LOWERS the score. " +
+      "Improve the idea, not the founder.\n" +
+      "Make the SMALLEST change set that lifts the weakest criteria; if a prior refinement hurt a " +
       "criterion, prefer reverting that specific aspect. The refined 'statement' must be a crisp 1-3 " +
       "sentence idea statement in the same format as the input (no preamble), and STRICTLY more specific " +
       "than the current one — name the exact target segment (a real 'who', not 'businesses'), the concrete " +
@@ -95,6 +102,11 @@ Top risk-matrix items: ${(validation.risk_matrix ?? [])
             goal: { bucket: idea.goal, detail: idea.goal_detail },
           })
         : ""
+    }
+FOUNDER PROFILE — the ONLY founder capabilities/assets that exist (see the hard rule): ${
+      idea?.founder_fit?.trim()
+        ? `"${idea.founder_fit.trim()}"`
+        : "none provided — assume NO special founder assets."
     }
 Current statement (v${version.n}): ${version.statement}
 

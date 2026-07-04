@@ -75,8 +75,10 @@ export function CriteriaRadar({ criteria }: { criteria: Criterion[] }) {
             </RadarChart>
           </ResponsiveContainer>
         </div>
-        {/* print: fixed size so it renders without needing to measure a hidden box */}
-        <div className="print-only keep-color" style={{ display: "none" }}>
+        {/* print: fixed size so it renders without needing to measure a hidden box.
+            (.print-only hides it on screen; an inline display:none would also beat
+            the @media print rule and blank the radar in the PDF) */}
+        <div className="print-only keep-color">
           <RadarChart width={560} height={360} data={data} outerRadius="72%">
             <PolarGrid stroke="#bbbbbb" />
             <PolarAngleAxis dataKey="name" tick={{ fill: "#444444", fontSize: 11 }} />

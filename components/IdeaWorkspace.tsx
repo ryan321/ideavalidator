@@ -7,6 +7,7 @@ import type { GeneratorMeta } from "@/lib/generators";
 import type { EvidenceCorpus } from "@/lib/evidence/types";
 import GenerationProgress from "./GenerationProgress";
 import type { Refinement } from "@/lib/generators/refine";
+import { acceptanceMargin, verdictBands } from "@/lib/scoring";
 import { SourcesList, ValidationView } from "./artifacts";
 import type { ZodType } from "zod";
 import { ValidationSchema } from "@/lib/generators/validation";
@@ -98,8 +99,10 @@ function SafeArtifact({
   return <ArtifactBoundary onRegenerate={onRegenerate}>{renderView(kind, data, extra)}</ArtifactBoundary>;
 }
 
-const scoreColor = (n: number) =>
-  n >= 70 ? "var(--color-good)" : n >= 45 ? "var(--color-warn)" : "var(--color-bad)";
+// Score colors follow the GOAL's verdict bands (lib/scoring.ts) — a 70 is green for a
+// side hustle but only amber for a venture bet.
+const scoreColor = (n: number, b: { go: number; maybe: number }) =>
+  n >= b.go ? "var(--color-good)" : n >= b.maybe ? "var(--color-warn)" : "var(--color-bad)";
 
 const fmtCost = (n: number) => "$" + (n < 1 ? n.toFixed(n < 0.1 ? 4 : 3) : n.toFixed(2));
 
@@ -331,14 +334,28 @@ export default function IdeaWorkspace({
   const [goalBucket, setGoalBucket] = useState(idea.goal ?? "unsure");
   const [goalDetail, setGoalDetail] = useState(idea.goal_detail ?? "");
   const [editingGoal, setEditingGoal] = useState(false);
+  // Editor drafts — browsing the goal chips must not re-judge stored scores against
+  // new bands (only Save commits, and only regeneration re-scores).
+  const [goalDraft, setGoalDraft] = useState(goalBucket);
+  const [goalDetailDraft, setGoalDetailDraft] = useState(goalDetail);
+  // The verdict bands the scores are judged by — per-goal (lib/scoring.ts).
+  const goalBands = verdictBands(goalBucket);
+
+  function openGoalEditor() {
+    setGoalDraft(goalBucket);
+    setGoalDetailDraft(goalDetail);
+    setEditingGoal(true);
+  }
 
   async function saveGoal() {
     try {
       await fetch(`/api/ideas/${idea.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal: goalBucket, goalDetail }),
+        body: JSON.stringify({ goal: goalDraft, goalDetail: goalDetailDraft }),
       });
+      setGoalBucket(goalDraft);
+      setGoalDetail(goalDetailDraft);
       setEditingGoal(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save goal");
@@ -674,10 +691,15 @@ export default function IdeaWorkspace({
       let bestId = curId;
       let bestN = curN;
       let best = curScore;
-      log(`Baseline v${curN}: ${curScore}/100.`);
+      // Accepting a new best requires clearing the measured run-to-run scoring noise —
+      // otherwise the hill-climb just harvests lucky re-rolls (lib/scoring.ts).
+      const margin = acceptanceMargin();
+      log(`Baseline v${curN}: ${curScore}/100. Acceptance margin: +${margin} (beats scoring noise).`);
 
       // Greedy hill-climb: always refine from the BEST version so far, so a
       // regression in one round doesn't trap the search at a worse statement.
+      // Child versions inherit the parent's evidence corpus (pinned server-side),
+      // so scores are compared on CONSTANT evidence.
       for (let r = 1; r <= maxRounds; r++) {
         if (best >= target) {
           log(`✓ Target ${target} reached at v${bestN} (${best}).`);
@@ -694,15 +716,60 @@ export default function IdeaWorkspace({
         const val = await generate("validation", v.id);
         const newScore = scoreOf(val);
         const newRev = revOf(val);
+        const accepted = newScore >= best + margin;
         log(
           `v${v.n}: ${newScore}/100${newRev ? ` · forecast ${newRev}` : ""}${
-            newScore > best ? "  ← new best" : ""
+            accepted
+              ? "  ← new best"
+              : newScore > best
+                ? `  (+${newScore - best}, within the ±${margin} noise margin — not accepted)`
+                : ""
           }`
         );
-        if (newScore > best) {
+        if (accepted) {
           best = newScore;
           bestId = v.id;
           bestN = v.n;
+        }
+      }
+
+      // Fresh-corpus confirmation: the loop compared versions on the PINNED corpus;
+      // before accepting the champion, re-collect evidence and re-validate once,
+      // adopting the more conservative of the two scores.
+      if (bestId !== curId) {
+        log(`Confirming v${bestN} on fresh evidence (the loop held the corpus constant)…`);
+        try {
+          const eres = await fetch(`/api/versions/${bestId}/evidence`, { method: "POST" });
+          const ej = await eres.json();
+          if (!eres.ok) throw new Error(ej.error ?? "Evidence collection failed");
+          setEvidence((prev) => ({ ...prev, [bestId]: ej as EvidenceCorpus }));
+          const confirmScore = scoreOf(await generate("validation", bestId));
+          const adopted = Math.min(best, confirmScore);
+          log(
+            confirmScore < best
+              ? `Confirmation run: ${confirmScore}/100 — the pinned-corpus score didn't fully hold; adopting ${adopted}.`
+              : `Confirmation run: ${confirmScore}/100 — holds up; adopting ${adopted} (min of the two runs).`
+          );
+          // The confirmation run persisted ITS score on the version row; when it
+          // rolled higher than the pinned run, write the conservative min back so
+          // chips/compare/Decide/home match what the loop actually adopted.
+          if (confirmScore > adopted) {
+            await fetch(`/api/versions/${bestId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ score: adopted }),
+            }).catch(() => {});
+            setVersions((prev) =>
+              prev.map((v) => (v.id === bestId ? { ...v, score: adopted } : v))
+            );
+          }
+          best = adopted;
+        } catch (e) {
+          log(
+            `Fresh-evidence confirmation failed (${
+              e instanceof Error ? e.message : "error"
+            }) — keeping the pinned-corpus score ${best}, UNCONFIRMED on fresh evidence.`
+          );
         }
       }
       log(`Done. Best version: v${bestN} at ${best}/100.`);
@@ -794,7 +861,7 @@ export default function IdeaWorkspace({
               >
                 <span className="font-mono font-semibold">v{v.n}</span>
                 {v.score != null ? (
-                  <span className="font-mono font-bold" style={{ color: scoreColor(v.score) }}>
+                  <span className="font-mono font-bold" style={{ color: scoreColor(v.score, goalBands) }}>
                     {v.score}
                   </span>
                 ) : (
@@ -852,7 +919,7 @@ export default function IdeaWorkspace({
                       </td>
                       <td className="px-3 py-2 align-top">
                         {v.score != null ? (
-                          <span className="font-mono font-bold" style={{ color: scoreColor(v.score) }}>{v.score}</span>
+                          <span className="font-mono font-bold" style={{ color: scoreColor(v.score, goalBands) }}>{v.score}</span>
                         ) : (
                           <span className="text-muted">—</span>
                         )}
@@ -947,9 +1014,9 @@ export default function IdeaWorkspace({
                         {GOAL_OPTIONS.map((o) => (
                           <button
                             key={o.key}
-                            onClick={() => setGoalBucket(o.key)}
+                            onClick={() => setGoalDraft(o.key)}
                             className={`rounded-md border px-2 py-1 ${
-                              goalBucket === o.key
+                              goalDraft === o.key
                                 ? "border-accent bg-accent/15 text-accent"
                                 : "border-border text-muted hover:text-fg"
                             }`}
@@ -959,8 +1026,8 @@ export default function IdeaWorkspace({
                         ))}
                       </div>
                       <input
-                        value={goalDetail}
-                        onChange={(e) => setGoalDetail(e.target.value)}
+                        value={goalDetailDraft}
+                        onChange={(e) => setGoalDetailDraft(e.target.value)}
                         placeholder="time, effort & budget — e.g. “~$200k/yr, solo, nights & weekends”"
                         className="mt-1.5 w-full rounded-md border border-border bg-panel px-2 py-1 outline-none focus:border-accent"
                       />
@@ -979,7 +1046,7 @@ export default function IdeaWorkspace({
                       Goal: <span className="text-fg/80">{goalLabel(goalBucket)}</span>
                       {goalDetail ? ` · ${goalDetail}` : ""}{" "}
                       {currentStage === "validate" && (
-                        <button onClick={() => setEditingGoal(true)} className="text-accent hover:underline">
+                        <button onClick={openGoalEditor} className="text-accent hover:underline">
                           ✎ edit
                         </button>
                       )}
@@ -1258,7 +1325,7 @@ export default function IdeaWorkspace({
                       <div className="flex items-center gap-2 text-sm">
                         <span className="font-mono font-semibold">v{v.n}</span>
                         {v.score != null && (
-                          <span className="font-mono font-bold" style={{ color: scoreColor(v.score) }}>
+                          <span className="font-mono font-bold" style={{ color: scoreColor(v.score, goalBands) }}>
                             {v.score}
                           </span>
                         )}
@@ -1311,6 +1378,7 @@ export default function IdeaWorkspace({
                   data={activeArtifacts.validation.data}
                   onRegenerate={() => generate("validation", activeVersionId)}
                   extra={{
+                    goal: goalBucket,
                     evidence: evidence[activeVersionId] ?? null,
                     onRefreshEvidence: refreshEvidence,
                     refreshingEvidence,
@@ -1385,7 +1453,7 @@ export default function IdeaWorkspace({
                 key={`${activeVersionId}:${m.kind}`}
                 kind={m.kind}
                 data={activeArtifacts[m.kind].data}
-                extra={{ print: true }}
+                extra={{ print: true, goal: goalBucket }}
               />
               {/* the "model estimate — see sources" tags need the sources in the PDF too */}
               <SourcesList sources={activeArtifacts[m.kind].sources} />

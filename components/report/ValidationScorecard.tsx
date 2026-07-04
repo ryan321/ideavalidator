@@ -1,13 +1,12 @@
 import { Card, Section, Badge } from "@/components/ui";
-
-const scoreColor = (n: number) =>
-  n >= 70 ? "var(--color-good)" : n >= 45 ? "var(--color-warn)" : "var(--color-bad)";
+import { criterionTone as scoreColor } from "@/lib/scoring";
 
 type Pillar = { score: number; rationale: string };
 
 type Criterion = {
   name: string;
   score: number;
+  band?: string; // the elicited letter band the score derives from
   group: "demand" | "build";
   category: string;
   explanation: string;
@@ -23,12 +22,12 @@ function clampScore(n: number) {
 const CRITERIA_HELP: Record<string, string> = {
   "Demand Strength": "How many people actively feel this problem and want it solved.",
   "Willingness to Pay": "Whether those people will actually open their wallet, and how much.",
-  "Problem-Solution Fit": "How well your solution actually relieves the pain (not just relates to it).",
-  "Market Timing": "Why now — tailwinds or shifts that make this the right moment.",
-  "Competitive Position": "How favorable your spot is given who already serves this demand.",
-  "Differentiation / Moat": "Your real edge and how defensible it is once others notice.",
-  "Acquisition Ease": "How hard/expensive it is to reach and convert each customer.",
-  "Feasibility": "How realistically you can build and run this with your resources.",
+  "Problem-Solution Fit": "Evidence this solution mechanism demonstrably delivers the outcome.",
+  "Market Timing": "Why now — a verified enabling change that makes this the right moment.",
+  "Competitive Position": "How open the market structure is to any good new entrant.",
+  "Differentiation / Moat": "Your specific edge, classified as a real power (or not one).",
+  "Acquisition Ease": "The market's channel structure: known category, budget line, sales cycle.",
+  "Founder Fit": "Your skills, domain insight, capital, and distribution access for this.",
   "Goal Fit": "How well the idea matches the goal, time, and budget you set.",
 };
 
@@ -82,7 +81,9 @@ function CriterionCard({ criterion }: { criterion: Criterion }) {
         <span
           className="shrink-0 rounded-full border px-2 py-0.5 font-mono text-xs font-semibold"
           style={{ color, borderColor: color }}
+          title={criterion?.band ? `Banded ${criterion.band} by the model; the number is the code-side mapping.` : undefined}
         >
+          {criterion?.band ? `${criterion.band} · ` : ""}
           {score}/100
         </span>
       </div>
@@ -104,13 +105,7 @@ export function ValidationScorecard({
     solution: { score: number; rationale: string };
     market: { score: number; rationale: string };
   };
-  criteria: {
-    name: string;
-    score: number;
-    group: "demand" | "build";
-    category: string;
-    explanation: string;
-  }[];
+  criteria: Criterion[];
 }) {
   const v = validations ?? ({} as typeof validations);
   const list = Array.isArray(criteria) ? criteria : [];

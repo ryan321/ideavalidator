@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { createVersion, getIdea, type VersionOrigin } from "@/lib/db";
+import {
+  createVersion,
+  getEvidence,
+  getIdea,
+  getVersion,
+  saveEvidence,
+  type VersionOrigin,
+} from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -22,5 +29,16 @@ export async function POST(req: Request) {
     rationale: rationale ?? null,
     context: typeof context === "string" && context.trim() ? context.trim() : null,
   });
+  // Corpus pinning: a child version (refine / auto-iterate / respond / alpha / manual
+  // edit) inherits the parent's evidence corpus, re-keyed to the child — so version-
+  // to-version score comparisons hold the evidence constant instead of re-rolling it.
+  // "Refresh evidence" (or auto-iterate's fresh-corpus confirmation) re-collects.
+  if (typeof parentId === "string" && parentId) {
+    const parent = getVersion(parentId);
+    const corpus = parent?.idea_id === ideaId ? getEvidence(parentId) : undefined;
+    if (corpus) {
+      saveEvidence(version.id, { ...corpus, version_id: version.id, pinned_from: parentId });
+    }
+  }
   return NextResponse.json(version, { status: 201 });
 }
