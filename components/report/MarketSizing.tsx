@@ -3,7 +3,7 @@ import { Card, Section, Badge } from "@/components/ui";
 type Tier = { value: string; note: string };
 
 // Parse a market figure like "$4.2B", "850M", "$40,000K" into a number so the
-// bars reflect the REAL proportions instead of decorative fixed widths.
+// circles reflect the REAL proportions instead of decorative fixed sizes.
 function parseMagnitude(s: string): number {
   if (!s) return 0;
   const m = s.replace(/,/g, "").match(/([\d.]+)\s*(b|m|k|bn|tn|t)?/i);
@@ -23,6 +23,8 @@ function shareLabel(part: number, whole: number): string | null {
   if (pct < 0.1) return "<0.1%";
   return `${pct < 10 ? pct.toFixed(1) : Math.round(pct)}%`;
 }
+
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 export function MarketSizing({
   sizing,
@@ -47,15 +49,22 @@ export function MarketSizing({
   const somN = parseMagnitude(som.value);
   const proportional = tamN > 0 && samN > 0 && somN > 0;
 
-  // Bar widths are the true fraction of TAM (floored so the slimmest slice stays
-  // visible); when a value can't be parsed, fall back to nominal descending widths.
-  const widthOf = (n: number, fallback: number) =>
-    proportional ? Math.max(3, Math.min(100, (n / tamN) * 100)) : fallback;
+  // Concentric radii (viewBox 200). Areas span orders of magnitude ($Bs → $Ms), so
+  // strict area-proportionality would make SOM vanish; use sqrt-of-share with floors
+  // so a bigger real share reads as a bigger circle while all three stay legible and
+  // properly nested. Non-parseable figures fall back to fixed aesthetic radii.
+  const rTam = 94;
+  const rSam = proportional ? rTam * clamp(Math.sqrt(samN / tamN), 0.6, 0.88) : 64;
+  const rSom = proportional ? rSam * clamp(Math.sqrt(somN / samN), 0.42, 0.82) : 34;
 
-  const rows = [
-    { key: "TAM", label: "Total market", tier: tam, raw: tamN, width: widthOf(tamN, 100), opacity: 0.4 },
-    { key: "SAM", label: "You could serve", tier: sam, raw: samN, width: widthOf(samN, 52), opacity: 0.7 },
-    { key: "SOM", label: "You could win", tier: som, raw: somN, width: widthOf(somN, 16), opacity: 1 },
+  // Value label baselines: centered in each ring's top band so they never collide.
+  const yTam = 100 - (rTam + rSam) / 2;
+  const ySam = 100 - (rSam + rSom) / 2;
+
+  const legend = [
+    { key: "TAM", label: "Total market", tier: tam, raw: tamN, fill: "var(--color-accent)", opacity: 0.9, share: "100%" },
+    { key: "SAM", label: "You could serve", tier: sam, raw: samN, fill: "var(--color-accent)", opacity: 0.55, share: shareLabel(samN, tamN) },
+    { key: "SOM", label: "You could win", tier: som, raw: somN, fill: "var(--color-accent)", opacity: 1, share: shareLabel(somN, tamN) },
   ];
 
   return (
@@ -77,33 +86,52 @@ export function MarketSizing({
           model estimate — see sources
         </p>
 
-        <div className="flex flex-col gap-4">
-          {rows.map((r) => {
-            const share = r.key === "TAM" ? "100%" : shareLabel(r.raw, tamN);
-            return (
-              <div key={r.key}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="flex items-baseline gap-2">
-                    <span className="font-mono text-xs font-semibold tracking-wide text-fg">{r.key}</span>
-                    <span className="text-[11px] text-muted">{r.label}</span>
-                  </span>
-                  <span className="flex items-baseline gap-2">
-                    {share && r.key !== "TAM" && (
-                      <span className="font-mono text-[11px] text-muted">{share} of TAM</span>
-                    )}
-                    <span className="font-mono text-sm font-bold text-fg">{r.tier.value}</span>
-                  </span>
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-7">
+          {/* Concentric circles — TAM (outer) ⊃ SAM ⊃ SOM (the slice you'd win). */}
+          <svg
+            viewBox="0 0 200 200"
+            className="keep-color w-40 shrink-0 sm:w-44"
+            role="img"
+            aria-label={`Market sizing: TAM ${tam.value}, SAM ${sam.value}, SOM ${som.value}`}
+          >
+            <circle cx="100" cy="100" r={rTam} fill="var(--color-accent)" opacity={0.16} stroke="var(--color-accent)" strokeOpacity={0.35} strokeWidth={1} />
+            <circle cx="100" cy="100" r={rSam} fill="var(--color-accent)" opacity={0.3} stroke="var(--color-accent)" strokeOpacity={0.5} strokeWidth={1} />
+            <circle cx="100" cy="100" r={rSom} fill="var(--color-accent)" opacity={0.95} />
+            {/* value labels, top band of each ring */}
+            <text x="100" y={yTam} textAnchor="middle" className="fill-fg font-mono" style={{ fontSize: 13, fontWeight: 700 }}>{tam.value}</text>
+            <text x="100" y={yTam + 11} textAnchor="middle" className="fill-muted font-mono" style={{ fontSize: 8, letterSpacing: 1 }}>TAM</text>
+            <text x="100" y={ySam} textAnchor="middle" className="fill-fg font-mono" style={{ fontSize: 12, fontWeight: 700 }}>{sam.value}</text>
+            <text x="100" y={ySam + 10} textAnchor="middle" className="fill-muted font-mono" style={{ fontSize: 8, letterSpacing: 1 }}>SAM</text>
+            <text x="100" y={97} textAnchor="middle" style={{ fontSize: 13, fontWeight: 700, fill: "white" }} className="font-mono">{som.value}</text>
+            <text x="100" y={108} textAnchor="middle" style={{ fontSize: 8, letterSpacing: 1, fill: "white", fillOpacity: 0.85 }} className="font-mono">SOM</text>
+          </svg>
+
+          {/* Legend — the numbers and the honest share of TAM, colour-keyed to the rings. */}
+          <div className="flex w-full flex-col gap-3">
+            {legend.map((r) => (
+              <div key={r.key} className="flex gap-2.5">
+                <span
+                  className="keep-color mt-1 h-3 w-3 shrink-0 rounded-full"
+                  style={{ backgroundColor: r.fill, opacity: r.opacity }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="flex items-baseline gap-2">
+                      <span className="font-mono text-xs font-semibold tracking-wide text-fg">{r.key}</span>
+                      <span className="text-[11px] text-muted">{r.label}</span>
+                    </span>
+                    <span className="flex items-baseline gap-2">
+                      {r.share && r.key !== "TAM" && (
+                        <span className="font-mono text-[11px] text-muted">{r.share} of TAM</span>
+                      )}
+                      <span className="font-mono text-sm font-bold text-fg">{r.tier.value}</span>
+                    </span>
+                  </div>
+                  {r.tier.note ? <p className="mt-0.5 text-[11px] leading-tight text-muted">{r.tier.note}</p> : null}
                 </div>
-                <div className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-panel2">
-                  <div
-                    className="keep-color h-full rounded-full"
-                    style={{ width: `${r.width}%`, backgroundColor: "var(--color-accent)", opacity: r.opacity }}
-                  />
-                </div>
-                {r.tier.note ? <p className="mt-1 text-[11px] leading-tight text-muted">{r.tier.note}</p> : null}
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
 
         {methodology ? (
@@ -114,7 +142,7 @@ export function MarketSizing({
           </div>
         ) : null}
         {!proportional && (
-          <p className="mt-2 text-[11px] text-muted/70">Bars are indicative — exact figures couldn&apos;t be parsed for scale.</p>
+          <p className="mt-2 text-[11px] text-muted/70">Circles are indicative — exact figures couldn&apos;t be parsed for scale.</p>
         )}
       </Card>
     </Section>

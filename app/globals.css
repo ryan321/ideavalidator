@@ -77,21 +77,46 @@ h3 {
   margin: 14mm;
 }
 @media print {
+  /* Remap the dark-theme tokens to ink-on-paper — the whole UI is built on these
+     CSS vars, so overriding them here re-colours every text-fg/text-muted/bg-panel/
+     border-border utility for the PDF in one place (the old `body{color:#000}` left
+     all the muted grays washed out on white). */
+  :root {
+    /* !important so these win over Tailwind v4's @theme layer, which otherwise keeps
+       the dark-theme values and washes every muted/fg text out on white paper. */
+    --color-bg: #ffffff !important;
+    --color-panel: #ffffff !important;
+    --color-panel2: #f3f4f7 !important;
+    --color-border: #d5d9e0 !important;
+    --color-fg: #14171d !important;
+    --color-muted: #545c69 !important;
+    --color-accent: #2f6bb0 !important;
+    --color-accent2: #2f6bb0 !important;
+    --color-good: #1f9e69 !important;
+    --color-warn: #b9821c !important;
+    --color-bad: #d63f3f !important;
+  }
+  html {
+    color-scheme: light;
+  }
+  body {
+    background: #fff !important;
+    background-image: none !important;
+    color: var(--color-fg);
+  }
   .no-print {
     display: none !important;
   }
   .print-only {
     display: block;
   }
-  body {
-    background: #fff;
-    color: #000;
-  }
-  [class*="rounded-xl"],
-  [class*="rounded-lg"],
-  svg,
+  /* Only keep SMALL atomic blocks intact across a page break — a blanket avoid on
+     every card pushed tall blocks (memos, the scorecard) to a fresh page and left
+     the prior one half-empty. Big containers may break; small ones stay whole. */
+  tr,
   li,
-  tr {
+  svg,
+  .pdf-keep {
     break-inside: avoid;
   }
   h1,

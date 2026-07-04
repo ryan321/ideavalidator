@@ -1223,7 +1223,18 @@ export default function IdeaWorkspace({
                   align="right"
                   caret={false}
                   items={[
-                    { label: "⎙ Save as PDF", hint: "Print or export the full report.", onClick: () => window.print() },
+                    {
+                      label: "⎙ Download PDF",
+                      hint: "Server-rendered, paginated report (a few seconds).",
+                      onClick: () => {
+                        const a = document.createElement("a");
+                        a.href = `/api/versions/${activeVersionId}/pdf`;
+                        a.download = "";
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                      },
+                    },
                     { label: "Delete idea", hint: "Removes all versions & artifacts.", danger: true, onClick: remove },
                   ]}
                 />
