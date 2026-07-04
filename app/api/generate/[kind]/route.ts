@@ -25,12 +25,16 @@ export async function POST(
   if (!(kind in GENERATORS)) {
     return NextResponse.json({ error: `Unknown kind: ${kind}` }, { status: 400 });
   }
-  const { versionId, steer, background } = await req.json();
+  const { versionId, steer, background, deep, audit } = await req.json();
   if (!versionId) {
     return NextResponse.json({ error: "versionId is required" }, { status: 400 });
   }
   const opts = {
     steer: typeof steer === "string" && steer.trim() ? steer.trim() : null,
+    // Wave 3: deep mode (bull/bear/reconcile + CoVe, ~3-4× cost) and the periodic
+    // second-family audit judge. Both default off — standard runs are unchanged.
+    deep: deep === true,
+    audit: audit === true,
   };
 
   if (background) {

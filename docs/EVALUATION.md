@@ -5,9 +5,12 @@ bands become numbers, where the founder's goal enters, which code-level gates ca
 and why the framework is built this way. Companion to [ARCHITECTURE.md](./ARCHITECTURE.md) (the
 plumbing) and [MODELS.md](./MODELS.md) (per-role model routing).
 
-Status: **Waves 1 and 2** of a three-wave redesign are the implemented baseline described here.
-The [roadmap](#roadmap--wave-3) lists what Wave 3 adds; the
-[Wave 2 mechanics](#wave-2-mechanics-implemented) section documents the decision layer.
+Status: **Waves 1, 2, and 3** of a three-wave redesign are implemented and described here.
+Wave 3 ("judging depth and auditability") is documented in its normal-path guards
+([tarpit/SISP/schlep/provenance](#tarpit--sisp--schlep--provenance--wave-3-implemented),
+[verbalized probability](#verbalized-probability-the-two-forecast-criteria--wave-3-implemented))
+and in [Wave 3 mechanics](#wave-3-mechanics-implemented) (deep mode, CoVe, the audit judge).
+The [Wave 2 mechanics](#wave-2-mechanics-implemented) section documents the decision layer.
 
 ---
 
@@ -150,6 +153,59 @@ criterion, so the radar chart, recompute, and UI keep working unchanged:
 Rationale-before-band kills intra-call anchoring (the first score dragging the other eight);
 coarse bands exist because LLM judges cannot discriminate 74 vs 78 but can discriminate 13
 labeled bands. The band→number map lives in `lib/scoring.ts` with every other constant.
+
+### Verbalized probability (the two forecast criteria) — *Wave 3, implemented*
+
+**Market Timing** and **Competitive Position** are forecast-shaped: they assert something about the
+*future* (the enabling shift plays out; a new entrant can hold a foothold). For these two — and only
+these two — the model additionally emits a `forecast: { event, probability }`: a concrete, dated,
+checkable event and a 0–1 probability it occurs. Code then **derives that criterion's band and score
+from the probability** via a fixed, documented, monotonic map (`forecastToBand` in `lib/scoring.ts`),
+overriding the emitted band, so the displayed number is auditable against the stated odds — a
+90 %-confident forecast cannot render as a C, and a 25 % one cannot render as an A.
+
+The p→score anchor table (linearly interpolated between rows, clamped at the ends, then snapped to
+the nearest band-score):
+
+| p (event occurs) | 0.10 | 0.25 | 0.40 | 0.50 | 0.60 | 0.75 | 0.90 |
+|------------------|------|------|------|------|------|------|------|
+| score (pre-snap) | 25 | 38 | 50 | 60 | 70 | 80 | 90 |
+
+The override fires in `finalizeValidation`'s band→number step (before any clamp or the weighted
+average), appends a `forecast-derived-score` `system_adjustment` naming the probability and event, and
+then flows through every gate and roll-up identically to an elicited band. If a model omits `forecast`
+(or on the other eight criteria, which never carry it), the emitted band is used as before — the
+mechanic is backward-safe within Wave 3.
+
+### Tarpit / SISP / schlep / provenance — *Wave 3, implemented*
+
+Four normal-path guards, all cheap prompt/schema work applied to **every** validation:
+
+- **Tarpit library** (`lib/generators/tarpits.ts`, `TARPIT_LIBRARY`): ~15 concise known-tarpit
+  clusters (discovery/recommendation apps, social-network-for-X, generic two-sided marketplaces,
+  "Uber for X", thin AI wrappers, meal/recipe planners, habit trackers, local-events apps,
+  "Slack/Notion but for Y", crypto-for-mainstream, ad-supported consumer content, to-do apps,
+  group-decision apps, nearby-people apps, universal-inbox aggregators) injected into the validation
+  **system prompt**. A tarpit match is **not** an auto-fail: the prompt requires the model to (1) name
+  prior attempts at the pattern it found via web search and (2) score the founder's *differentiated
+  insight*; absent a real insight, Demand Strength / Problem-Solution Fit / Differentiation-Moat band
+  low with a note in their explanations. Stored as an optional `tarpit: { matched, pattern,
+  prior_attempts, differentiated_insight }` (present only on a match).
+- **SISP** (solution-in-search-of-a-problem): if the pitch starts from a technology/solution with no
+  named sufferer and no concrete pain, the prompt flags it (`sisp: boolean`) and, because the prompt
+  cap is only a hope, `finalizeValidation` *enforces* it in code — when `sisp === true` it clamps the
+  Problem-Solution Fit score to `GATES.sispPsfCap` (55, band C) before averaging, with a
+  `sisp-psf-cap` system_adjustment (principle #3: the invariant the prompt states, the code enforces).
+- **Schlep-heaviness** (prompt-only): an idea being hard/unsexy/operationally heavy must **not** lower
+  the demand-side criteria — schlep blindness cuts the *other* way (most founders avoid schleps, so a
+  hard idea is often less crowded). Difficulty may *raise* Differentiation/Moat (counter-positioning /
+  barrier to entry) and route to Goal Fit; it never docks demand.
+- **Provenance** (`idea.provenance`: `"organic" | "whiteboard" | null`): an optional intake question —
+  "did this come from a problem YOU personally hit, or from brainstorming?". `founderProfile`
+  (`lib/generators/shared.ts`) injects it: **organic** = an insider who lived the pain → raises Founder
+  Fit and lends credibility to firsthand demand claims (it does *not* by itself prove market-wide
+  demand); **whiteboard** = note the elevated market risk and withhold the insider bonus (no lived
+  experience of the pain). `null` (unasked) is neutral.
 
 ### Anchor panel
 
@@ -453,31 +509,75 @@ default.
 
 ---
 
-## Roadmap — Wave 3
+## Wave 3 mechanics (implemented)
 
-**Wave 3 — "Judging depth and auditability"** (larger build; ~3–4× cost, only for deep-validation
-mode, iterate winners, and final GOs):
-
-- Adversarial bull/bear dual-pass in fresh contexts, reconciled by a judge with "the side citing
-  retrieved evidence wins" (a single "be balanced" call structurally cannot produce spread).
-- CoVe-style factored verification of the 5–10 load-bearing claims on a fast model
-  (supported / contradicted / not-in-evidence; unsupported claims discount toward the base-rate
-  prior).
-- Second-family cheap judge as an occasional audit (every 3rd iterate round + fixture runs),
-  **surfacing** per-criterion divergence > 15, never averaging it — it doubles as the held-out
-  Goodhart auditor for the loop.
-- Tarpit/graveyard library (~15 known clusters; a match requires naming prior attempts and
-  scoring the differentiated insight), SISP detection (technology-first pitch, no named
-  sufferer → caps Problem-Solution Fit), schlep-heaviness must not lower demand (may raise Moat
-  via counter-positioning), idea-provenance intake (organic vs whiteboard) feeding Founder Fit.
-- Verbalized probabilities for forecast-shaped criteria (Why Now, Competitive Position) — elicit
-  P(defined event) alongside the band, making the tool's track record auditable later.
+**Wave 3 — "judging depth and auditability"**. The normal-path guards
+([tarpit/SISP/schlep/provenance](#tarpit--sisp--schlep--provenance--wave-3-implemented) and
+[verbalized probability](#verbalized-probability-the-two-forecast-criteria--wave-3-implemented))
+are documented above under Scoring mechanics because they apply to *every* run. The two heavier
+pieces — an opt-in deep mode and an occasional second-family audit — are here.
 
 Order rationale: Wave 1 was nearly free and removed the failure modes that would corrupt any
 later investment (a Goodharted loop and a compressed scale poison added judging depth); Wave 2
 changed what the product *is* (decision + kill-test, not grade) on Wave 1's measured noise; Wave 3
 buys discrimination quality per dollar only now that the scale, gates, and loop integrity exist to
 preserve it.
+
+### Deep validation mode (`lib/generators/deep.ts`)
+
+Opt-in and gated (`runGenerator(versionId, "validation", { deep: true })`; the generate route
+accepts `deep` in the POST body; auto-iterate's champion-confirmation run passes `deep: true`).
+Standard runs are unchanged — `deep` defaults off, and a standard artifact carries **no** `mode`
+field (absent ⇒ `"standard"`). Deep mode costs ≈ **3–4× a standard single call** and is flagged as
+such in the docs; it stays under 5×.
+
+Deep mode **replaces the k-sample scorer** with an adversarial dual-pass + factored verification.
+All four steps share the SAME claims brief + evidence corpus + Section-A prompt additions:
+
+1. **BULL memo** — an independent `generateText` call in a **fresh context** with its own system
+   prompt, building the strongest *evidence-based* case FOR the idea. Cites corpus `[E#]` ids and
+   web domains; asserts nothing it can't support.
+2. **BEAR memo** — independent, fresh context, the strongest case AGAINST (leads with a pre-mortem);
+   same citation discipline. Bull and bear run in parallel.
+3. **RECONCILE** — the scoring pass (the standard `ValidationElicitSchema` scorer, run **k = 1**),
+   given BOTH memos + the corpus and the rule: *the side citing RETRIEVED evidence wins; unsupported
+   assertions lose; where the memos agree, that's high-confidence; where they conflict without
+   evidence, widen uncertainty (score more conservatively, lower the confidence self-report)*. It
+   emits the full elicited schema exactly as the standard scorer does. `bull_memo` and `bear_memo`
+   are stored on the artifact.
+4. **CoVe** (chain-of-verification) — after reconciliation, a factored-verification pass on the
+   **writing** model extracts the 5–10 **load-bearing claims** (the specific factual claims most
+   responsible for the high bands) and judges each `supported | contradicted | not_in_evidence`
+   **strictly against the corpus + fetched sources** (plausibility is not support). Stored as
+   `cove: [{ claim, criterion, status, note }]`.
+
+**CoVe discount** (in `finalizeValidation`, applied AFTER band→number, BEFORE the weighted average,
+each firing a `system_adjustment`): for each load-bearing claim whose `criterion` resolves to one of
+the 10, `contradicted` → `score = min(score, 45)`; `not_in_evidence` → `score = round((score+45)/2)`
+(pulled halfway toward the ~90 %-failure base-rate prior). A claim with no criterion (or an
+unrecognized name) discounts nothing.
+
+**Graceful per-step failure** — an aux step never hard-fails the run: if **bull or bear** fails,
+reconciliation proceeds with the survivor + a note; if **reconcile** fails, the run falls back to a
+standard k = 1 scoring pass + a note (no memos/CoVe); if **CoVe** fails, discounting is skipped + a
+note. `mode: "deep"` is stored only when reconciliation actually succeeded.
+
+### Second-family audit judge (`auditValidation`, `lib/generators/index.ts`)
+
+A cross-family Goodhart check that is **surfaced, never averaged**. `lib/ai/models.ts` gains an
+`"audit"` role (`MODEL_AUDIT`, default `google/gemini-3-flash-preview` — a genuinely different
+*family* from the anthropic scorer; override to gpt/grok to keep it distinct). `auditValidation`
+runs ONE banded scoring pass on the audit model over the **same prompt + corpus**, computes the
+per-criterion delta (`audit_score − our_score`, honoring the forecast override so the two families
+compare on the same derived number), and attaches
+`audit: { model, criteria: [{ name, our_score, audit_score, delta }], flagged }` where `flagged`
+lists criteria with `|delta| > 15`. **It never changes the score or verdict.**
+
+It runs: (a) always as part of deep mode; (b) in auto-iterate every 3rd round (`generate(..., { audit: true })`),
+with the loop reading `audit.flagged` and logging the contested criteria; (c) in `scripts/calibrate.ts`,
+per fixture, printing the flagged criteria and the largest deltas in the scorecard (surfaced, not
+asserted — it never changes a fixture's pass/fail). A failed audit is absorbed into
+`system_adjustments`, never fatal.
 
 ---
 
@@ -551,7 +651,9 @@ holds, any added judging quality would be optimized against, not benefited from.
 |-------|----------|
 | Band→number map, base weights, per-goal vectors, verdict bands, gate thresholds, levers, `scoringSamples()`, `percentileOf` | `lib/scoring.ts` (single exported module; UI imports and publishes) |
 | Anchor panel | `lib/generators/anchors.ts` (`ANCHOR_PANEL`, frozen) |
-| Recompute, gates, confidence, derived sub-scores, consistency lint, k-sample medians + agreement | `lib/generators/index.ts` |
+| Recompute, gates, confidence, derived sub-scores, consistency lint, k-sample medians + agreement, CoVe discount, `auditValidation` | `lib/generators/index.ts` |
+| Deep-mode orchestration (bull/bear/reconcile + CoVe) | `lib/generators/deep.ts` |
+| Audit-role model routing (`MODEL_AUDIT`) | `lib/ai/models.ts` |
 | Criterion definitions, band emission format, pre-mortem, `next_test`, claims audit, per-criterion `spread` | `lib/generators/validation.ts` (system prompt + Zod schema) |
 | Goal rubrics, `goalContext`, `COMPETITION_GUIDANCE`, founder profile, founder-input split | `lib/generators/shared.ts` |
 | Claims-brief pre-pass | validation pipeline, `writing` role (`lib/ai/models.ts`) |

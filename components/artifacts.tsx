@@ -19,6 +19,15 @@ import { HowScored } from "./report/HowScored";
 import { EvidencePanel, FetchedBadge, WtpTag, relDate, sourceLabel } from "./report/EvidencePanel";
 import { NextTest } from "./report/NextTest";
 import { ClaimsLedger } from "./report/ClaimsAudit";
+import {
+  AuditPanel,
+  CoveLedger,
+  DeepMemos,
+  ModeBadge,
+  ProvenanceTag,
+  SispFlag,
+  TarpitCallout,
+} from "./report/DeepReport";
 
 // The overall score is judged against the GOAL's verdict bands (lib/scoring.ts) —
 // there is no fixed 70/45 line; a venture GO sits higher than a side-hustle GO.
@@ -258,9 +267,17 @@ function missingEvidence(d: Validation, evidence?: EvidenceCorpus | null): strin
   return parts.join("; ");
 }
 
+// Wave 3 deep mode + audit (SURFACED here). On a deep run `d.mode === "deep"` and the
+// artifact carries d.bull_memo / d.bear_memo (adversarial memos), d.cove (the CoVe
+// claim-verification ledger), and d.audit (the second-family cross-check). Any run may
+// carry d.tarpit / d.sisp / d.forecast (per-criterion) / d.audit. Standard artifacts omit
+// `mode` (⇒ "standard") and carry none of the deep-only fields. These all render via the
+// components in ./report/DeepReport. The "Deep validation" action lives in the workspace
+// toolbar (POSTs { deep:true }); this view only renders what the artifact carries.
 export function ValidationView({
   d,
   goal,
+  provenance,
   evidence,
   onRefreshEvidence,
   refreshingEvidence,
@@ -271,6 +288,8 @@ export function ValidationView({
   d: Validation;
   /** The founder's goal bucket — selects the verdict bands/weights this report is judged by. */
   goal?: string | null;
+  /** Where the idea came from — surfaced as a tiny header tag (organic = lived the pain). */
+  provenance?: "organic" | "whiteboard" | null;
   /** The fetched Reddit/HN corpus behind the demand read (shown as its own section). */
   evidence?: EvidenceCorpus | null;
   onRefreshEvidence?: () => void;
@@ -367,10 +386,14 @@ export function ValidationView({
           {/* verdict-tinted top hairline — the only place the verdict color leads */}
           <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
           <div className="p-6 sm:p-7">
-            <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-              <span>Validation readout</span>
+            <div className="flex items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
+              <span className="flex flex-wrap items-center gap-2">
+                Validation readout
+                <ModeBadge mode={d.mode} />
+                <ProvenanceTag provenance={provenance} />
+              </span>
               <span
-                className="flex items-center gap-1.5"
+                className="flex shrink-0 items-center gap-1.5"
                 title="Computed from the fetched evidence corpus + distinct cited web sources; the model's self-report only nudges it (max 15 pts)."
               >
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
@@ -447,6 +470,12 @@ export function ValidationView({
           {d.narrative && <PainkillerTag verdict={d.narrative.verdict} />}
         </div>
 
+        {/* Wave 3 normal-path guards — a known-tarpit match (names the pattern + prior
+            attempts + the differentiated-insight ask) and the solution-in-search-of-a-
+            problem flag. Neither is an auto-fail; both explain a low band. */}
+        <TarpitCallout tarpit={d.tarpit} />
+        <SispFlag sisp={d.sisp} />
+
         {/* code-level rules that fired on this run — visible enforcement */}
         {d.system_adjustments?.length ? (
           <SystemAdjustments adjustments={d.system_adjustments} goalLabel={GOAL_NOUN[goalKey]} />
@@ -473,6 +502,13 @@ export function ValidationView({
 
         {/* the published scoring machinery, from lib/scoring.ts */}
         <HowScored goal={goalKey} samples={scoringSamples} print={print} />
+
+        {/* Wave 3 deep mode: the adversarial memos, the CoVe claim-verification ledger,
+            and (deep always, plus the periodic auto-iterate round) the second-family
+            cross-check. Each renders only when its stored field is present. */}
+        <DeepMemos bull={d.bull_memo} bear={d.bear_memo} print={print} />
+        <CoveLedger cove={d.cove} print={print} />
+        <AuditPanel audit={d.audit} print={print} />
       </section>
 
       {/* ============================== THE BRIEF ============================== */}

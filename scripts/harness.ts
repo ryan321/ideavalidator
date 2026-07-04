@@ -9,13 +9,16 @@ import { createIdea, deleteIdea, getIdeaCost, type Idea, type Version } from "..
 import { collectEvidence } from "../lib/evidence";
 import { runGenerator } from "../lib/generators";
 import { verdictBands } from "../lib/scoring";
-import type { Validation } from "../lib/generators/validation";
+import type { Audit, Validation } from "../lib/generators/validation";
 import { TIERS, type Fixture, type GoalBucket, type Tier } from "./fixtures";
 
 // Rough per-call spend for the confirmation prompt (grounded Sonnet validation pass
 // with a 10-result web plugin; evidence = cheap fast-model queries + ranking).
 export const EST_COST_PER_VALIDATION = 0.35;
 export const EST_COST_PER_CORPUS = 0.03;
+// One grounded second-family audit scoring pass over the already-assembled prompt (no fresh
+// corpus/claims-brief). Roughly a validation-sized scoring call on the cheaper audit model.
+export const EST_COST_PER_AUDIT = 0.25;
 
 export const flags = {
   yes: process.argv.includes("--yes"),
@@ -55,6 +58,7 @@ export type FixtureRun = {
   score: number;
   confidence: number;
   criteria: Record<string, number>; // criterion name → numeric score
+  audit?: Audit | null; // second-family audit divergence (only when runValidation is asked for it)
 };
 
 /** Create a throwaway idea+version for a fixture in the app db (titled [calibration]). */
@@ -62,13 +66,20 @@ export function createFixture(f: Fixture): { idea: Idea; version: Version } {
   return createIdea(`[calibration] ${f.title}`, f.statement, f.goal, null, f.founderFit ?? null);
 }
 
-/** One validation run (collects/reuses the version's evidence corpus internally). */
-export async function runValidation(versionId: string): Promise<FixtureRun> {
-  const art = await runGenerator(versionId, "validation");
+/** One validation run (collects/reuses the version's evidence corpus internally).
+ * With `opts.audit`, also runs the second-family audit judge over the same prompt+corpus
+ * and attaches the per-criterion divergence (SURFACED in the scorecard, never asserted). */
+export async function runValidation(versionId: string, opts?: { audit?: boolean }): Promise<FixtureRun> {
+  // Pass the audit flag through to runGenerator so the second-family judge scores the SAME
+  // assembled prompt the artifact was scored on (runGenerator hands it the precomputed
+  // fullPrompt+criteria). Auditing separately here would re-derive a fresh claims brief and
+  // compare against a different prompt — a non-like-for-like divergence.
+  const art = await runGenerator(versionId, "validation", { audit: opts?.audit });
   const v = art.data as Validation;
   const criteria: Record<string, number> = {};
   for (const c of v.criteria) criteria[c.name] = c.score;
-  return { verdict: v.verdict, score: v.score, confidence: v.confidence, criteria };
+  const audit: Audit | null = v.audit ?? null;
+  return { verdict: v.verdict, score: v.score, confidence: v.confidence, criteria, audit };
 }
 
 /** Pre-collect the corpus once so repeat runs on the same version reuse it. */

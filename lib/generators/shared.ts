@@ -29,6 +29,9 @@ export type GenContext = {
   steer?: string | null;
   /** Founder's market knowledge / build experience / network (sharpens scoring). */
   founderFit?: string | null;
+  /** Where the idea came from: "organic" (the founder lived the pain — insider credibility)
+   * vs "whiteboard" (brainstormed — elevated market risk, no insider credit); null = unasked. */
+  provenance?: "organic" | "whiteboard" | null;
   /** Neutral claims brief + typed claim ledger (sycophancy firewall pre-pass); null when the pre-pass failed. */
   claimsAudit?: ClaimsAudit | null;
   /** Communities the evidence corpus was drawn from (corpus.stats.communities) — the
@@ -154,8 +157,19 @@ ${s}
 // channels) are measured ONLY in Founder Fit; Acquisition Ease stays a market property.
 export function founderProfile(ctx: GenContext): string {
   const f = ctx.founderFit?.trim();
-  if (!f) return "";
-  return `\n\nFOUNDER PROFILE — score "Founder Fit" for THIS founder, not a generic one: "${f}". Founder Fit covers their skills, domain insight, capital, AND distribution access (warm intros / an owned audience count HERE, not in Acquisition Ease — that criterion measures the market's channel structure for any entrant). An insider who has lived the pain is more credible; no prior building experience raises execution risk. Reflect this ONLY in Founder Fit (and demand credibility where they supply firsthand evidence) and say so in the explanation.`;
+  // Provenance injects even without a founder-fit blurb (they're independent intake answers).
+  const provenance =
+    ctx.provenance === "organic"
+      ? `\n\nIDEA PROVENANCE — the founder says this came from a problem THEY personally hit (organic). Treat them as an INSIDER who has lived the pain: this RAISES Founder Fit and lends credibility to their firsthand demand claims (they've felt the frequency/intensity). It does NOT by itself prove market-wide demand — the corpus/web still governs Demand Strength — but it is a real, positive signal for Founder Fit. Say so in the Founder Fit explanation.`
+      : ctx.provenance === "whiteboard"
+        ? `\n\nIDEA PROVENANCE — the founder says this came from brainstorming, not a problem they personally hit (whiteboard). Do NOT credit insider knowledge: the founder has no lived experience of this pain, so treat market demand as UNVALIDATED by the founder and note the elevated market risk (they may be guessing at a problem that doesn't bite). This does not lower Founder Fit below what their skills/network/capital earn — it just withholds the insider bonus and raises the demand-verification bar.`
+        : "";
+  if (!f)
+    return provenance
+      ? provenance +
+          `\n(No founder self-description was provided, so score Founder Fit on the above provenance signal plus whatever the statement reveals, and treat all founder-asset claims as unverified.)`
+      : "";
+  return `\n\nFOUNDER PROFILE — score "Founder Fit" for THIS founder, not a generic one: "${f}". Founder Fit covers their skills, domain insight, capital, AND distribution access (warm intros / an owned audience count HERE, not in Acquisition Ease — that criterion measures the market's channel structure for any entrant). An insider who has lived the pain is more credible; no prior building experience raises execution risk. Reflect this ONLY in Founder Fit (and demand credibility where they supply firsthand evidence) and say so in the explanation.${provenance}`;
 }
 
 // Founder clarifications, injected into analysis prompts when present. NOT a blanket

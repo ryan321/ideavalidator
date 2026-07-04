@@ -15,6 +15,9 @@ type Criterion = {
   lever?: string; // positioning | evidence | execution | exogenous
   lever_action?: string; // the ONE concrete line that would move this criterion
   spread?: number; // k-sample disagreement (max−min) when it exceeded threshold
+  // VERBALIZED PROBABILITY — only on the two forecast criteria (Market Timing,
+  // Competitive Position). The band/score above was DERIVED from this probability.
+  forecast?: { event: string; probability: number };
 };
 
 function clampScore(n: number) {
@@ -110,6 +113,27 @@ function CriterionCard({ criterion }: { criterion: Criterion }) {
           <span className="text-muted">{criterion.lever_action}</span>
         </p>
       ) : null}
+      {criterion?.forecast ? <ForecastRow forecast={criterion.forecast} /> : null}
+    </div>
+  );
+}
+
+// VERBALIZED PROBABILITY — on the two forecast criteria, the score above is DERIVED
+// from a stated probability of a concrete, checkable event (lib/scoring.ts
+// forecastToBand). Surface both so the founder sees the forecast behind the number.
+function ForecastRow({ forecast }: { forecast: { event: string; probability: number } }) {
+  const pct = Math.round(Math.max(0, Math.min(1, forecast.probability)) * 100);
+  return (
+    <div
+      className="mt-2.5 rounded-lg border border-accent2/25 bg-accent2/[0.05] px-2.5 py-2"
+      title="The band and score above were DERIVED from this stated probability via a fixed monotonic map — so the number is auditable against the forecast, not just a vibe."
+    >
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-[9px] uppercase tracking-wide text-accent2">Forecast</span>
+        <span className="font-mono text-sm font-bold tabular-nums text-accent2">P = {pct}%</span>
+        <span className="font-mono text-[10px] text-muted">→ band derived from this</span>
+      </div>
+      <p className="mt-1 text-[11px] leading-snug text-fg/80">{forecast.event}</p>
     </div>
   );
 }

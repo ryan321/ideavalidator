@@ -33,6 +33,63 @@ export function bandScore(band: string): number {
   return BAND_SCORE[band as Band] ?? BAND_SCORE.F;
 }
 
+// ---- verbalized probability → score ------------------------------------------------
+//
+// The two forecast-shaped criteria (Market Timing, Competitive Position) emit a stated
+// probability (0..1) that a concrete dated event occurs. We map that probability to a
+// 0-100 score via a fixed, documented, MONOTONIC anchor table, then snap to the nearest
+// BAND_SCORE value so the derived criterion score is a real band and flows through every
+// gate/roll-up identically to an elicited band. Interpolated linearly between anchors;
+// clamped outside [0.1, 0.9]. The anchors:
+//   p 0.90→90, 0.75→80, 0.60→70, 0.50→60, 0.40→50, 0.25→38, 0.10→25.
+// A high probability with a low band (or vice-versa) is thus resolved in favor of the
+// probability — the number the report shows is auditable against the stated odds.
+export const FORECAST_ANCHORS: Array<[p: number, score: number]> = [
+  [0.1, 25],
+  [0.25, 38],
+  [0.4, 50],
+  [0.5, 60],
+  [0.6, 70],
+  [0.75, 80],
+  [0.9, 90],
+];
+
+/** The raw (pre-band-snap) 0-100 score for a stated probability, linearly interpolated
+ * across FORECAST_ANCHORS and clamped at the ends. Exported for docs/tests. */
+export function forecastRawScore(probability: number): number {
+  const p = Math.max(0, Math.min(1, probability));
+  const first = FORECAST_ANCHORS[0];
+  const last = FORECAST_ANCHORS[FORECAST_ANCHORS.length - 1];
+  if (p <= first[0]) return first[1];
+  if (p >= last[0]) return last[1];
+  for (let i = 1; i < FORECAST_ANCHORS.length; i++) {
+    const [p1, s1] = FORECAST_ANCHORS[i - 1];
+    const [p2, s2] = FORECAST_ANCHORS[i];
+    if (p <= p2) {
+      const t = (p - p1) / (p2 - p1);
+      return s1 + t * (s2 - s1);
+    }
+  }
+  return last[1];
+}
+
+/** Snap the interpolated forecast score to the nearest BAND_SCORE value, returning both
+ * the resulting band and its canonical numeric score — so a forecast-derived criterion is
+ * indistinguishable from an elicited banded one downstream (gates, weights, radar). */
+export function forecastToBand(probability: number): { band: Band; score: number } {
+  const raw = forecastRawScore(probability);
+  let best: Band = BANDS[0];
+  let bestDist = Infinity;
+  for (const b of BANDS) {
+    const d = Math.abs(BAND_SCORE[b] - raw);
+    if (d < bestDist) {
+      bestDist = d;
+      best = b;
+    }
+  }
+  return { band: best, score: BAND_SCORE[best] };
+}
+
 // Traffic-light tone for a single criterion score — the ONE place these display
 // breakpoints live (distinct from the per-goal verdict bands below).
 export function criterionTone(n: number): string {
@@ -159,6 +216,8 @@ export const GATES = {
   noEdgeCap: 55,
   /** (d) narrative.verdict === "Vitamin" clamps Demand Strength to this BEFORE averaging */
   vitaminDemandClamp: 50,
+  /** sisp === true (solution in search of a problem) caps Problem-Solution Fit to this (band C) */
+  sispPsfCap: 55,
   /** (e) Goal Fit below this ... */
   goalFitMin: 40,
   /** (e) ... caps the overall score at this (uncapped score recorded for goal-conditional rendering) */

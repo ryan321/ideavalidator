@@ -39,8 +39,9 @@ Optional — override the per-role models (defaults are sensible; paste current 
 <https://openrouter.ai/models> if any 404):
 
 ```
-MODEL_SCORING=anthropic/claude-sonnet-4.6       # validation, refine
-MODEL_WRITING=google/gemini-3-flash-preview     # evidence queries + ranking, chat
+MODEL_SCORING=anthropic/claude-sonnet-4.6       # validation, refine, deep bull/bear/reconcile
+MODEL_WRITING=google/gemini-3-flash-preview     # evidence queries + ranking, chat, deep CoVe
+MODEL_AUDIT=google/gemini-3-flash-preview       # second-family audit judge (must differ from scoring)
 ```
 
 ## Run
@@ -59,8 +60,15 @@ npm run dev      # http://localhost:3000
    thresholds — then the verdict, obtainable revenue, market, money, risks, and plan. Confidence
    is computed from the evidence, not self-reported — and when it's too low, the verdict is
    INSUFFICIENT EVIDENCE instead of a guess.
+   Deep validations (and every 3rd auto-iterate round) are also **audited by a second model
+   family** as a Goodhart check — where the two families disagree by more than 15 points on a
+   criterion, that divergence is surfaced (never averaged into the score).
 3. Iterate: refine manually, let the AI suggest a sharper version, respond to the validator with
    context, or auto-iterate toward a target score. Each try is a new version you can compare.
+   A **deep validation** (opt-in, ~3–4× cost, and the auto-iterate winner's confirmation run)
+   replaces the single scorer with an adversarial bull/bear dual-pass reconciled under "the side
+   citing retrieved evidence wins", then verifies the load-bearing claims against the evidence and
+   discounts any that don't hold up (see docs/EVALUATION.md).
 4. **Decide** — mark the winning version. **Print / PDF** exports the active version's report.
 
 ## The evidence pipeline

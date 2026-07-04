@@ -18,19 +18,25 @@ import {
   bandScore,
   criterionWeight,
   demandStrengthLabel,
+  forecastToBand,
   normalizeGoal,
   scoringSamples,
   verdictBands,
 } from "../scoring";
 import { ClaimsAudit, Generator, GenContext, steerContext } from "./shared";
 import {
+  AuditSchema,
   ClaimSchema,
   validationGenerator,
+  ValidationElicitSchema,
+  type Audit,
+  type CoveClaim,
   type SystemAdjustment,
   type Validation,
   type ValidationCriterion,
   type ValidationElicited,
 } from "./validation";
+import { runDeepValidation } from "./deep";
 
 export const GENERATORS: Record<ArtifactKind, Generator> = {
   validation: validationGenerator as Generator,
@@ -60,19 +66,27 @@ export function generatorMeta(): GeneratorMeta[] {
   });
 }
 
-/** Run one generator for a version, persist the artifact, and return it. */
-export async function runGenerator(
+/**
+ * Assemble the scoring context + the full scoring prompt for a validation version:
+ * collect (or reuse) the evidence corpus, run the claims-brief pre-pass, and build the
+ * exact prompt the scorer (standard, deep, and audit paths) all share. Factored out so
+ * the audit judge (auditValidation) scores the IDENTICAL prompt+corpus.
+ */
+export async function buildValidationRun(
   versionId: string,
-  kind: ArtifactKind,
   opts?: { steer?: string | null }
-): Promise<Artifact> {
+): Promise<{
+  version: NonNullable<ReturnType<typeof getVersion>>;
+  idea: NonNullable<ReturnType<typeof getIdea>>;
+  ctx: GenContext;
+  corpus: EvidenceCorpus | null;
+  fullPrompt: string;
+  adjustments: SystemAdjustment[];
+}> {
   const version = getVersion(versionId);
   if (!version) throw new Error("Version not found");
   const idea = getIdea(version.idea_id);
   if (!idea) throw new Error("Idea not found");
-
-  const def = GENERATORS[kind];
-  if (!def) throw new Error(`Unknown generator: ${kind}`);
 
   const prior: GenContext["prior"] = {};
   for (const a of getArtifacts(versionId)) prior[a.kind] = a.data;
@@ -84,80 +98,179 @@ export async function runGenerator(
     goal: idea.goal ? { bucket: idea.goal, detail: idea.goal_detail } : null,
     steer: opts?.steer ?? null,
     founderFit: idea.founder_fit,
+    provenance: idea.provenance,
   };
+
+  const def = GENERATORS.validation;
+  const adjustments: SystemAdjustment[] = [];
 
   // Validation is grounded in the fetched evidence corpus (real Reddit/HN posts):
   // collect it once per version, then inject it as numbered [E1..En] items the
   // model must cite by id.
-  let corpus: EvidenceCorpus | null = null;
-  // Adjustments accumulated BEFORE the scoring call (claims-brief fallback) — the
-  // recompute appends the gate/lint notes and the whole list lands on the artifact.
-  const adjustments: SystemAdjustment[] = [];
-  if (kind === "validation") {
-    corpus = getEvidence(versionId) ?? (await collectEvidence(versionId));
+  const corpus = getEvidence(versionId) ?? (await collectEvidence(versionId));
+  // The next_test's cheapest_test must name a channel from the corpus's own communities.
+  ctx.corpusCommunities = corpus?.stats.communities ?? null;
 
-    // The next_test's cheapest_test must name a channel from the corpus's own
-    // communities — hand them to the prompt builder.
-    ctx.corpusCommunities = corpus?.stats.communities ?? null;
+  // Sycophancy firewall: a fast-model pre-pass rewrites the pitch into a neutral
+  // third-person claims brief + a typed, evidence-tiered claim ledger.
+  try {
+    const audit = await generateClaimsAudit(ctx);
+    ctx.claimsAudit = audit.audit;
+    logUsage({ ideaId: version.idea_id, versionId, kind: "claims_brief", model: audit.model, usage: audit.usage });
+  } catch (e) {
+    ctx.claimsAudit = null;
+    adjustments.push({
+      rule: "claims-brief-fallback",
+      detail: `Neutral claims-audit pre-pass failed (${e instanceof Error ? e.message : String(e)}); the scorer saw the founder's raw statement — sycophancy stripping was NOT applied to this run.`,
+    });
+  }
 
-    // Sycophancy firewall: a fast-model pre-pass rewrites the pitch into a neutral
-    // third-person claims brief + a typed, evidence-tiered claim ledger; the scorer
-    // judges the audit, not the enthusiasm.
+  const fullPrompt =
+    def.buildPrompt(ctx) +
+    (corpus ? evidencePromptBlock(corpus) : "") +
+    steerContext(ctx, prior.validation);
+
+  return { version, idea, ctx, corpus, fullPrompt, adjustments };
+}
+
+/** Run one generator for a version, persist the artifact, and return it. */
+export async function runGenerator(
+  versionId: string,
+  kind: ArtifactKind,
+  opts?: { steer?: string | null; deep?: boolean; audit?: boolean }
+): Promise<Artifact> {
+  const def = GENERATORS[kind];
+  if (!def) throw new Error(`Unknown generator: ${kind}`);
+
+  // Non-validation generators keep the simple single-call path.
+  if (kind !== "validation") {
+    const version = getVersion(versionId);
+    if (!version) throw new Error("Version not found");
+    const idea = getIdea(version.idea_id);
+    if (!idea) throw new Error("Idea not found");
+    const prior: GenContext["prior"] = {};
+    for (const a of getArtifacts(versionId)) prior[a.kind] = a.data;
+    const ctx: GenContext = {
+      idea: { title: idea.title, prompt: version.statement },
+      prior,
+      context: version.context,
+      goal: idea.goal ? { bucket: idea.goal, detail: idea.goal_detail } : null,
+      steer: opts?.steer ?? null,
+      founderFit: idea.founder_fit,
+      provenance: idea.provenance,
+    };
+    const fullPrompt = def.buildPrompt(ctx) + steerContext(ctx, prior[kind]);
+    const { elicited, sources, model, usage } = await runScoringSamples(def, fullPrompt, 1, []);
+    logUsage({ ideaId: version.idea_id, versionId, kind, model, usage });
+    return saveArtifact(versionId, kind, elicited, sources, model, usage);
+  }
+
+  const { version, idea, ctx, corpus, fullPrompt, adjustments } = await buildValidationRun(
+    versionId,
+    opts
+  );
+
+  const deep = opts?.deep === true;
+  let elicited: ValidationElicited;
+  let sources: Source[];
+  let model: string;
+  let usage: Usage;
+  let agreement: ScoringAgreement = null;
+  let mode: "standard" | "deep" = "standard";
+  let bullMemo: string | null = null;
+  let bearMemo: string | null = null;
+  let cove: CoveClaim[] | null = null;
+
+  if (deep) {
+    // DEEP MODE — bull/bear/reconcile + CoVe (lib/generators/deep.ts). If reconcile
+    // itself fails, fall back to a standard k=1 scoring run + a note (never hard-fail).
     try {
-      const audit = await generateClaimsAudit(ctx);
-      ctx.claimsAudit = audit.audit;
-      logUsage({ ideaId: version.idea_id, versionId, kind: "claims_brief", model: audit.model, usage: audit.usage });
+      const dr = await runDeepValidation(def, fullPrompt, corpus, adjustments, {
+        ideaId: version.idea_id,
+        versionId,
+      });
+      elicited = dr.elicited;
+      sources = dr.sources;
+      model = dr.model;
+      usage = dr.usage;
+      bullMemo = dr.bullMemo;
+      bearMemo = dr.bearMemo;
+      cove = dr.cove;
+      mode = "deep";
     } catch (e) {
-      ctx.claimsAudit = null;
       adjustments.push({
-        rule: "claims-brief-fallback",
-        detail: `Neutral claims-audit pre-pass failed (${e instanceof Error ? e.message : String(e)}); the scorer saw the founder's raw statement — sycophancy stripping was NOT applied to this run.`,
+        rule: "deep-reconcile-fallback",
+        detail: `Deep-mode reconciliation failed (${e instanceof Error ? e.message : String(e)}); fell back to a standard single-sample scoring run. Memos/CoVe were not applied.`,
+      });
+      const r = await runScoringSamples(def, fullPrompt, 1, adjustments);
+      elicited = r.elicited as ValidationElicited;
+      sources = r.sources;
+      model = r.model;
+      usage = r.usage;
+    }
+  } else {
+    // STANDARD — k self-consistency samples reduced to one elicited result. k=1 is a
+    // single call, byte-identical to the pre-Wave-3 path.
+    const k = scoringSamples();
+    const r = await runScoringSamples(def, fullPrompt, k, adjustments);
+    elicited = r.elicited as ValidationElicited;
+    sources = r.sources;
+    model = r.model;
+    usage = r.usage;
+    agreement = r.agreement;
+  }
+
+  // Bands → numbers, weighted recompute, non-compensatory gates, derived sub-scores,
+  // consistency lint, and (deep mode) the CoVe discount — everything enforced.
+  const v = finalizeValidation(elicited, {
+    goal: idea.goal,
+    corpus,
+    sources,
+    claimsAudit: ctx.claimsAudit ?? null,
+    adjustments,
+    agreement,
+    cove,
+  });
+
+  // Rewrite demand signals from the corpus (real url/engagement); drop unknown ids.
+  if (v.market?.demand_signals) {
+    v.market.demand_signals = enrichDemandSignals(v.market.demand_signals, corpus);
+  }
+
+  // Attach the deep-mode artifacts (mode/memos/cove) for the report. Standard runs get
+  // NO `mode` field so their stored artifact stays byte-identical to the pre-Wave-3 shape
+  // (absent mode ⇒ "standard" by the schema default).
+  if (deep && mode === "deep") {
+    v.mode = "deep";
+    if (bullMemo) v.bull_memo = bullMemo;
+    if (bearMemo) v.bear_memo = bearMemo;
+    if (cove) v.cove = cove;
+  }
+
+  // Second-family audit judge: ALWAYS in deep mode; also when opts.audit is set (the
+  // periodic auto-iterate round). It NEVER changes the score/verdict — only surfaces
+  // divergence. A failure is absorbed into system_adjustments, never fatal.
+  if (deep || opts?.audit) {
+    try {
+      const auditBlock = await auditValidation(versionId, {
+        fullPrompt,
+        criteria: v.criteria,
+      });
+      if (auditBlock) v.audit = auditBlock.audit;
+    } catch (e) {
+      adjustments.push({
+        rule: "audit-judge-failed",
+        detail: `The second-family audit judge failed (${e instanceof Error ? e.message : String(e)}); no cross-family divergence was surfaced for this run.`,
       });
     }
   }
 
-  // Steer is appended generically so it works for every generator without each
-  // one having to opt in. The full prompt (identical across the k scoring samples) is
-  // built once so the samples share a cache-friendly prefix.
-  const fullPrompt =
-    def.buildPrompt(ctx) +
-    (corpus ? evidencePromptBlock(corpus) : "") +
-    steerContext(ctx, prior[kind]);
-
-  // k=scoringSamples() self-consistency (validation only): fire k parallel scoring
-  // calls, then reduce them to one elicited result (per-criterion median band-scores,
-  // spread flags) plus the overall-agreement confidence delta. k=1 collapses to a
-  // single call with none of that machinery — see runScoringSamples.
-  const k = kind === "validation" ? scoringSamples() : 1;
-  const { elicited, sources, model, usage, agreement } = await runScoringSamples(def, fullPrompt, k, adjustments);
-
-  let data: unknown = elicited;
-  if (kind === "validation") {
-    // Bands → numbers, weighted recompute, non-compensatory gates, derived
-    // sub-scores, consistency lint — everything the prompt promises, enforced.
-    const v = finalizeValidation(elicited as ValidationElicited, {
-      goal: idea.goal,
-      corpus,
-      sources,
-      claimsAudit: ctx.claimsAudit ?? null,
-      adjustments,
-      agreement,
-    });
-
-    // Rewrite demand signals from the corpus (real url/engagement) and drop any
-    // signal citing an unknown id — a model-invented link can never render.
-    if (v.market?.demand_signals) {
-      v.market.demand_signals = enrichDemandSignals(v.market.demand_signals, corpus);
-    }
-
-    // Cache the headline score + (lint-corrected) obtainable-revenue onto the version.
-    setVersionScore(versionId, v.score);
-    if (v.demand?.obtainable_revenue) setVersionRevenue(versionId, v.demand.obtainable_revenue);
-    data = v;
-  }
+  // Cache the headline score + (lint-corrected) obtainable-revenue onto the version.
+  setVersionScore(versionId, v.score);
+  if (v.demand?.obtainable_revenue) setVersionRevenue(versionId, v.demand.obtainable_revenue);
 
   logUsage({ ideaId: version.idea_id, versionId, kind, model, usage });
-  return saveArtifact(versionId, kind, data, sources, model, usage);
+  return saveArtifact(versionId, kind, v, sources, model, usage);
 }
 
 // ---- k-sample self-consistency scoring --------------------------------------------
@@ -173,7 +286,14 @@ function preGateOverall(e: ValidationElicited): number {
   let den = 0;
   for (const c of e.criteria) {
     const w = criterionWeight(c.name, null);
-    num += w * bandScore(c.band);
+    // Mirror finalize's forecast override: the two forecast-shaped criteria derive their
+    // score from the stated probability, not the emitted band — so the sample chosen as
+    // median-overall (which supplies the prose) is ranked on the score the report renders.
+    const s =
+      c.forecast && (c.name === "Market Timing" || c.name === "Competitive Position")
+        ? forecastToBand(c.forecast.probability).score
+        : bandScore(c.band);
+    num += w * s;
     den += w;
   }
   return den > 0 ? num / den : 0;
@@ -376,6 +496,83 @@ Return JSON: {"brief": string, "claims": [{"text": string, "kind": "self_fact"|"
   return { audit: data, model, usage };
 }
 
+// ---- second-family audit judge -------------------------------------------------------
+
+/**
+ * Run ONE banded scoring pass on the AUDIT model (a genuinely different model family from
+ * the anthropic scorer — MODEL_AUDIT, default google gemini) over the SAME prompt+corpus,
+ * and compute the per-criterion delta (audit_score − our_score) vs the stored artifact.
+ * It NEVER changes the score or verdict — it only SURFACES divergence (|delta| > 15 flagged)
+ * as a cross-family Goodhart check. Returns null (and the caller absorbs it) if the audit
+ * pass can't be scored.
+ *
+ * The caller passes the already-assembled `fullPrompt` (identical to the scorer's) and the
+ * finalized `criteria` (with their numeric scores) so the audit scores the same object and
+ * is compared like-for-like.
+ */
+export async function auditValidation(
+  versionId: string,
+  precomputed?: { fullPrompt: string; criteria: ValidationCriterion[] }
+): Promise<{ audit: Audit } | null> {
+  const version = getVersion(versionId);
+  if (!version) throw new Error("Version not found");
+
+  // Build the prompt + fetch our stored criteria unless the caller already has them.
+  let fullPrompt: string;
+  let ourCriteria: ValidationCriterion[];
+  if (precomputed) {
+    fullPrompt = precomputed.fullPrompt;
+    ourCriteria = precomputed.criteria;
+  } else {
+    const built = await buildValidationRun(versionId);
+    fullPrompt = built.fullPrompt;
+    const stored = getArtifacts(versionId).find((a) => a.kind === "validation")?.data as
+      | Validation
+      | undefined;
+    if (!stored?.criteria?.length) throw new Error("No stored validation to audit against");
+    ourCriteria = stored.criteria;
+  }
+
+  const def = GENERATORS.validation;
+  // ONE banded scoring pass on the audit family — no k-sampling, no gates, just the bands.
+  const res = await generateStructured(ValidationElicitSchema, {
+    role: "audit",
+    grounded: def.grounded,
+    webMaxResults: def.webMaxResults,
+    maxTokens: def.maxTokens,
+    system: def.system,
+    prompt: fullPrompt,
+  });
+  logUsage({
+    ideaId: version.idea_id,
+    versionId,
+    kind: "audit",
+    model: res.model,
+    usage: res.usage,
+  });
+
+  // The audit criterion score honors a forecast when present (parity with finalize's
+  // forecast override) so the two families are compared on the same derived number.
+  const FORECAST_CRITERIA = new Set(["Market Timing", "Competitive Position"]);
+  const auditScoreOf = (c: ValidationElicited["criteria"][number]): number => {
+    if (c.forecast && FORECAST_CRITERIA.has(c.name)) return forecastToBand(c.forecast.probability).score;
+    return bandScore(c.band);
+  };
+
+  const criteria: Audit["criteria"] = [];
+  const flagged: string[] = [];
+  for (const our of ourCriteria) {
+    const theirs = res.data.criteria.find((c) => c.name === our.name);
+    if (!theirs) continue;
+    const audit_score = auditScoreOf(theirs);
+    const delta = audit_score - our.score;
+    criteria.push({ name: our.name, our_score: our.score, audit_score, delta });
+    if (Math.abs(delta) > 15) flagged.push(our.name);
+  }
+
+  return { audit: AuditSchema.parse({ model: res.model, criteria, flagged }) };
+}
+
 // ---- band → score recompute + gates ------------------------------------------------
 
 type FinalizeOpts = {
@@ -386,6 +583,8 @@ type FinalizeOpts = {
   adjustments: SystemAdjustment[];
   /** k-sample overall agreement (max−min of the k pre-gate overalls); null for k=1. */
   agreement: ScoringAgreement;
+  /** Deep-mode CoVe ledger (load-bearing-claim verification); null for standard runs. */
+  cove?: CoveClaim[] | null;
 };
 
 const byName = (criteria: ValidationCriterion[], name: string) =>
@@ -410,8 +609,30 @@ function finalizeValidation(elicited: ValidationElicited, opts: FinalizeOpts): V
   // The k-sample merge may pre-set `score` (median of the k band-scores) and `spread`
   // (the flagged sample disagreement) on a criterion — honor a pre-set score over
   // re-deriving it from the band, and carry the spread through to the stored artifact.
+  //
+  // VERBALIZED PROBABILITY — for the two forecast-shaped criteria (Market Timing,
+  // Competitive Position), when the model emitted a `forecast.probability` we DERIVE the
+  // band + score from it via the documented p→score map (forecastToBand), OVERRIDING the
+  // emitted band, so the displayed number is auditable against the stated odds. This
+  // replaces the median-merged score for those two criteria too — the probability is the
+  // authoritative signal. Absent a forecast, the emitted (or median) band/score stands.
+  const FORECAST_CRITERIA = new Set(["Market Timing", "Competitive Position"]);
   const criteria: ValidationCriterion[] = elicited.criteria.map((c) => {
     const pre = c as typeof c & { score?: number; spread?: number };
+    const fc = c.forecast;
+    if (fc && FORECAST_CRITERIA.has(c.name)) {
+      const derived = forecastToBand(fc.probability);
+      adj.push({
+        rule: "forecast-derived-score",
+        detail: `"${c.name}" score derived from the stated probability (${(fc.probability * 100).toFixed(0)}% that "${fc.event}") via the p→score map → band ${derived.band} (${derived.score}); the emitted band ${c.band} was overridden so the number is auditable against the forecast.`,
+      });
+      return {
+        ...c,
+        band: derived.band,
+        score: derived.score,
+        ...(typeof pre.spread === "number" ? { spread: pre.spread } : {}),
+      };
+    }
     return {
       ...c,
       score: typeof pre.score === "number" ? pre.score : bandScore(c.band),
@@ -437,6 +658,17 @@ function finalizeValidation(elicited: ValidationElicited, opts: FinalizeOpts): V
     ds.score = GATES.vitaminDemandClamp;
   }
 
+  // 2a-ii. SISP: the pitch reads as a solution in search of a problem (no named sufferer /
+  // concrete pain) → Problem-Solution Fit capped at band C BEFORE averaging. The prompt asks
+  // the model to cap it, but LLMs disobey soft caps, so we enforce it in code (principle #3).
+  if (elicited.sisp === true && psf && psf.score > GATES.sispPsfCap) {
+    adj.push({
+      rule: "sisp-psf-cap",
+      detail: `Flagged as a solution in search of a problem (no named sufferer / concrete pain) but Problem-Solution Fit was banded ${psf.band} (${psf.score}); clamped to ${GATES.sispPsfCap} (band C) before averaging — fit cannot band above C until a real, hurting customer is identified.`,
+    });
+    psf.score = GATES.sispPsfCap;
+  }
+
   // 2b. unverified Why Now: no search trend AND no momentum → Market Timing clamped
   const whyNowVerified = !!(elicited.market?.search_trend?.note || elicited.market?.momentum);
   if (!whyNowVerified && timing && timing.score > GATES.timingUnverifiedClamp) {
@@ -445,6 +677,40 @@ function finalizeValidation(elicited: ValidationElicited, opts: FinalizeOpts): V
       detail: `Market Timing was banded ${timing.band} (${timing.score}) but no search trend or category momentum was found; clamped to ${GATES.timingUnverifiedClamp} — a "Why Now" needs a verifiable enabling change.`,
     });
     timing.score = GATES.timingUnverifiedClamp;
+  }
+
+  // 2c. CoVe discount (deep mode only): each load-bearing claim the verifier judged
+  // "contradicted" → its criterion score = min(score, 45); "not_in_evidence" → pulled
+  // halfway toward the ~90%-failure base-rate prior (score = round((score+45)/2)). Applied
+  // AFTER band→number, BEFORE the weighted average, each firing a system_adjustment.
+  if (opts.cove?.length) {
+    const COVE_FLOOR = 45;
+    // Note: the loop is per-claim, so multiple "not_in_evidence" claims naming the SAME
+    // criterion intentionally COMPOUND (e.g. 80 → 63 → 54) — more distinct unverified
+    // claims pull the band further toward the base-rate prior. "contradicted" is idempotent
+    // (min(score, 45) with the before<=45 guard). Each firing emits its own adjustment.
+    for (const cl of opts.cove) {
+      if (cl.status !== "contradicted" && cl.status !== "not_in_evidence") continue;
+      const c = cl.criterion ? byName(criteria, cl.criterion) : undefined;
+      if (!c) continue; // "" or an unrecognized criterion name → nothing to discount
+      const before = c.score;
+      if (cl.status === "contradicted") {
+        if (before <= COVE_FLOOR) continue;
+        c.score = COVE_FLOOR;
+        adj.push({
+          rule: "cove-contradicted",
+          detail: `A load-bearing claim under "${c.name}" was CONTRADICTED by the evidence in verification ("${cl.claim}"); its score was cut to ${COVE_FLOOR} (was ${before}) — a band cannot rest on a claim the evidence refutes.`,
+        });
+      } else {
+        const discounted = Math.round((before + COVE_FLOOR) / 2);
+        if (discounted >= before) continue;
+        c.score = discounted;
+        adj.push({
+          rule: "cove-not-in-evidence",
+          detail: `A load-bearing claim under "${c.name}" was NOT FOUND in the evidence in verification ("${cl.claim}"); its score was pulled halfway toward the base-rate prior to ${discounted} (was ${before}) — an unverified assumption cannot hold a high band.`,
+        });
+      }
+    }
   }
 
   // 3a. weighted average: base weights × per-goal vector (lib/scoring.ts)

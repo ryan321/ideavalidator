@@ -1,10 +1,12 @@
 import {
   BASE_WEIGHTS,
   CRITERIA,
+  FORECAST_ANCHORS,
   GATES,
   GOAL_WEIGHTS,
   MEASURED_SCORE_SD,
   criterionWeight,
+  forecastToBand,
   normalizeGoal,
   scoringSamples,
   verdictBands,
@@ -105,6 +107,58 @@ export function HowScored({
               higher to fire k parallel runs and take the per-criterion median (at ~k× the run cost).
             </p>
           )}
+        </div>
+
+        {/* verbalized probability — the two forecast criteria */}
+        <div>
+          <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
+            Verbalized probability · Market Timing &amp; Competitive Position
+          </div>
+          <p className="max-w-3xl text-xs leading-relaxed text-muted">
+            Those two criteria are forecast-shaped — they assert something about the future. For them,
+            the model states a concrete, dated, checkable event and its{" "}
+            <b className="text-fg/80">probability</b> (0–1), and the system{" "}
+            <b className="text-fg/80">derives the band and score from that probability</b> via the fixed
+            monotonic map below (overriding the emitted band), so the number is auditable against the
+            stated odds. You see the forecast on each of those criterion rows.
+          </p>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[24rem] text-xs">
+              <thead>
+                <tr className="border-b border-border text-left font-mono text-[10px] uppercase tracking-wide text-muted">
+                  <th className="px-3 py-1.5 font-medium">P(event)</th>
+                  {FORECAST_ANCHORS.map(([p]) => (
+                    <th key={p} className="px-3 py-1.5 text-right font-medium">
+                      {Math.round(p * 100)}%
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border/60">
+                  <td className="px-3 py-1.5 text-muted">Score</td>
+                  {FORECAST_ANCHORS.map(([p]) => (
+                    <td key={p} className="px-3 py-1.5 text-right font-mono font-bold">
+                      {forecastToBand(p).score}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="px-3 py-1.5 text-muted">Band</td>
+                  {FORECAST_ANCHORS.map(([p]) => (
+                    <td key={p} className="px-3 py-1.5 text-right font-mono text-accent2">
+                      {forecastToBand(p).band}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-1.5 text-xs text-muted">
+            Probabilities between anchors are interpolated, then snapped to the nearest band — a
+            forecast-derived score is otherwise identical to an elicited band downstream (it flows
+            through every gate and the weighted average the same way).
+          </p>
         </div>
 
         {/* the active weight vector */}

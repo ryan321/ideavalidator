@@ -12,6 +12,7 @@ import "./env";
 
 import { FIXTURES, TIERS } from "./fixtures";
 import {
+  EST_COST_PER_AUDIT,
   EST_COST_PER_CORPUS,
   EST_COST_PER_VALIDATION,
   actualCost,
@@ -27,10 +28,10 @@ import {
 async function main(): Promise<void> {
   confirmSpendOrExit(
     [
-      `calibrate: 1 validation run for each of the ${FIXTURES.length} fixture ideas:`,
+      `calibrate: 1 validation run + 1 second-family audit for each of the ${FIXTURES.length} fixture ideas:`,
       ...FIXTURES.map((f) => `  - ${f.id} (${f.goal}): expect ${expectLabel(f.min, f.max)}`),
     ],
-    FIXTURES.length * (EST_COST_PER_VALIDATION + EST_COST_PER_CORPUS)
+    FIXTURES.length * (EST_COST_PER_VALIDATION + EST_COST_PER_CORPUS + EST_COST_PER_AUDIT)
   );
 
   const ideaIds: string[] = [];
@@ -44,7 +45,9 @@ async function main(): Promise<void> {
       try {
         const { idea, version } = createFixture(f);
         ideaIds.push(idea.id);
-        const run = await runValidation(version.id); // collects the corpus itself
+        // Also run the second-family audit judge per fixture and print its per-criterion
+        // divergence (surfaced, NOT asserted — it never changes the pass/fail).
+        const run = await runValidation(version.id, { audit: true }); // collects the corpus itself
         const { tier, note } = tierOf(run.verdict, run.score, f.goal);
         const pass =
           (f.min === undefined || tierIndex(tier) >= tierIndex(f.min)) &&
@@ -53,6 +56,18 @@ async function main(): Promise<void> {
         console.log(
           `score ${run.score} · ${run.verdict} · confidence ${run.confidence} → ${tier}${note ? ` (${note})` : ""} · ${pass ? "PASS" : `FAIL — ${f.why}`}`
         );
+        if (run.audit) {
+          const worst = [...run.audit.criteria]
+            .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+            .slice(0, 3)
+            .map((c) => `${c.name} ${c.delta >= 0 ? "+" : ""}${c.delta}`)
+            .join(", ");
+          console.log(
+            `  audit (${run.audit.model}): ${
+              run.audit.flagged.length ? `FLAGGED >15 on ${run.audit.flagged.join(", ")}` : "agreed within 15 pts"
+            } · largest deltas (audit−ours): ${worst}`
+          );
+        }
         row = [
           f.id,
           f.goal,

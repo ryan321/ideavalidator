@@ -9,6 +9,7 @@ import {
   goalContext,
   ideaHeader,
 } from "./shared";
+import { tarpitPromptBlock } from "./tarpits";
 
 const Signal = z.object({
   text: z.string(),
@@ -33,6 +34,18 @@ const ElicitedCriterion = z.object({
     (v) => (typeof v === "string" ? v.replace(/\s+/g, "").toUpperCase() : v),
     z.enum(BANDS)
   ),
+  // VERBALIZED PROBABILITY — expected ONLY on the two forecast-shaped criteria
+  // ("Market Timing", "Competitive Position"). The model states a concrete, dated,
+  // checkable event and its probability; finalizeValidation DERIVES that criterion's
+  // display band/score from `probability` via the documented p→score map (lib/scoring.ts
+  // forecastScore), so the number is auditable against the stated odds. Absent (all other
+  // criteria, or a model that omitted it) → the emitted band is used as before.
+  forecast: z
+    .object({
+      event: z.string(), // a concrete, dated, checkable future event
+      probability: z.number().min(0).max(1), // 0..1 that the event occurs
+    })
+    .optional(),
 });
 
 // The kill-test: the cheapest way to change this verdict, pre-registered before any
@@ -96,6 +109,22 @@ export const ValidationElicitSchema = z.object({
   // Explicit effort/capital/time vs the founder's goal; for goal="unsure", the
   // lifestyle-vs-venture read. The ONLY place (with Goal Fit) a goal mismatch lands.
   goal_fit_note: z.string().catch("").optional(),
+
+  // TARPIT — present ONLY when the idea matches a known-tarpit pattern (see
+  // lib/generators/tarpits.ts). A match is NOT an auto-fail: it forces the model to name
+  // prior attempts and score the founder's differentiated insight (absent one, the demand
+  // criteria + Moat band low, per the prompt). Omitted when no tarpit matches.
+  tarpit: z
+    .object({
+      matched: z.boolean(),
+      pattern: z.string(), // which tarpit, one phrase
+      prior_attempts: z.string(), // real prior attempts found + outcomes
+      differentiated_insight: z.string(), // the founder's real escape hatch, or "none found"
+    })
+    .optional(),
+  // SISP — true when the pitch is a solution/technology in search of a problem (no named
+  // sufferer, no concrete pain); the prompt caps Problem-Solution Fit at C. Omitted otherwise.
+  sisp: z.boolean().optional(),
 
   // Prospective hindsight, written BEFORE any bands: "18 months later this failed
   // because..." — scores must be consistent with it. Rendered in the Risks section.
@@ -302,6 +331,37 @@ export type ValidationElicited = z.infer<typeof ValidationElicitSchema>;
 export const SystemAdjustmentSchema = z.object({ rule: z.string(), detail: z.string() });
 export type SystemAdjustment = z.infer<typeof SystemAdjustmentSchema>;
 
+// ---- Wave 3 deep-mode artifacts ------------------------------------------------
+
+// One CoVe (chain-of-verification) finding: a load-bearing factual claim that most
+// justifies the high bands, judged STRICTLY against the corpus + fetched web sources.
+// "contradicted" → the criterion it underpins is discounted to ≤45; "not_in_evidence"
+// → pulled halfway toward the ~90%-failure base-rate prior (see finalizeValidation).
+export const CoveClaimSchema = z.object({
+  claim: z.string(),
+  criterion: z.string().catch(""), // the criterion this claim underpins (exact name) or ""
+  status: z.enum(["supported", "contradicted", "not_in_evidence"]).catch("not_in_evidence"),
+  note: z.string().catch(""),
+});
+export type CoveClaim = z.infer<typeof CoveClaimSchema>;
+
+// The second-family audit judge's per-criterion divergence vs the stored artifact.
+// It NEVER changes the score/verdict — it only SURFACES where a genuinely different
+// model family disagrees (|delta| > 15 flagged) as a Goodhart check.
+export const AuditSchema = z.object({
+  model: z.string(),
+  criteria: z.array(
+    z.object({
+      name: z.string(),
+      our_score: z.number(),
+      audit_score: z.number(),
+      delta: z.number(), // audit_score − our_score
+    })
+  ),
+  flagged: z.array(z.string()), // criterion names where |delta| > 15
+});
+export type Audit = z.infer<typeof AuditSchema>;
+
 /**
  * The stored ARTIFACT shape (what the UI validates against and renders): the elicited
  * fields plus everything the server derives — verdict/score, per-criterion numeric
@@ -339,6 +399,21 @@ export const ValidationSchema = ValidationElicitSchema.extend({
   // The goal the weights/bands/gates actually used — the UI judges the stored score
   // against THIS, not the live goal picker, so verdict and meter can't desynchronize.
   goal_scored: z.enum(["lifestyle", "side_hustle", "venture", "unsure"]).optional(),
+
+  // ---- Wave 3 deep mode (optional; present only on deep runs) --------------------
+  // "standard" = the k-sample single-family pass; "deep" = the bull/bear/reconcile +
+  // CoVe orchestration (lib/generators/deep.ts). Absent → treat as "standard".
+  mode: z.enum(["standard", "deep"]).optional(),
+  // The independent adversarial memos (deep mode): the strongest evidence-based case
+  // FOR and AGAINST the idea, each written in a fresh context with citation discipline.
+  bull_memo: z.string().optional(),
+  bear_memo: z.string().optional(),
+  // The CoVe ledger: the load-bearing claims verified against the corpus + web after
+  // reconciliation. Contradicted/unsupported claims discount their criterion in finalize.
+  cove: z.array(CoveClaimSchema).optional(),
+  // The second-family audit judge's per-criterion divergence (surfaced, never averaged).
+  // Attached on deep runs (always) and on the periodic auto-iterate audit round.
+  audit: AuditSchema.optional(),
 });
 
 export type Validation = z.infer<typeof ValidationSchema>;
@@ -391,7 +466,9 @@ export const validationGenerator: Generator<ValidationElicited> = {
     "market structure is), or Differentiation / Moat (this founder's edge) — score those on their own " +
     "evidence, where a me-too idea's weakness actually lives.\n" +
     "The criteria are ORTHOGONAL constructs — one observation must not sweep several of them. Score each " +
-    "goal-neutrally (the goal enters through code-side weights and the Goal Fit criterion only).\n\n" +
+    "goal-neutrally (the goal enters through code-side weights and the Goal Fit criterion only)." +
+    tarpitPromptBlock() +
+    "\n\n" +
     ANCHOR_PANEL +
     "\n\n" +
     "BE TERSE. This report is read on screen by a busy founder — every prose field must be tight and " +
@@ -459,8 +536,8 @@ these names and groups:
   - Willingness to Pay — PRICING POWER NET OF REALISTIC ACQUISITION COST: how readily they will pay and how much (anchored to real incumbent pricing or WTP-flagged evidence), judged against what winning one customer realistically costs — a $5/mo consumer product that depends on paid acquisition bands LOW even if many people would pay
   - Problem-Solution Fit — SOLUTION-SHAPE evidence: proof this solution MECHANISM demonstrably delivers the outcome (competitor adoption of the same mechanism, reviews praising the outcome, the founder's own pilot results). A novel, unproven mechanism caps at C-/C — being plausible is not evidence.
   - Retention & Recurrence — how often the problem RECURS and whether value COMPOUNDS with use: a daily/weekly workflow whose value grows with accumulated data/habit bands high; an episodic or once-ever need (wedding planning, a one-time migration) bands C or BELOW even when demand for that single episode is intense — band the best-case usage pattern honestly
-  - Market Timing — the verified "Why Now": NAME the specific enabling change (tech cost curve, platform shift, regulation, behavior change) and CITE a retrieved source for it in the explanation. "Nobody thought of it before" bands LOW; without a verifiable trend/momentum the system clamps this criterion.
-  - Competitive Position — MARKET-STRUCTURE OPENNESS ONLY: incumbent customer satisfaction, switching costs, fragmentation, underserved segments — how enterable this market is for ANY good new entrant, INDEPENDENT of this founder's edge
+  - Market Timing — the verified "Why Now": NAME the specific enabling change (tech cost curve, platform shift, regulation, behavior change) and CITE a retrieved source for it in the explanation. "Nobody thought of it before" bands LOW; without a verifiable trend/momentum the system clamps this criterion. ALSO emit a "forecast" for this criterion (see the forecast rule below): a concrete, dated, checkable event that the enabling shift materially plays out (e.g. "this enabling shift materially expands the addressable market within 24 months") and your probability (0-1) that it happens.
+  - Competitive Position — MARKET-STRUCTURE OPENNESS ONLY: incumbent customer satisfaction, switching costs, fragmentation, underserved segments — how enterable this market is for ANY good new entrant, INDEPENDENT of this founder's edge. ALSO emit a "forecast" for this criterion: a concrete, dated, checkable event (e.g. "a well-executed new entrant can win and hold a defensible foothold in this market within 24 months") and your probability (0-1) that it happens.
 - group "build" (can you win, deliver, and keep it?):
   - Differentiation / Moat — the founder's SPECIFIC edge, classified into one of the 7 Powers (scale economies, network effects, counter-positioning, switching costs, brand, cornered resource, process power) via the benefit+barrier test. Name the power in the explanation. Unclassifiable claims ("first-mover", "better UX", "our AI") band D or F; at idea stage only counter-positioning or a cornered resource can band A.
   - Acquisition Ease — the market's CHANNEL STRUCTURE only: is the category understood, does a budget line exist, how long is the sales cycle, how saturated are the channels, and is the price point in a dead zone (too cheap for sales, too dear for self-serve)? The founder's warm channels do NOT count here — they belong in Founder Fit.
@@ -479,6 +556,21 @@ Each criterion also carries a LEVER — which force could actually MOVE its scor
 exact observation to collect; for "exogenous", what to watch for). Tag honestly — an "evidence" criterion
 mislabeled "positioning" sends the founder rewording instead of testing.
 
+VERBALIZED PROBABILITY — for the two forecast-shaped criteria ONLY (Market Timing and Competitive Position),
+add a "forecast": { event (a concrete, dated, CHECKABLE future event, as specified in those two criteria
+above), probability (a number 0-1, your honest odds the event occurs) }. The system DERIVES those two
+criteria's displayed band/score FROM your probability via a fixed monotonic map (higher probability → higher
+score), so make the probability and the band you'd otherwise pick agree — a low probability with a high band
+is a contradiction the system will resolve in favor of the probability. Do NOT emit "forecast" on any of the
+other 8 criteria.
+
+TARPIT / SISP / SCHLEP — apply the KNOWN TARPITS rules from the system message: if this idea matches a tarpit
+pattern, emit the "tarpit" object (matched, pattern, prior_attempts you actually found via search,
+differentiated_insight or "none found") and let Demand Strength / Problem-Solution Fit / Differentiation-Moat
+band low absent a real insight; if it matches none, OMIT "tarpit". If the pitch is a solution/technology with
+no named sufferer or concrete pain, set "sisp": true (and cap Problem-Solution Fit at C); otherwise omit it.
+Difficulty/schlep NEVER lowers demand-side criteria — route it to Moat and Goal Fit only.
+
 ${COMPETITION_GUIDANCE}
 
 Also produce:
@@ -495,6 +587,9 @@ Also produce:
 - "narrative": { who, pain, status_quo, cost_of_inaction, solution, after, verdict ("Painkiller"|"Vitamin"), why (ONE sentence for the verdict) }. Each field is ONE short sentence (~15 words), concrete to THIS idea — no padding, no second sentence.
 - "demand": { willingness_to_pay (a SHORT $ figure ONLY, e.g. "$200–600/team/mo" — no timeframe words, no prose), obtainable_revenue (a SHORT $/yr figure ONLY, e.g. "$120K–360K/yr" — realistic annual dollars THIS founder could capture given competition + goal, NOT the TAM; do NOT append a timeframe like "by Year 2" or ANY prose), reasoning (2-3 sentences max: the pricing basis and the demand × capturable-share math), math { reachable, capture, price } (the three SHORT figures behind obtainable_revenue, as specified above — they must multiply to the headline), sensitivity { conservative, base, optimistic } (each a SHORT annual-$ figure — the downside, the headline, and the upside, so the founder sees the range not just a point) }.
 - "goal_fit_note": 1-2 sentences stating the EFFORT/CAPITAL/TIME this idea needs vs the founder's stated goal — call out a mismatch plainly (e.g. "needs a full-time team + ~$300K; that contradicts a nights-and-weekends side hustle"). If the goal is "unsure", give the lifestyle-vs-venture split explicitly. This note and the Goal Fit criterion are the ONLY places a goal mismatch appears.
+- "tarpit" (OMIT unless the idea matches a KNOWN TARPIT from the system message): { matched: true, pattern (which tarpit, one phrase), prior_attempts (real prior attempts you found via search + how they fared), differentiated_insight (the specific reason THIS attempt escapes the graveyard, or "none found") }. A match forces low Demand Strength / Problem-Solution Fit / Differentiation-Moat unless a real differentiated_insight exists.
+- "sisp" (OMIT unless applicable): true if the pitch is a solution/technology with NO named sufferer or concrete pain (solution in search of a problem) — when true, Problem-Solution Fit is capped at C.
+- "forecast" (ON THE TWO forecast criteria ONLY — Market Timing and Competitive Position; omit on the other 8): { event (the concrete, dated, checkable event named in that criterion), probability (0-1) }. The system derives those two criteria's score from probability — keep probability and band consistent.
 - "operating": { effort_level (Low/Medium/High), description (2–3 sentences on what the founder would actually spend time DOING — e.g. "mostly async remote support" vs "high-touch outbound sales + in-person demos") }.
 - "acquisition": { difficulty (Easy/Moderate/Hard), reasoning (2–3 sentences; weigh the category-education tax — an established category buyers understand is EASIER, creating a category is HARDER; competitors can make selling easier) }.
 - "downside": { capital_at_risk (1–2 sentences, LEAD with the figure, e.g. "<$15K to MVP; main risk is foregone salary"), liability (1–2 sentences), if_it_fails (1–2 sentences) }.
@@ -503,11 +598,13 @@ Also produce:
 - "financials": the money — { startup_cost (a figure to a usable MVP), unit_economics { cac, ltv, payback (each short) }, revenue_model (pricing + how money is made, one line), projections: 3 years of [{ year, revenue, customers, note }] where revenue ≈ customers × blended price each year and Year-1 is consistent with obtainable_revenue and the sales difficulty }.
 - "plan": the path — { milestones: 3-5 of [{ title, when (e.g. "Month 1-2"), metric (how you know it's done) }] ordered earliest-first, team_and_ops (one line: who/what it takes to build and run) }.
 
-Return JSON exactly matching (field order matters: pre_mortem before criteria; in each criterion, explanation before band):
+Return JSON exactly matching (field order matters: pre_mortem before criteria; in each criterion, explanation before band; "tarpit"/"sisp" are OPTIONAL — include only when they apply; "forecast" appears ONLY on Market Timing and Competitive Position):
 {
   "confidence": number, "summary": string, "goal_fit_note": string,
+  "tarpit": {"matched": true, "pattern": string, "prior_attempts": string, "differentiated_insight": string},
+  "sisp": boolean,
   "pre_mortem": [string],
-  "criteria": [{"name": string, "group": "demand"|"build", "category": string, "explanation": string, "lever": "positioning"|"evidence"|"execution"|"exogenous", "lever_action": string, "band": "A+"|"A"|"A-"|"B+"|"B"|"B-"|"C+"|"C"|"C-"|"D+"|"D"|"D-"|"F"}],
+  "criteria": [{"name": string, "group": "demand"|"build", "category": string, "explanation": string, "lever": "positioning"|"evidence"|"execution"|"exogenous", "lever_action": string, "band": "A+"|"A"|"A-"|"B+"|"B"|"B-"|"C+"|"C"|"C-"|"D+"|"D"|"D-"|"F", "forecast": {"event": string, "probability": number}}],
   "next_test": {"riskiest_assumption": string, "cheapest_test": string, "pass_threshold": string, "kill_threshold": string, "would_flip": {"to_go": string, "to_no_go": string}, "pivotal_criterion": string},
   "go_signals": {"positive_signals": [{"text": string, "category": string}], "key_strengths": [{"text": string, "category": string}]},
   "stop_signals": {"critical_risks": [{"text": string, "category": string}], "areas_of_concern": [{"text": string, "category": string}]},

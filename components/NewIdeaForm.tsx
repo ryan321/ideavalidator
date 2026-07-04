@@ -18,6 +18,8 @@ export default function NewIdeaForm() {
   const [insider, setInsider] = useState("");
   const [builder, setBuilder] = useState("");
   const [network, setNetwork] = useState("");
+  // Where the idea came from — "" (unasked/neutral) | "organic" | "whiteboard".
+  const [provenance, setProvenance] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +38,7 @@ export default function NewIdeaForm() {
       const res = await fetch("/api/ideas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, goal, goalDetail, founderFit }),
+        body: JSON.stringify({ prompt, goal, goalDetail, founderFit, provenance: provenance || null }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to create idea");
@@ -115,6 +117,28 @@ export default function NewIdeaForm() {
               </div>
             </div>
           ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-44 shrink-0 text-sm text-muted">Where did this come from?</span>
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  { key: "organic", label: "A problem I hit" },
+                  { key: "whiteboard", label: "Brainstorming" },
+                ] as const
+              ).map((o) => (
+                <button
+                  key={o.key}
+                  type="button"
+                  onClick={() => setProvenance(provenance === o.key ? "" : o.key)}
+                  className={`rounded-md border px-2.5 py-1 text-xs transition ${
+                    provenance === o.key ? "border-accent bg-accent/15 text-accent" : "border-border text-muted hover:text-fg"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

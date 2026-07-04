@@ -94,6 +94,10 @@ function init(): Database.Database {
   addColumn(db, "ideas", "stage", "TEXT");
   addColumn(db, "ideas", "chosen_version_id", "TEXT");
   addColumn(db, "ideas", "founder_fit", "TEXT");
+  // provenance: "organic" (the founder lived the pain) | "whiteboard" (brainstormed) | null
+  // (unasked, neutral). Feeds founderProfile — organic credits insider knowledge, whiteboard
+  // flags elevated market risk without crediting it.
+  addColumn(db, "ideas", "provenance", "TEXT");
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
   addColumn(db, "artifacts", "cost", "REAL");
@@ -185,6 +189,7 @@ export type Idea = {
   stage: string | null; // current journey stage key
   chosen_version_id: string | null; // the version the founder is betting on
   founder_fit: string | null; // founder's market knowledge / build experience / network
+  provenance: "organic" | "whiteboard" | null; // did the idea come from a lived problem or a whiteboard?
   created_at: string;
 };
 
@@ -254,7 +259,8 @@ export function createIdea(
   statement: string,
   goal?: string | null,
   goalDetail?: string | null,
-  founderFit?: string | null
+  founderFit?: string | null,
+  provenance?: "organic" | "whiteboard" | null
 ): { idea: Idea; version: Version } {
   const now = new Date().toISOString();
   const idea: Idea = {
@@ -266,6 +272,7 @@ export function createIdea(
     stage: "validate",
     chosen_version_id: null,
     founder_fit: founderFit ?? null,
+    provenance: provenance ?? null,
     created_at: now,
   };
   const version: Version = {
@@ -285,7 +292,7 @@ export function createIdea(
   };
   const tx = db.transaction(() => {
     db.prepare(
-      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, chosen_version_id, founder_fit, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @chosen_version_id, @founder_fit, @created_at)"
+      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, chosen_version_id, founder_fit, provenance, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @chosen_version_id, @founder_fit, @provenance, @created_at)"
     ).run(idea);
     db.prepare(
       `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, revenue, created_at)

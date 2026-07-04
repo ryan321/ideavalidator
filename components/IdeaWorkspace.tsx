@@ -435,7 +435,10 @@ export default function IdeaWorkspace({
   async function generate(
     kind: ArtifactKind,
     versionId: string,
-    steer?: string
+    steer?: string,
+    // Wave 3: opt into deep mode (bull/bear/reconcile + CoVe, ~3-4× cost) and/or the
+    // second-family audit judge. Both default off — a plain generate is unchanged.
+    extra?: { deep?: boolean; audit?: boolean }
   ): Promise<Artifact> {
     setError(null);
     setBusyKey(bk(versionId, kind), true);
@@ -443,7 +446,7 @@ export default function IdeaWorkspace({
       const res = await fetch(`/api/generate/${kind}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, steer }),
+        body: JSON.stringify({ versionId, steer, deep: extra?.deep, audit: extra?.audit }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Generation failed");
@@ -565,14 +568,16 @@ export default function IdeaWorkspace({
 
   // One button → the single comprehensive analysis (verdict + market + money + plan),
   // run as a detached background job so navigating away can't interrupt it.
-  async function runValidate() {
+  async function runValidate(deep = false) {
     setError(null);
     const v = activeVersionId;
     try {
       const res = await fetch(`/api/generate/validation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: v, background: true }),
+        // Wave 3: deep mode (bull/bear/reconcile + CoVe + audit, ~3-4× cost) runs as the
+        // same detached background job as a standard run — the poller loads the result.
+        body: JSON.stringify({ versionId: v, background: true, deep }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "Could not start the analysis");
@@ -743,8 +748,19 @@ export default function IdeaWorkspace({
         setCost((c) => c + (prop._cost ?? 0));
         const v = await createVersionFrom(prop.statement, "ai", bestId, prop.label, prop.rationale);
         setActiveVersionId(v.id);
-        log(`→ v${v.n} "${prop.label}". Validating…`);
-        const val = await generate("validation", v.id);
+        // Every 3rd round runs the cheap second-family audit judge alongside the
+        // scoring pass — a held-out Goodhart check on the loop (surfaced, never averaged).
+        const auditRound = r % 3 === 0;
+        log(`→ v${v.n} "${prop.label}". Validating${auditRound ? " (+ cross-family audit)" : ""}…`);
+        const val = await generate("validation", v.id, undefined, auditRound ? { audit: true } : undefined);
+        if (auditRound) {
+          const flagged = (val.data as { audit?: { flagged?: string[] } })?.audit?.flagged ?? [];
+          if (flagged.length) {
+            log(`  ⚠ audit judge diverged >15 on: ${flagged.join(", ")} — treat those bands as contested.`);
+          } else {
+            log(`  audit judge agreed within 15 pts on every criterion.`);
+          }
+        }
         const newScore = scoreOf(val);
         const newRev = revOf(val);
         const accepted = newScore >= best + margin;
@@ -774,7 +790,9 @@ export default function IdeaWorkspace({
           const ej = await eres.json();
           if (!eres.ok) throw new Error(ej.error ?? "Evidence collection failed");
           setEvidence((prev) => ({ ...prev, [bestId]: ej as EvidenceCorpus }));
-          const confirmScore = scoreOf(await generate("validation", bestId));
+          // The champion-confirmation run is DEEP (bull/bear/reconcile + CoVe + audit) —
+          // the winner earns the ~3-4× spend once, on fresh evidence.
+          const confirmScore = scoreOf(await generate("validation", bestId, undefined, { deep: true }));
           const adopted = Math.min(best, confirmScore);
           log(
             confirmScore < best
@@ -1457,13 +1475,26 @@ export default function IdeaWorkspace({
                   <span className="h-1.5 w-1.5 rounded-full bg-good" aria-hidden />
                   Full analysis · one grounded pass
                 </div>
-                <button
-                  onClick={runValidate}
-                  disabled={busy.has(bk(activeVersionId, "validation")) || iterating}
-                  className="shrink-0 rounded-lg border border-accent/30 px-3 py-1.5 text-sm font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
-                >
-                  {busy.has(bk(activeVersionId, "validation")) ? "Analyzing…" : "⟳ Re-run analysis"}
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {/* Deep validation — bull/bear/reconcile + CoVe + a second-family
+                      cross-check. ~3-4× the cost of a standard run (flagged in the hint). */}
+                  <button
+                    onClick={() => runValidate(true)}
+                    disabled={busy.has(bk(activeVersionId, "validation")) || iterating}
+                    title="Argues an independent bull case and bear case, reconciles them on the evidence, verifies the load-bearing claims (CoVe), and cross-checks with a second model family. ~3–4× the cost of a standard run."
+                    className="rounded-lg border border-accent2/40 px-3 py-1.5 text-sm font-medium text-accent2 transition hover:bg-accent2/10 disabled:opacity-50"
+                  >
+                    ◆ Deep validation
+                    <span className="ml-1.5 font-mono text-[10px] uppercase tracking-wide text-muted">~3–4× cost</span>
+                  </button>
+                  <button
+                    onClick={() => runValidate()}
+                    disabled={busy.has(bk(activeVersionId, "validation")) || iterating}
+                    className="rounded-lg border border-accent/30 px-3 py-1.5 text-sm font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
+                  >
+                    {busy.has(bk(activeVersionId, "validation")) ? "Analyzing…" : "⟳ Re-run analysis"}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1479,6 +1510,7 @@ export default function IdeaWorkspace({
                   onRegenerate={() => generate("validation", activeVersionId)}
                   extra={{
                     goal: goalBucket,
+                    provenance: idea.provenance,
                     evidence: evidence[activeVersionId] ?? null,
                     onRefreshEvidence: refreshEvidence,
                     refreshingEvidence,
@@ -1503,7 +1535,7 @@ export default function IdeaWorkspace({
                     One grounded pass scores the idea and works out the market, money, and plan.
                   </div>
                   <button
-                    onClick={runValidate}
+                    onClick={() => runValidate()}
                     disabled={anyBusy}
                     className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                   >
@@ -1557,7 +1589,7 @@ export default function IdeaWorkspace({
                 key={`${activeVersionId}:${m.kind}`}
                 kind={m.kind}
                 data={activeArtifacts[m.kind].data}
-                extra={{ print: true, goal: goalBucket, scoringSamples }}
+                extra={{ print: true, goal: goalBucket, provenance: idea.provenance, scoringSamples }}
               />
               {/* the "model estimate — see sources" tags need the sources in the PDF too */}
               <SourcesList sources={activeArtifacts[m.kind].sources} />

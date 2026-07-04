@@ -14,11 +14,15 @@ preview slugs change, so re-check `https://openrouter.ai/api/v1/models` before r
 
 | Role | Used by | Pick | $/Mtok (in/out) | Budget alt |
 |------|---------|------|-----------------|------------|
-| **scoring** | validation (grounded), refine | `anthropic/claude-sonnet-4.6` | 3 / 15 | `google/gemini-3.5-flash` (1.5/9) |
-| **writing** | evidence queries + ranking, analysis Q&A chat | `google/gemini-3-flash-preview` | 0.5 / 3 | `google/gemini-2.5-flash` (0.3/2.5 — see caveat) |
+| **scoring** | validation (grounded), refine, deep-mode bull/bear/reconcile | `anthropic/claude-sonnet-4.6` | 3 / 15 | `google/gemini-3.5-flash` (1.5/9) |
+| **writing** | evidence queries + ranking, analysis Q&A chat, deep-mode CoVe | `google/gemini-3-flash-preview` | 0.5 / 3 | `google/gemini-2.5-flash` (0.3/2.5 — see caveat) |
+| **audit** | the second-family Goodhart check (deep mode, every-3rd iterate round, calibrate) | `google/gemini-3-flash-preview` | 0.5 / 3 | any distinct family (gpt/grok) |
 
 The scoring role dominates spend (the grounded validation pass + the auto-iterate loop);
-the writing calls are small and cheap by design.
+the writing calls are small and cheap by design. The **audit** role must be a **different model
+FAMILY** from `scoring` — it exists to catch scorer-specific Goodharting, so pointing it at the
+same family defeats the purpose. Default gemini differs from the anthropic scorer; if you change
+`MODEL_SCORING` to a Google model, move `MODEL_AUDIT` to gpt/grok to keep them cross-family.
 
 Run validation + refine at **max reasoning effort** whatever model you pick, and keep the one self-repair retry.
 
@@ -29,17 +33,19 @@ Run validation + refine at **max reasoning effort** whatever model you pick, and
 Per-role routing lives in [lib/ai/models.ts](../lib/ai/models.ts). Every role is **env-overridable**, so you
 can experiment without touching code — set the var in `.env.local` and restart `npm run dev`.
 
-The code has 2 roles:
+The code has 3 roles:
 
 | Env var | Role | Used by |
 |---------|------|---------|
-| `MODEL_SCORING` | scoring | validation (the one grounded pass), refine |
-| `MODEL_WRITING` | writing | evidence query generation, evidence relevance ranking, the "Ask about this analysis" chat |
+| `MODEL_SCORING` | scoring | validation (the one grounded pass), refine, deep-mode bull/bear/reconcile |
+| `MODEL_WRITING` | writing | evidence query generation, evidence relevance ranking, the "Ask about this analysis" chat, deep-mode CoVe verification |
+| `MODEL_AUDIT` | audit | the second-family audit judge (deep mode always; every 3rd auto-iterate round; per-fixture in `npm run calibrate`) |
 
 ```bash
 # .env.local
 MODEL_SCORING=anthropic/claude-sonnet-4.6
 MODEL_WRITING=google/gemini-3-flash-preview
+MODEL_AUDIT=google/gemini-3-flash-preview   # must be a DIFFERENT family from MODEL_SCORING
 ```
 
 ---
@@ -76,6 +82,19 @@ list, a batch of 0–3 relevance ratings); the chat answers from the already-gen
 - Ultra-budget: `deepseek/deepseek-v4-pro` ($0.43/$0.87) — great value but **verbose** (cap `max_tokens`).
   **Avoid `deepseek-v3.2`** for this app — its JSON mode "may return empty content," a real risk for
   Zod-validated output.
+
+### audit — the second-family Goodhart check (surfaced, never averaged)
+The audit judge scores the *same* prompt + corpus with a **different model family** and the tool
+surfaces where it diverges from the primary scorer by more than 15 points per criterion — it never
+changes the score or verdict. Because a scorer's biases are family-specific, the only requirement is
+that `MODEL_AUDIT` be a **genuinely different family** from `MODEL_SCORING`; raw accuracy matters less
+than independence. Cost is one banded pass, so a cheap family is fine.
+
+- **`google/gemini-3-flash-preview`** ($0.5/$3) — default; a cheap, distinct family from the anthropic
+  scorer. (Its high solo hallucination doesn't inflate scores here — the audit output is *diffed*, not
+  trusted, and it can't move the verdict.)
+- If you switch the scorer to a Google model, move the audit to `openai/gpt-5.4-mini` or `x-ai/grok-4.3`
+  so the two stay cross-family.
 
 ---
 
