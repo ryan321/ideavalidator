@@ -53,13 +53,23 @@ export function MarketSizing({
   // strict area-proportionality would make SOM vanish; use sqrt-of-share with floors
   // so a bigger real share reads as a bigger circle while all three stay legible and
   // properly nested. Non-parseable figures fall back to fixed aesthetic radii.
+  // TRUE area-proportional radii: radius ∝ √(value / TAM), so circle AREA tracks the
+  // dollar figure and the nesting is honest — a SAM that's 14% of TAM reads as a clearly
+  // smaller ring, a SOM that's 0.3% reads as a small dot (which is the real story). Only a
+  // small floor keeps the slimmest slice visible, and a min-gap keeps them cleanly nested.
   const rTam = 94;
-  const rSam = proportional ? rTam * clamp(Math.sqrt(samN / tamN), 0.6, 0.88) : 64;
-  const rSom = proportional ? rSam * clamp(Math.sqrt(somN / samN), 0.42, 0.82) : 34;
+  const frac = (n: number) => (tamN > 0 ? Math.sqrt(Math.max(0, n) / tamN) : 0);
+  let rSam = proportional ? Math.max(28, rTam * frac(samN)) : 60;
+  let rSom = proportional ? Math.max(11, rTam * frac(somN)) : 30;
+  rSam = Math.min(rSam, rTam - 6);
+  rSom = clamp(rSom, 8, rSam - 10);
 
-  // Value label baselines: centered in each ring's top band so they never collide.
-  const yTam = 100 - (rTam + rSam) / 2;
-  const ySam = 100 - (rSam + rSom) / 2;
+  // Value labels sit in each ring's top band; the SOM dot is often too small to hold its
+  // own label, so it drops just below the dot when tiny.
+  const yTam = 100 - rTam + 15;
+  const ySam = Math.min(100 - rSam + 14, 100 - rSom - 16);
+  const somInside = rSom >= 22;
+  const ySom = somInside ? 100 : 100 + rSom + 14;
 
   const legend = [
     { key: "TAM", label: "Total market", tier: tam, raw: tamN, fill: "var(--color-accent)", opacity: 0.9, share: "100%" },
@@ -95,15 +105,16 @@ export function MarketSizing({
             aria-label={`Market sizing: TAM ${tam.value}, SAM ${sam.value}, SOM ${som.value}`}
           >
             <circle cx="100" cy="100" r={rTam} fill="var(--color-accent)" opacity={0.16} stroke="var(--color-accent)" strokeOpacity={0.35} strokeWidth={1} />
-            <circle cx="100" cy="100" r={rSam} fill="var(--color-accent)" opacity={0.3} stroke="var(--color-accent)" strokeOpacity={0.5} strokeWidth={1} />
+            <circle cx="100" cy="100" r={rSam} fill="var(--color-accent)" opacity={0.32} stroke="var(--color-accent)" strokeOpacity={0.55} strokeWidth={1} />
             <circle cx="100" cy="100" r={rSom} fill="var(--color-accent)" opacity={0.95} />
-            {/* value labels, top band of each ring */}
+            {/* TAM + SAM values in their ring's top band */}
             <text x="100" y={yTam} textAnchor="middle" className="fill-fg font-mono" style={{ fontSize: 13, fontWeight: 700 }}>{tam.value}</text>
             <text x="100" y={yTam + 11} textAnchor="middle" className="fill-muted font-mono" style={{ fontSize: 8, letterSpacing: 1 }}>TAM</text>
             <text x="100" y={ySam} textAnchor="middle" className="fill-fg font-mono" style={{ fontSize: 12, fontWeight: 700 }}>{sam.value}</text>
             <text x="100" y={ySam + 10} textAnchor="middle" className="fill-muted font-mono" style={{ fontSize: 8, letterSpacing: 1 }}>SAM</text>
-            <text x="100" y={97} textAnchor="middle" style={{ fontSize: 13, fontWeight: 700, fill: "white" }} className="font-mono">{som.value}</text>
-            <text x="100" y={108} textAnchor="middle" style={{ fontSize: 8, letterSpacing: 1, fill: "white", fillOpacity: 0.85 }} className="font-mono">SOM</text>
+            {/* SOM: label sits inside the dot when it's big enough, else just below it */}
+            <text x="100" y={ySom} textAnchor="middle" className="font-mono" style={{ fontSize: 12, fontWeight: 700, fill: somInside ? "white" : "var(--color-fg)" }}>{som.value}</text>
+            <text x="100" y={ySom + (somInside ? 10 : 9)} textAnchor="middle" className="font-mono" style={{ fontSize: 8, letterSpacing: 1, fill: somInside ? "white" : "var(--color-muted)", fillOpacity: somInside ? 0.85 : 1 }}>SOM</text>
           </svg>
 
           {/* Legend — the numbers and the honest share of TAM, colour-keyed to the rings. */}
