@@ -8,10 +8,11 @@ import type { EvidenceCorpus } from "@/lib/evidence/types";
 import GenerationProgress from "./GenerationProgress";
 import type { Refinement } from "@/lib/generators/refine";
 import type { WedgeProposal, WedgeSet } from "@/lib/generators/wedges";
-import { acceptanceMargin, percentileOf, verdictBands } from "@/lib/scoring";
+import { MEASURED_SCORE_SD, acceptanceMargin, percentileOf, verdictBands } from "@/lib/scoring";
 import { SourcesList, ValidationView } from "./artifacts";
 import { ArenaBoard } from "./ArenaBoard";
 import { CampaignHeader } from "./CampaignHeader";
+import { VerdictBox } from "./VerdictBox";
 import { CriteriaDeltaTable, type DeltaVersion } from "./report/CriteriaDeltaTable";
 import type { ZodType } from "zod";
 import { ValidationSchema, type Validation } from "@/lib/generators/validation";
@@ -1137,6 +1138,8 @@ export default function IdeaWorkspace({
         possible_alphas?: { alpha: string; rationale: string }[];
         verdict?: string;
         score?: number;
+        confidence?: number;
+        demand?: { obtainable_revenue?: string };
         next_test?: { riskiest_assumption?: string; pivotal_criterion?: string };
       }
     | undefined;
@@ -1352,8 +1355,35 @@ export default function IdeaWorkspace({
           </div>
         )}
 
-        {/* header */}
-        <div className="mb-5 rounded-xl border border-border bg-panel/50 p-4">
+        {/* masthead — split pane once validated: the instrument (score box) beside the
+            subject (the idea). The box is the ONE prominent score on screen; the
+            readout below renders compact (no giant verdict repeat). */}
+        <div
+          className={
+            hasValidate && typeof activeValidationData?.score === "number"
+              ? "mb-5 grid gap-4 lg:grid-cols-[minmax(240px,300px)_1fr]"
+              : "mb-5"
+          }
+        >
+          {hasValidate && typeof activeValidationData?.score === "number" && (
+            <VerdictBox
+              verdict={activeValidationData.verdict ?? "—"}
+              score={activeValidationData.score}
+              sd={MEASURED_SCORE_SD}
+              color={scoreColor(Math.round(activeValidationData.score), goalBands)}
+              confidence={activeValidationData.confidence ?? null}
+              revenue={activeValidationData.demand?.obtainable_revenue ?? null}
+              borderline={
+                Math.abs(activeValidationData.score - goalBands.go) <= MEASURED_SCORE_SD
+                  ? "GO"
+                  : Math.abs(activeValidationData.score - goalBands.maybe) <= MEASURED_SCORE_SD
+                    ? "MAYBE"
+                    : null
+              }
+              insufficient={activeValidationData.verdict === "INSUFFICIENT EVIDENCE"}
+            />
+          )}
+        <div className="rounded-xl border border-border bg-panel/50 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
@@ -1534,6 +1564,7 @@ export default function IdeaWorkspace({
               </div>
             </div>
           )}
+        </div>
         </div>
 
         {/* ask-about-this chat */}
@@ -1963,6 +1994,8 @@ export default function IdeaWorkspace({
                     onRecordResult: recordResult,
                     recordingResult,
                     onRevalidateWithResult: revalidateWithResult,
+                    // the masthead VerdictBox already leads with the score on screen
+                    compactHero: true,
                   }}
                 />
                 <SourcesList sources={activeArtifacts.validation.sources} />

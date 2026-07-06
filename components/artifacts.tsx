@@ -400,6 +400,7 @@ export function ValidationView({
   onRecordResult,
   recordingResult,
   onRevalidateWithResult,
+  compactHero = false,
   print = false,
 }: {
   d: Validation;
@@ -430,6 +431,9 @@ export function ValidationView({
   onRecordResult?: (report: string) => void;
   recordingResult?: boolean;
   onRevalidateWithResult?: () => void;
+  /** The workspace masthead already shows the verdict box — skip the giant
+   * verdict/score row here so the number leads exactly once on screen. */
+  compactHero?: boolean;
   /** Print/PDF render: open every collapsed section and unclamp prose. */
   print?: boolean;
 }) {
@@ -568,7 +572,12 @@ export function ValidationView({
               </span>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+            {/* the giant verdict/score row — skipped when the masthead box already
+                leads with it (insufficient always shows: its explanation lives here) */}
+            <div
+              className="mt-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-4"
+              hidden={compactHero && !insufficient && !print}
+            >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-baseline gap-3">
                   <span
