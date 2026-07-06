@@ -1370,6 +1370,7 @@ export default function IdeaWorkspace({
               verdict={activeValidationData.verdict ?? "—"}
               score={activeValidationData.score}
               sd={MEASURED_SCORE_SD}
+              bands={goalBands}
               color={scoreColor(Math.round(activeValidationData.score), goalBands)}
               confidence={activeValidationData.confidence ?? null}
               revenue={activeValidationData.demand?.obtainable_revenue ?? null}
