@@ -752,6 +752,8 @@ export default function IdeaWorkspace({
     setWedgeLog([]);
     setWedgeBaseline(null);
     setWedgeFetching(true);
+    // the panel lives above the report — bring it into view for clicks from the alpha card
+    window.scrollTo({ top: 0, behavior: "smooth" });
     try {
       const res = await fetch(`/api/versions/${activeVersionId}/wedges`, { method: "POST" });
       const j = await res.json();
@@ -1837,10 +1839,20 @@ export default function IdeaWorkspace({
             {/* edges to test — derived from the verdict */}
             {activeArtifacts.validation && activeAlphas.length > 0 && (
               <div className="mt-10 rounded-xl border border-accent/30 bg-accent/5 p-4">
-                <div className="mb-1 text-sm font-semibold text-accent">✨ Possible alpha — test a different edge</div>
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-accent">✨ Possible alpha — test a different edge</div>
+                  <button
+                    onClick={exploreWedges}
+                    disabled={anyBusy}
+                    title="Feeds these alphas (plus competitor complaint themes and the moat targets) into 3–5 divergent variants and validates them head-to-head on the same evidence."
+                    className="rounded-md border border-accent/40 px-2.5 py-1 text-xs font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
+                  >
+                    🧭 Test the angles head-to-head →
+                  </button>
+                </div>
                 <p className="mb-3 text-xs text-muted">
-                  Differentiators this idea could pursue. Re-validate positioned around one to see how it moves
-                  the forecast.
+                  Differentiators this idea could pursue. Re-validate around one, or run the tournament to compare
+                  several at once on the same evidence.
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {activeAlphas.map((a, i) => (
