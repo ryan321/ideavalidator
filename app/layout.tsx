@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { Geist, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import AppNav from "@/components/AppNav";
@@ -35,10 +34,7 @@ export default function RootLayout({
               </span>
               IdeaValidator
             </Link>
-            {/* Suspense: AppNav reads useSearchParams (the ?stage= dot) */}
-            <Suspense fallback={null}>
-              <AppNav />
-            </Suspense>
+            <AppNav />
           </aside>
 
           {/* main */}
