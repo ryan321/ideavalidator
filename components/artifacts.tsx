@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Card, Metric, Section, SectionHead } from "./ui";
 import type { Source } from "@/lib/ai/client";
 import type { Validation } from "@/lib/generators/validation";
@@ -449,6 +449,20 @@ export function ValidationView({
   const pct = scorePercentile;
   // The market-intel pack (cited competitor facts + one-liner), if generated.
   const intel = asIntel(intelData);
+
+  // The sticky nav's verdict chip earns its place only once the big readout has
+  // scrolled OFF-screen — side by side they'd just say the same thing twice.
+  const heroRef = useRef<HTMLDivElement>(null);
+  const [heroVisible, setHeroVisible] = useState(true);
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver(([e]) => setHeroVisible(e.isIntersecting), {
+      rootMargin: "-48px 0px 0px 0px",
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
   // "68 ± 4" sitting within the noise band of a threshold is a coin flip, not a verdict.
   const sd = MEASURED_SCORE_SD;
   const nearLine =
@@ -510,15 +524,17 @@ export function ValidationView({
     <div className="space-y-12">
       {/* on-this-report nav — carries the verdict so the answer is NEVER off-screen */}
       <nav className="no-print sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-1 border-b border-border bg-bg/85 px-1 py-2.5 backdrop-blur">
-        <a
-          href="#verdict"
-          className="mr-2 flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-xs font-bold tracking-tight"
-          style={{ color, borderColor: `color-mix(in srgb, ${color} 35%, transparent)` }}
-          title={`${d.verdict} · ${Math.round(d.score)} ± ${sd} at ${d.confidence}% confidence`}
-        >
-          {insufficient ? "INSUFFICIENT" : d.verdict}
-          <span className="tabular-nums">{Math.round(d.score)}</span>
-        </a>
+        {!heroVisible && (
+          <a
+            href="#verdict"
+            className="mr-2 flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-xs font-bold tracking-tight"
+            style={{ color, borderColor: `color-mix(in srgb, ${color} 35%, transparent)` }}
+            title={`${d.verdict} · ${Math.round(d.score)} ± ${sd} at ${d.confidence}% confidence`}
+          >
+            {insufficient ? "INSUFFICIENT" : d.verdict}
+            <span className="tabular-nums">{Math.round(d.score)}</span>
+          </a>
+        )}
         <a href="#verdict" className={navLink}>Verdict</a>
         <a href="#brief" className={navLink}>Brief</a>
         {showMarket && <a href="#market" className={navLink}>Market</a>}
@@ -533,7 +549,7 @@ export function ValidationView({
           (kill-test + kit). The readout carries a one-line pointer to the test so the
           decision and its lever stay one glance apart. */}
       <section id="verdict" className="scroll-mt-20 space-y-5">
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-panel2 to-panel">
+        <div ref={heroRef} className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-panel2 to-panel">
           {/* verdict-tinted top hairline — the only place the verdict color leads */}
           <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
           <div className="p-6 sm:p-7">

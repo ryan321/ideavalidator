@@ -1880,8 +1880,13 @@ export default function IdeaWorkspace({
 
         {(
           <div>
-            {/* the campaign header: decision state + the one next move, above the receipt */}
-            {hasValidate && typeof activeValidationData?.score === "number" && (
+            {/* the campaign header: decision state + the one next move, above the receipt.
+                Only once the campaign HAS state beyond a first report (more versions, a
+                kit, a recorded result) — on a fresh single-version validation it would
+                just duplicate the readout directly below it. */}
+            {hasValidate &&
+              typeof activeValidationData?.score === "number" &&
+              (versions.length > 1 || !!activeArtifacts.kit || !!activeArtifacts.test_result) && (
               <CampaignHeader
                 verdict={activeValidationData.verdict ?? "—"}
                 score={Math.round(activeValidationData.score)}
