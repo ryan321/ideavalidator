@@ -176,7 +176,9 @@ const db = globalForDb._db ?? init();
 if (process.env.NODE_ENV !== "production") globalForDb._db = db;
 
 // ---- types -------------------------------------------------------------------
-export type ArtifactKind = "validation";
+// "validation" is the main grounded analysis; "kit" is the kill-test execution kit
+// derived from a validation's next_test (own route — not part of the GENERATORS run).
+export type ArtifactKind = "validation" | "kit";
 
 export type Idea = {
   id: string;

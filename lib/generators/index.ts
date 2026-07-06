@@ -39,7 +39,9 @@ import {
 } from "./validation";
 import { runDeepValidation } from "./deep";
 
-export const GENERATORS: Record<ArtifactKind, Generator> = {
+// Partial: "kit" has its own route (lib/generators/kit.ts) and never runs through the
+// GENERATORS pipeline — runGenerator guards the lookup.
+export const GENERATORS: Partial<Record<ArtifactKind, Generator>> = {
   validation: validationGenerator as Generator,
 };
 
@@ -56,7 +58,7 @@ export type GeneratorMeta = {
 
 export function generatorMeta(): GeneratorMeta[] {
   return KIND_ORDER.map((kind) => {
-    const g = GENERATORS[kind];
+    const g = GENERATORS[kind]!; // KIND_ORDER only lists kinds present in GENERATORS
     return {
       kind,
       label: g.label,
@@ -102,7 +104,7 @@ export async function buildValidationRun(
     provenance: idea.provenance,
   };
 
-  const def = GENERATORS.validation;
+  const def = GENERATORS.validation!; // always registered
   const adjustments: SystemAdjustment[] = [];
 
   // Validation is grounded in the fetched evidence corpus (real Reddit/HN posts):
@@ -534,7 +536,7 @@ export async function auditValidation(
     ourCriteria = stored.criteria;
   }
 
-  const def = GENERATORS.validation;
+  const def = GENERATORS.validation!; // always registered
   // ONE banded scoring pass on the audit family — no k-sampling, no gates, just the bands.
   const res = await generateStructured(ValidationElicitSchema, {
     role: "audit",

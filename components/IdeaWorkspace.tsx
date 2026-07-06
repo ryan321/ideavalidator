@@ -15,21 +15,23 @@ import type { ZodType } from "zod";
 import { ValidationSchema, type Validation } from "@/lib/generators/validation";
 
 // Validate persisted artifacts against the current schema so results saved under an
-// older schema show a regenerate prompt instead of crashing the render.
-const SCHEMAS: Record<ArtifactKind, ZodType> = {
+// older schema show a regenerate prompt instead of crashing the render. Partial:
+// "kit" renders inside the validation report (KillTestKit), never through this path.
+const SCHEMAS: Partial<Record<ArtifactKind, ZodType>> = {
   validation: ValidationSchema,
 };
 function isCurrent(kind: ArtifactKind, data: unknown): boolean {
-  return SCHEMAS[kind].safeParse(data).success;
+  return SCHEMAS[kind]?.safeParse(data).success ?? false;
 }
 
-const VIEWS: Record<ArtifactKind, React.ComponentType<{ d: never }>> = {
+const VIEWS: Partial<Record<ArtifactKind, React.ComponentType<{ d: never }>>> = {
   validation: ValidationView as never,
 };
 
 // extra: view-specific props beyond the data (e.g. the evidence corpus for validation).
 function renderView(kind: ArtifactKind, data: unknown, extra?: Record<string, unknown>) {
   const View = VIEWS[kind];
+  if (!View) return null;
   return <View d={data as never} {...(extra as object)} />;
 }
 
@@ -716,6 +718,25 @@ export default function IdeaWorkspace({
       await generate("validation", v.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not accept proposal");
+    }
+  }
+
+  // --- kill-test execution kit ---------------------------------------------------
+  const [generatingKit, setGeneratingKit] = useState(false);
+  async function generateKit() {
+    setError(null);
+    setGeneratingKit(true);
+    try {
+      const res = await fetch(`/api/versions/${activeVersionId}/kit`, { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Kit generation failed");
+      const art = j as Artifact;
+      setArtifacts((prev) => ({ ...prev, [activeVersionId]: { ...(prev[activeVersionId] ?? {}), kit: art } }));
+      setCost((c) => c + (art.cost ?? 0));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Kit generation failed");
+    } finally {
+      setGeneratingKit(false);
     }
   }
 
@@ -1782,6 +1803,10 @@ export default function IdeaWorkspace({
                     // k for the k-sample scoring mechanics HowScored documents.
                     scorePercentile: activePercentile,
                     scoringSamples,
+                    // the kill-test execution kit (its own artifact, rendered under NextTest)
+                    kitData: activeArtifacts.kit?.data ?? null,
+                    onGenerateKit: generateKit,
+                    generatingKit,
                   }}
                 />
                 <SourcesList sources={activeArtifacts.validation.sources} />
@@ -1853,7 +1878,7 @@ export default function IdeaWorkspace({
                 key={`${activeVersionId}:${m.kind}`}
                 kind={m.kind}
                 data={activeArtifacts[m.kind].data}
-                extra={{ print: true, goal: goalBucket, provenance: idea.provenance, scoringSamples }}
+                extra={{ print: true, goal: goalBucket, provenance: idea.provenance, scoringSamples, kitData: activeArtifacts.kit?.data ?? null }}
               />
               {/* the "model estimate — see sources" tags need the sources in the PDF too */}
               <SourcesList sources={activeArtifacts[m.kind].sources} />

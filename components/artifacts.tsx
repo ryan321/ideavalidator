@@ -18,6 +18,8 @@ import { SystemAdjustments } from "./report/SystemAdjustments";
 import { HowScored } from "./report/HowScored";
 import { EvidencePanel, FetchedBadge, WtpTag, relDate, sourceLabel } from "./report/EvidencePanel";
 import { NextTest } from "./report/NextTest";
+import { KillTestKit } from "./report/KillTestKit";
+import type { Kit } from "@/lib/generators/kit";
 import { ClaimsLedger } from "./report/ClaimsAudit";
 import {
   AuditPanel,
@@ -28,6 +30,69 @@ import {
   SispFlag,
   TarpitCallout,
 } from "./report/DeepReport";
+
+// Light structural guard for a stored kit artifact (KitSchema lives server-side with
+// the generator — its module pulls in the db, so the client checks shape, not zod).
+function asKit(data: unknown): Kit | null {
+  const k = data as Kit | null;
+  return k &&
+    typeof k.who === "string" &&
+    Array.isArray(k.questions) &&
+    Array.isArray(k.green_signals) &&
+    Array.isArray(k.red_signals) &&
+    k.outreach &&
+    typeof k.tally === "string"
+    ? k
+    : null;
+}
+
+// The milestone list + team/ops prose. When the verdict isn't a GO it renders
+// collapsed behind an "unlocks when the test passes" summary (open in print so the
+// PDF stays complete) — visible on request, never leading.
+function PlanBody({
+  plan,
+  collapsed,
+  print,
+}: {
+  plan: NonNullable<Validation["plan"]>;
+  collapsed: boolean;
+  print?: boolean;
+}) {
+  const body = (
+    <>
+      <ol className="space-y-2">
+        {(plan.milestones ?? []).map((mi, i) => (
+          <li key={i} className="flex gap-3 rounded-lg border border-border/70 bg-panel/40 p-3">
+            <span className="mt-0.5 font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
+            <div>
+              <div className="text-sm font-semibold">{mi.title}</div>
+              <div className="mt-0.5 text-xs text-muted">
+                {mi.when}
+                {mi.metric ? ` · ${mi.metric}` : ""}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+      {plan.team_and_ops && (
+        <p className="mt-3 text-sm text-muted">
+          <span className="font-medium text-fg/80">Team &amp; ops: </span>
+          {plan.team_and_ops}
+        </p>
+      )}
+    </>
+  );
+  if (!collapsed) return body;
+  return (
+    <details className="group" open={print || undefined}>
+      <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[12px] uppercase tracking-[0.12em] text-muted hover:text-fg">
+        <span className="transition group-open:rotate-90">▸</span>
+        The build plan — unlocks when the kill-test passes ({(plan.milestones ?? []).length} milestones)
+      </summary>
+      <div className="mt-3">{body}</div>
+    </details>
+  );
+}
 
 // The overall score is judged against the GOAL's verdict bands (lib/scoring.ts) —
 // there is no fixed 70/45 line; a venture GO sits higher than a side-hustle GO.
@@ -283,6 +348,9 @@ export function ValidationView({
   refreshingEvidence,
   scorePercentile,
   scoringSamples,
+  kitData,
+  onGenerateKit,
+  generatingKit,
   print = false,
 }: {
   d: Validation;
@@ -300,6 +368,10 @@ export function ValidationView({
   /** Active k for self-consistency scoring (env SCORING_SAMPLES), resolved server-side —
    * HowScored documents the mechanics against the real value. */
   scoringSamples?: number;
+  /** The stored kill-test execution kit artifact's data (null/undefined = not generated). */
+  kitData?: unknown;
+  onGenerateKit?: () => void;
+  generatingKit?: boolean;
   /** Print/PDF render: open every collapsed section and unclamp prose. */
   print?: boolean;
 }) {
@@ -381,6 +453,17 @@ export function ValidationView({
         {/* THE LEAD: the cheapest way to change this verdict, read before the meter.
             The report's deliverable is a decision plus the test that could flip it. */}
         {d.next_test && <NextTest next={d.next_test} verdict={d.verdict} print={print} />}
+        {/* the "run it this week" layer: script + tally signals + outreach, all tied to
+            the pre-registered pass/kill thresholds above */}
+        {d.next_test && (
+          <KillTestKit
+            kit={asKit(kitData)}
+            hasKit={kitData != null}
+            onGenerate={onGenerateKit}
+            generating={generatingKit}
+            print={print}
+          />
+        )}
 
         <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-panel2 to-panel">
           {/* verdict-tinted top hairline — the only place the verdict color leads */}
@@ -817,29 +900,36 @@ export function ValidationView({
       ) : null}
 
       {/* ============================ PLAN ============================ */}
+      {/* Verdict-gated: on a clean GO the build plan stands on its own. On MAYBE /
+          NO-GO / INSUFFICIENT EVIDENCE the plan's step zero IS the kill-test — a
+          confident build timeline for an unvalidated idea is exactly the theater this
+          product exists to avoid. The milestones stay one click away (and print fully),
+          framed as what unlocks when the test passes. */}
       {showPlan && d.plan && (
         <section id="plan" className="scroll-mt-20">
-          <SectionHead n="05" title="Plan" hint="path to first revenue" />
-          <ol className="space-y-2">
-            {(d.plan.milestones ?? []).map((mi, i) => (
-              <li key={i} className="flex gap-3 rounded-lg border border-border/70 bg-panel/40 p-3">
-                <span className="mt-0.5 font-mono text-xs text-accent2">{String(i + 1).padStart(2, "0")}</span>
-                <div>
-                  <div className="text-sm font-semibold">{mi.title}</div>
-                  <div className="mt-0.5 text-xs text-muted">
-                    {mi.when}
-                    {mi.metric ? ` · ${mi.metric}` : ""}
-                  </div>
+          <SectionHead
+            n="05"
+            title="Plan"
+            hint={d.verdict === "GO" ? "path to first revenue" : "the test comes first"}
+          />
+          {d.verdict !== "GO" && (
+            <div className="mb-3 flex gap-3 rounded-lg border border-accent2/40 bg-accent2/[0.06] p-3">
+              <span className="mt-0.5 font-mono text-xs text-accent2">00</span>
+              <div>
+                <div className="text-sm font-semibold">Run the kill-test — it gates everything below</div>
+                <div className="mt-0.5 text-xs text-muted">
+                  This verdict is {d.verdict || "not a GO"}: the evidence doesn&apos;t yet justify a build
+                  timeline. Run{" "}
+                  <a href="#verdict" className="text-accent2 hover:underline">
+                    the one thing to test next
+                  </a>{" "}
+                  against its pre-registered thresholds, then revalidate — a pass unlocks this plan with a
+                  verdict behind it.
                 </div>
-              </li>
-            ))}
-          </ol>
-          {d.plan.team_and_ops && (
-            <p className="mt-3 text-sm text-muted">
-              <span className="font-medium text-fg/80">Team &amp; ops: </span>
-              {d.plan.team_and_ops}
-            </p>
+              </div>
+            </div>
           )}
+          <PlanBody plan={d.plan} collapsed={d.verdict !== "GO"} print={print} />
         </section>
       )}
 

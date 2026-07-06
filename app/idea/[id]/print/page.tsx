@@ -38,6 +38,8 @@ export default async function PrintReportPage({
 
   const artifact = getArtifacts(version.id).find((a) => a.kind === "validation");
   const parsed = artifact ? ValidationSchema.safeParse(artifact.data) : null;
+  // the kill-test execution kit (if generated) prints inside the validation report
+  const kit = getArtifacts(version.id).find((a) => a.kind === "kit");
 
   const dist = scoreDistribution();
   const pct = dist.length >= PERCENTILE_MIN_POP ? percentileOf(version.score, dist) : null;
@@ -59,6 +61,7 @@ export default async function PrintReportPage({
             provenance={idea.provenance}
             scorePercentile={pct}
             scoringSamples={scoringSamples()}
+            kitData={kit?.data ?? null}
             print
           />
           <SourcesList sources={artifact!.sources} />
