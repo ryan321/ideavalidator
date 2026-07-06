@@ -11,6 +11,7 @@ import type { WedgeProposal, WedgeSet } from "@/lib/generators/wedges";
 import { acceptanceMargin, percentileOf, verdictBands } from "@/lib/scoring";
 import { SourcesList, ValidationView } from "./artifacts";
 import { ArenaBoard } from "./ArenaBoard";
+import { CampaignHeader } from "./CampaignHeader";
 import { CriteriaDeltaTable, type DeltaVersion } from "./report/CriteriaDeltaTable";
 import type { ZodType } from "zod";
 import { ValidationSchema, type Validation } from "@/lib/generators/validation";
@@ -759,6 +760,61 @@ export default function IdeaWorkspace({
     }
   }
 
+  // --- kill-test result: record → system-judged outcome → revalidate --------------
+  const [recordingResult, setRecordingResult] = useState(false);
+  async function recordResult(report: string) {
+    setError(null);
+    setRecordingResult(true);
+    try {
+      const res = await fetch(`/api/versions/${activeVersionId}/test-result`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Could not record the result");
+      const art = j as Artifact;
+      setArtifacts((prev) => ({ ...prev, [activeVersionId]: { ...(prev[activeVersionId] ?? {}), test_result: art } }));
+      setCost((c) => c + (art.cost ?? 0));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not record the result");
+    } finally {
+      setRecordingResult(false);
+    }
+  }
+
+  // Close the loop: the judged real-world outcome becomes founder context on a new
+  // version, and the same honest engine re-scores. Nothing is hand-adjusted.
+  async function revalidateWithResult() {
+    const tr = activeArtifacts.test_result?.data as
+      | { outcome?: string; reasoning?: string; report?: string }
+      | undefined;
+    const nt = (activeArtifacts.validation?.data as { next_test?: { cheapest_test?: string; pass_threshold?: string; kill_threshold?: string } } | undefined)?.next_test;
+    if (!tr?.outcome) return;
+    setError(null);
+    try {
+      const outcome = tr.outcome.toUpperCase();
+      const context =
+        `The founder RAN the pre-registered kill-test. Test: ${nt?.cheapest_test ?? ""}. ` +
+        `PASS bar: ${nt?.pass_threshold ?? ""}. KILL bar: ${nt?.kill_threshold ?? ""}. ` +
+        `Reported result: "${tr.report ?? ""}". System-judged outcome against the bars: ${outcome}` +
+        `${tr.reasoning ? ` (${tr.reasoning})` : ""}. ` +
+        `Weigh this real-world result heavily when re-scoring the criteria it bears on — it is behavioral evidence from the actual buyer, not opinion.`;
+      const v = await createVersionFrom(
+        activeVersion.statement,
+        "context",
+        activeVersionId,
+        `Test result: ${outcome}`,
+        `Kill-test ${outcome.toLowerCase()} recorded and re-scored`,
+        context
+      );
+      switchVersion(v.id);
+      await generate("validation", v.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not re-validate");
+    }
+  }
+
   // --- wedge tournament ---------------------------------------------------------
   // Fan-out counterpart to the auto-iterate hill-climb: propose 3-5 DIVERGENT wedge
   // variants, validate the selected ones head-to-head on the SAME pinned corpus, and
@@ -1076,12 +1132,38 @@ export default function IdeaWorkspace({
   }
 
   const activeValidationData = activeArtifacts.validation?.data as
-    | { clarifying_questions?: string[]; possible_alphas?: { alpha: string; rationale: string }[] }
+    | {
+        clarifying_questions?: string[];
+        possible_alphas?: { alpha: string; rationale: string }[];
+        verdict?: string;
+        score?: number;
+        next_test?: { riskiest_assumption?: string; pivotal_criterion?: string };
+      }
     | undefined;
   const activeQuestions = activeValidationData?.clarifying_questions ?? [];
   const activeAlphas = activeValidationData?.possible_alphas ?? [];
   const stage = STAGES.find((s) => s.key === currentStage) ?? STAGES[0];
   const hasValidate = !!activeArtifacts.validation;
+
+  // ---- campaign state (the loop made visible above the report) -----------------
+  const activeOutcome = (activeArtifacts.test_result?.data as { outcome?: string } | undefined)?.outcome;
+  const testStatus = activeOutcome
+    ? activeOutcome.toUpperCase()
+    : activeArtifacts.kit
+      ? "KIT READY"
+      : "NOT RUN";
+  const bestOther = visibleVersions
+    .filter((v) => v.id !== activeVersionId && v.score != null)
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
+  const showBestOther = !!bestOther && (bestOther.score ?? 0) > (activeVersion?.score ?? -1);
+  const campaignNextMove =
+    activeValidationData?.verdict === "GO"
+      ? { label: "The plan is unlocked — build", href: "#plan" }
+      : activeOutcome
+        ? { label: "Re-validate with the result", onClick: revalidateWithResult }
+        : activeArtifacts.kit
+          ? { label: "Run the test — kit is ready", href: "#next-test" }
+          : { label: "Generate the run kit", onClick: generateKit };
 
   return (
     <div>
@@ -1798,6 +1880,23 @@ export default function IdeaWorkspace({
 
         {(
           <div>
+            {/* the campaign header: decision state + the one next move, above the receipt */}
+            {hasValidate && typeof activeValidationData?.score === "number" && (
+              <CampaignHeader
+                verdict={activeValidationData.verdict ?? "—"}
+                score={Math.round(activeValidationData.score)}
+                color={scoreColor(Math.round(activeValidationData.score), goalBands)}
+                activeN={activeVersion.n}
+                bestN={showBestOther ? bestOther!.n : null}
+                bestScore={showBestOther ? bestOther!.score : null}
+                bestLabel={showBestOther ? bestOther!.label ?? bestOther!.statement : null}
+                onViewBest={() => bestOther && switchVersion(bestOther.id)}
+                openQuestion={activeValidationData.next_test?.riskiest_assumption ?? null}
+                testStatus={testStatus}
+                nextMove={campaignNextMove}
+              />
+            )}
+
             {/* once there's a report, this slim bar is the re-run control */}
             {hasValidate && (
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
@@ -1856,6 +1955,11 @@ export default function IdeaWorkspace({
                     intelData: activeArtifacts.intel?.data ?? null,
                     onGenerateIntel: generateIntel,
                     generatingIntel,
+                    // the real-world kill-test result loop
+                    testResultData: activeArtifacts.test_result?.data ?? null,
+                    onRecordResult: recordResult,
+                    recordingResult,
+                    onRevalidateWithResult: revalidateWithResult,
                   }}
                 />
                 <SourcesList sources={activeArtifacts.validation.sources} />

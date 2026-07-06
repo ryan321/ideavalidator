@@ -21,8 +21,10 @@ import { NextTest } from "./report/NextTest";
 import { IcpCard } from "./report/IcpCard";
 import { MoatPanel } from "./report/MoatPanel";
 import { KillTestKit } from "./report/KillTestKit";
+import { TestResultPanel } from "./report/TestResultPanel";
 import type { Kit } from "@/lib/generators/kit";
 import type { Intel } from "@/lib/generators/intel";
+import type { TestResultData } from "@/lib/generators/testresult";
 import { ClaimsLedger } from "./report/ClaimsAudit";
 import {
   AuditPanel,
@@ -95,6 +97,12 @@ function PlanBody({
       <div className="mt-3">{body}</div>
     </details>
   );
+}
+
+// Light structural guard for a stored test-result artifact (schema lives server-side).
+function asTestResult(data: unknown): TestResultData | null {
+  const x = data as TestResultData | null;
+  return x && typeof x.report === "string" && typeof x.outcome === "string" ? x : null;
 }
 
 // Light structural guard for a stored intel artifact (schema lives server-side).
@@ -388,6 +396,10 @@ export function ValidationView({
   intelData,
   onGenerateIntel,
   generatingIntel,
+  testResultData,
+  onRecordResult,
+  recordingResult,
+  onRevalidateWithResult,
   print = false,
 }: {
   d: Validation;
@@ -413,6 +425,11 @@ export function ValidationView({
   intelData?: unknown;
   onGenerateIntel?: () => void;
   generatingIntel?: boolean;
+  /** The recorded real-world kill-test result (system-judged vs the pre-registered bars). */
+  testResultData?: unknown;
+  onRecordResult?: (report: string) => void;
+  recordingResult?: boolean;
+  onRevalidateWithResult?: () => void;
   /** Print/PDF render: open every collapsed section and unclamp prose. */
   print?: boolean;
 }) {
@@ -620,7 +637,8 @@ export function ValidationView({
           {d.narrative && <PainkillerTag verdict={d.narrative.verdict} />}
         </div>
 
-        {/* the cheapest way to CHANGE the verdict above — then the kit that runs it */}
+        {/* the cheapest way to CHANGE the verdict above — the kit that runs it, and the
+            place the REAL-WORLD result comes home to be judged against the bars */}
         {d.next_test && (
           <div id="next-test" className="scroll-mt-20 space-y-3 pt-2">
             <NextTest next={d.next_test} verdict={d.verdict} print={print} />
@@ -629,6 +647,14 @@ export function ValidationView({
               hasKit={kitData != null}
               onGenerate={onGenerateKit}
               generating={generatingKit}
+              print={print}
+            />
+            <TestResultPanel
+              result={asTestResult(testResultData)}
+              onRecord={onRecordResult}
+              recording={recordingResult}
+              onRevalidate={onRevalidateWithResult}
+              disabled={recordingResult}
               print={print}
             />
           </div>
