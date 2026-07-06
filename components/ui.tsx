@@ -112,9 +112,9 @@ export function SectionHead({
   return (
     <div id={id} className="mb-5 flex scroll-mt-20 items-center gap-3">
       {n && <span className="font-mono text-sm font-semibold tabular-nums text-accent2">{n}</span>}
-      <h2 className="font-display text-xl font-semibold uppercase tracking-[0.06em] text-fg">{title}</h2>
+      <h2 className="font-display text-2xl font-semibold uppercase tracking-[0.05em] text-fg">{title}</h2>
       <div className="h-px flex-1 bg-border" />
-      {hint && <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-muted sm:block">{hint}</span>}
+      {hint && <span className="hidden font-mono text-[11px] uppercase tracking-[0.12em] text-muted sm:block">{hint}</span>}
       {right}
     </div>
   );

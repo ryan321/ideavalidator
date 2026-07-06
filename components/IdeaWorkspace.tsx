@@ -10,6 +10,7 @@ import type { Refinement } from "@/lib/generators/refine";
 import type { WedgeProposal, WedgeSet } from "@/lib/generators/wedges";
 import { acceptanceMargin, percentileOf, verdictBands } from "@/lib/scoring";
 import { SourcesList, ValidationView } from "./artifacts";
+import { ArenaBoard } from "./ArenaBoard";
 import { CriteriaDeltaTable, type DeltaVersion } from "./report/CriteriaDeltaTable";
 import type { ZodType } from "zod";
 import { ValidationSchema, type Validation } from "@/lib/generators/validation";
@@ -142,8 +143,6 @@ const STAGES: {
 }[] = [
   { key: "validate", label: "Validate", blurb: "Is there real, paying demand?", kinds: ["validation"] },
 ];
-const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
-
 type ArtMap = Record<string, Record<string, Artifact>>;
 const bk = (vid: string, kind: string) => `${vid}:${kind}`;
 
@@ -275,6 +274,7 @@ export default function IdeaWorkspace({
   );
   const [statementExpanded, setStatementExpanded] = useState(false);
   const [comparing, setComparing] = useState(false); // side-by-side version compare
+  const [arenaOpen, setArenaOpen] = useState(false); // the every-variant scoreboard
   const [showArchived, setShowArchived] = useState(false); // reveal archived versions in the switcher
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -1086,19 +1086,11 @@ export default function IdeaWorkspace({
   return (
     <div>
       <div className="no-print">
-        {/* stage header — the journey lives in the left rail; this grounds the current stop */}
-        <div className="mb-5">
-          <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
-            <span className="text-accent2">{String(stageIndex(currentStage) + 1).padStart(2, "0")}</span>
-            <span className="text-border">/</span>
-            <span>{String(STAGES.length).padStart(2, "0")}</span>
-            <span className="text-border">·</span>
-            <span>Journey</span>
-          </div>
-          <h1 className="mt-1.5 flex items-baseline gap-3 text-2xl font-semibold">
-            {stage.label}
-            <span className="text-sm font-normal text-muted">{stage.blurb}</span>
-          </h1>
+        {/* stage header — compact: the answer below deserves the vertical space, not the chrome.
+            (The 01/01 journey counter was dropped: a one-stage journey encodes nothing.) */}
+        <div className="mb-4 flex items-baseline gap-3">
+          <h1 className="text-lg font-semibold">{stage.label}</h1>
+          <span className="text-sm text-muted">{stage.blurb}</span>
         </div>
 
         {/* version switcher */}
@@ -1132,13 +1124,24 @@ export default function IdeaWorkspace({
               </button>
             );
           })}
+          {versions.length > 1 && (
+            <button
+              onClick={() => setArenaOpen((a) => !a)}
+              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+                arenaOpen ? "border-accent2 bg-accent2/10 text-accent2" : "border-border text-muted hover:text-fg"
+              }`}
+              title="Every variant on one score axis, with the noise band drawn"
+            >
+              ▦ Arena
+            </button>
+          )}
           {visibleVersions.length > 1 && (
             <button
               onClick={() => setComparing((c) => !c)}
               className={`rounded-lg border px-3 py-1.5 text-sm transition ${
                 comparing ? "border-accent2 bg-accent2/10 text-accent2" : "border-border text-muted hover:text-fg"
               }`}
-              title="Compare every version side by side"
+              title="Compare criteria side by side"
             >
               ⇄ Compare
             </button>
@@ -1155,6 +1158,27 @@ export default function IdeaWorkspace({
             </button>
           )}
         </div>
+
+        {/* the arena — every variant (archived included) on one score axis */}
+        {arenaOpen && (
+          <ArenaBoard
+            versions={versions}
+            artifacts={artifacts}
+            activeId={activeVersionId}
+            margin={acceptanceMargin()}
+            scoreColor={(n) => scoreColor(n, goalBands)}
+            onView={(id) => switchVersion(id)}
+            onArchive={async (id) => {
+              const res = await fetch(`/api/versions/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ archived: true }),
+              }).catch(() => null);
+              if (res?.ok) setVersions((prev) => prev.map((v) => (v.id === id ? { ...v, archived: 1 } : v)));
+            }}
+            onRestore={unarchiveVersion}
+          />
+        )}
 
         {/* archived versions — hidden by default; each can be viewed or restored */}
         {showArchived && archivedVersions.length > 0 && (

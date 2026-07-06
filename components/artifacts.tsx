@@ -458,6 +458,18 @@ export function ValidationView({
   if (d.demand) dims.push({ label: "Will pay", value: d.demand.willingness_to_pay, hint: "What they'll realistically pay." });
   if (d.operating) dims.push({ label: "Effort to run", value: d.operating.effort_level, color: tone3(d.operating.effort_level, "Low", "Medium"), hint: "Ongoing work to operate it." });
   if (d.acquisition) dims.push({ label: "Hard to sell", value: d.acquisition.difficulty, color: tone3(d.acquisition.difficulty, "Easy", "Moderate"), hint: "How hard it is to win each customer." });
+  if (d.moat?.paths?.length) {
+    // headline the STRONGEST graded path — honest-to-zero, so "None yet" is common
+    const order = { strong: 0, plausible: 1, weak: 2, none: 3 } as const;
+    const best = d.moat.paths.slice().sort((a, b) => (order[a.grade] ?? 3) - (order[b.grade] ?? 3))[0];
+    const hasAny = best && best.grade !== "none";
+    dims.push({
+      label: "Moat today",
+      value: hasAny ? `${best.grade[0].toUpperCase()}${best.grade.slice(1)} · ${best.type.replace(/_/g, " ")}` : "None yet",
+      color: best?.grade === "strong" ? "var(--color-good)" : hasAny ? "var(--color-warn)" : "var(--color-bad)",
+      hint: "Strongest defensibility path graded today — details in Market.",
+    });
+  }
 
   // promoted strengths / risks — the top items; the full lists stay in the scorecard.
   const strengths = [...(d.go_signals?.key_strengths ?? []), ...(d.go_signals?.positive_signals ?? [])].slice(0, 3);
@@ -479,9 +491,17 @@ export function ValidationView({
 
   return (
     <div className="space-y-12">
-      {/* on-this-report nav */}
+      {/* on-this-report nav — carries the verdict so the answer is NEVER off-screen */}
       <nav className="no-print sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-1 border-b border-border bg-bg/85 px-1 py-2.5 backdrop-blur">
-        <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Report</span>
+        <a
+          href="#verdict"
+          className="mr-2 flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-xs font-bold tracking-tight"
+          style={{ color, borderColor: `color-mix(in srgb, ${color} 35%, transparent)` }}
+          title={`${d.verdict} · ${Math.round(d.score)} ± ${sd} at ${d.confidence}% confidence`}
+        >
+          {insufficient ? "INSUFFICIENT" : d.verdict}
+          <span className="tabular-nums">{Math.round(d.score)}</span>
+        </a>
         <a href="#verdict" className={navLink}>Verdict</a>
         <a href="#brief" className={navLink}>Brief</a>
         {showMarket && <a href="#market" className={navLink}>Market</a>}
@@ -492,22 +512,10 @@ export function ValidationView({
       </nav>
 
       {/* ============================ VERDICT (hero) ============================ */}
+      {/* Order: the ANSWER first (verdict readout), then the cheapest way to change it
+          (kill-test + kit). The readout carries a one-line pointer to the test so the
+          decision and its lever stay one glance apart. */}
       <section id="verdict" className="scroll-mt-20 space-y-5">
-        {/* THE LEAD: the cheapest way to change this verdict, read before the meter.
-            The report's deliverable is a decision plus the test that could flip it. */}
-        {d.next_test && <NextTest next={d.next_test} verdict={d.verdict} print={print} />}
-        {/* the "run it this week" layer: script + tally signals + outreach, all tied to
-            the pre-registered pass/kill thresholds above */}
-        {d.next_test && (
-          <KillTestKit
-            kit={asKit(kitData)}
-            hasKit={kitData != null}
-            onGenerate={onGenerateKit}
-            generating={generatingKit}
-            print={print}
-          />
-        )}
-
         <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-panel2 to-panel">
           {/* verdict-tinted top hairline — the only place the verdict color leads */}
           <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
@@ -584,6 +592,22 @@ export function ValidationView({
             <div className="mt-7">
               <VerdictMeter score={d.score} bands={bands} insufficient={insufficient} />
             </div>
+
+            {/* the decision's lever, one glance from the decision */}
+            {d.next_test && (
+              <a
+                href="#next-test"
+                className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-fg/85 transition hover:text-fg"
+              >
+                <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent2">Next ·</span>
+                <span className="min-w-0">
+                  {d.next_test.pivotal_criterion && d.verdict === "MAYBE" ? (
+                    <>resolving <b className="text-fg">{d.next_test.pivotal_criterion}</b> moves this off the line — </>
+                  ) : null}
+                  a ≤1-week test is ready below <span className="text-accent2">↓</span>
+                </span>
+              </a>
+            )}
           </div>
 
           {/* the four reads as the instrument footer */}
@@ -595,6 +619,20 @@ export function ValidationView({
           <ClampText text={d.summary} print={print} className="max-w-2xl text-[15px] text-fg/90" />
           {d.narrative && <PainkillerTag verdict={d.narrative.verdict} />}
         </div>
+
+        {/* the cheapest way to CHANGE the verdict above — then the kit that runs it */}
+        {d.next_test && (
+          <div id="next-test" className="scroll-mt-20 space-y-3 pt-2">
+            <NextTest next={d.next_test} verdict={d.verdict} print={print} />
+            <KillTestKit
+              kit={asKit(kitData)}
+              hasKit={kitData != null}
+              onGenerate={onGenerateKit}
+              generating={generatingKit}
+              print={print}
+            />
+          </div>
+        )}
 
         {/* Wave 3 normal-path guards — a known-tarpit match (names the pattern + prior
             attempts + the differentiated-insight ask) and the solution-in-search-of-a-

@@ -32,14 +32,14 @@ export function NextTest({
       </div>
 
       {/* the riskiest assumption — the belief the corpus does NOT already settle */}
-      <p className="mt-3 text-[15px] font-semibold leading-snug text-fg">
+      <p className="mt-3 text-base font-semibold leading-snug text-fg sm:text-[17px]">
         {next.riskiest_assumption}
       </p>
 
       {/* the cheapest test that could change the verdict, with its channel */}
       <div className="mt-4">
         <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Cheapest test · ≤ 1 week</div>
-        <p className="mt-1 text-sm leading-relaxed text-fg/90">{next.cheapest_test}</p>
+        <p className="mt-1 text-[15px] leading-relaxed text-fg/90">{next.cheapest_test}</p>
       </div>
 
       {/* pass / kill as ONE pre-registered commitment — both bars visible together so
