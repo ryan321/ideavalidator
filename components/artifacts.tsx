@@ -18,6 +18,7 @@ import { SystemAdjustments } from "./report/SystemAdjustments";
 import { HowScored } from "./report/HowScored";
 import { EvidencePanel, FetchedBadge, WtpTag, relDate, sourceLabel } from "./report/EvidencePanel";
 import { NextTest } from "./report/NextTest";
+import { IcpCard } from "./report/IcpCard";
 import { MoatPanel } from "./report/MoatPanel";
 import { KillTestKit } from "./report/KillTestKit";
 import type { Kit } from "@/lib/generators/kit";
@@ -793,6 +794,9 @@ export function ValidationView({
                 )}
               </div>
             )}
+
+            {/* who buys & how — channels grounded in the corpus's proven communities */}
+            {d.icp && <IcpCard icp={d.icp} communities={evidence?.stats.communities ?? []} />}
 
             {(d.market.competitors ?? []).length > 0 && (
               <div>

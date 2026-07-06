@@ -223,6 +223,21 @@ export const ValidationElicitSchema = z.object({
     .max(5)
     .default([]),
 
+  // ICP / GO-TO-MARKET — who buys, how they buy, and where to reach them. Channels are
+  // GROUNDED: they must prefer the corpus communities evidence actually came from, and
+  // fabricated per-channel CAC figures are banned. Optional + .catch for old artifacts.
+  icp: z
+    .object({
+      who: z.string().catch(""), // the buyer, sharply (role + situation, not a demographic blur)
+      how_they_buy: z.string().catch(""), // the purchase motion (card self-serve / app store / procurement…)
+      trigger_events: z.array(z.string()).catch([]), // 2-3 moments that start the search
+      objections: z.array(z.string()).catch([]), // 2-3 objections you'll actually hear
+      channels: z
+        .array(z.object({ name: z.string().catch(""), why: z.string().catch("") }))
+        .catch([]), // ranked by fit; corpus communities first when applicable
+    })
+    .optional(),
+
   // DEFENSIBILITY — the moat read, graded honest-to-zero: every recognized moat type
   // gets a grade (most pre-launch ideas are "none" across the board — that is a
   // finding, not a failure), plus the 1-3 concrete paths that could EARN one. Optional
@@ -620,6 +635,7 @@ Also produce:
 - "acquisition": { difficulty (Easy/Moderate/Hard), reasoning (2–3 sentences; weigh the category-education tax — an established category buyers understand is EASIER, creating a category is HARDER; competitors can make selling easier) }.
 - "downside": { capital_at_risk (1–2 sentences, LEAD with the figure, e.g. "<$15K to MVP; main risk is foregone salary"), liability (1–2 sentences), if_it_fails (1–2 sentences) }.
 - "possible_alphas": 2-4 concrete differentiators/angles this idea COULD pursue to improve its odds — each { alpha (short, specific — a niche to own, a positioning as the alternative to a dominant player, a workflow/data edge, an underserved segment), rationale (1-2 sentences on why it would raise the obtainable revenue / lower risk for the goal) }. These are TESTABLE directions distinct from the current positioning.
+- "icp": who buys & how to reach them — { who (the buyer SHARPLY: role + situation, e.g. "solo freelance designers billing 5-15 clients/mo", never "businesses" or a demographic blur), how_they_buy (the actual purchase motion: self-serve card, app-store impulse, boss-approval, procurement/RFP — and what that implies for the sale), trigger_events (2-3 concrete MOMENTS that start the search, e.g. "a client pays 45 days late twice in a row"), objections (2-3 objections this buyer will actually raise, consistent with the risks above), channels (2-4 of { name, why }, ranked by fit — the names MUST prefer the EVIDENCE section's actual communities when the buyer is reachable there (those are proven hangouts, not guesses); NEVER invent per-channel CAC dollar figures — channel-fit reasoning only) }. Keep consistent with acquisition.difficulty and the narrative.
 - "moat": the defensibility read, graded HONEST-TO-ZERO — { today (one plain line: what would stop a competent, funded copycat TODAY; for most pre-launch ideas the true answer is "nothing yet" — SAY SO, it is a finding, not an insult), paths (grade ALL SEVEN moat types: network_effects, switching_costs, proprietary_data, distribution, regulatory, brand, scale_economies — each { type, grade "none"|"weak"|"plausible"|"strong", note (one line of EVIDENCE for the grade) }; "strong" requires observable evidence today, not intention — a pre-launch idea claiming any "strong" is almost always wrong; being first is not a moat, enthusiasm is not a moat, "we'll have data" is not proprietary_data until the data exists and is exclusive), to_build (1-3 of { path (which moat type), becomes_true (the SPECIFIC, checkable condition that would earn it — e.g. "500 restaurants' order histories under exclusive contract", not "get lots of users") }) }. Keep the grades CONSISTENT with the Differentiation/Moat criterion band — a C there cannot coexist with a "strong" here.
 - "market": the deeper market & competition read — { sizing: { tam: {value (a figure, e.g. "$4.2B"), note (one line)}, sam: {value, note}, som: {value, note}, methodology (one line on how you derived them) }, cagr_pct (number, e.g. 18), search_trend { keyword (the core search term), direction ("Rising"|"Flat"|"Falling"), note (e.g. "+85% YoY interest, per Google Trends") }, momentum (one line on a recent funding/exit/shift in the category, if you found one — else ""), competitors: 2-4 of [{ name (a REAL, currently-operating company), note (what they do + how satisfied their customers are, from real signals), complaint_theme (the single biggest thing their customers complain about — from real reviews/threads), your_edge (your angle vs them) }], demand_signals: 3-5 of the strongest items from the EVIDENCE section — each { evidence_id (the corpus id, e.g. "E3"), quote (the relevant excerpt from THAT item, verbatim or trimmed — never paraphrased into something the person didn't say), tag ("PAIN POINT"|"FEATURE REQUEST"|"DISCUSSION") }. NO urls — the system attaches the real link from the corpus, and a signal citing an id not in the corpus is DROPPED. If the corpus has no relevant items, return an empty demand_signals array. Only include search_trend/momentum you actually found (Market Timing is clamped when both are empty); never fabricate a figure, a thread, or a URL. Keep all of this CONSISTENT with the bands and obtainable_revenue above.
 - "financials": the money — { startup_cost (a figure to a usable MVP), unit_economics { cac, ltv, payback (each short) }, revenue_model (pricing + how money is made, one line), projections: 3 years of [{ year, revenue, customers, note }] where revenue ≈ customers × blended price each year and Year-1 is consistent with obtainable_revenue and the sales difficulty }.
@@ -643,6 +659,7 @@ Return JSON exactly matching (field order matters: pre_mortem before criteria; i
   "downside": {"capital_at_risk": string, "liability": string, "if_it_fails": string},
   "acquisition": {"difficulty": "Easy"|"Moderate"|"Hard", "reasoning": string},
   "possible_alphas": [{"alpha": string, "rationale": string}],
+  "icp": {"who": string, "how_they_buy": string, "trigger_events": [string], "objections": [string], "channels": [{"name": string, "why": string}]},
   "moat": {"today": string, "paths": [{"type": string, "grade": "none"|"weak"|"plausible"|"strong", "note": string}], "to_build": [{"path": string, "becomes_true": string}]},
   "market": {"sizing": {"tam": {"value": string, "note": string}, "sam": {"value": string, "note": string}, "som": {"value": string, "note": string}, "methodology": string}, "cagr_pct": number, "search_trend": {"keyword": string, "direction": "Rising"|"Flat"|"Falling", "note": string}, "momentum": string, "competitors": [{"name": string, "note": string, "complaint_theme": string, "your_edge": string}], "demand_signals": [{"evidence_id": string, "quote": string, "tag": string}]},
   "financials": {"startup_cost": string, "unit_economics": {"cac": string, "ltv": string, "payback": string}, "revenue_model": string, "projections": [{"year": string, "revenue": string, "customers": string, "note": string}]},

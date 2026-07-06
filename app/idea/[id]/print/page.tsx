@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { SourcesList, ValidationView } from "@/components/artifacts";
-import { getArtifacts, getIdea, getVersion, listVersions, scoreDistribution } from "@/lib/db";
+import { getArtifacts, getEvidence, getIdea, getVersion, listVersions, scoreDistribution } from "@/lib/db";
 import { ValidationSchema } from "@/lib/generators/validation";
 import { percentileOf, scoringSamples } from "@/lib/scoring";
 
@@ -64,6 +64,7 @@ export default async function PrintReportPage({
             scoringSamples={scoringSamples()}
             kitData={kit?.data ?? null}
             intelData={intel?.data ?? null}
+            evidence={getEvidence(version.id) ?? null}
             print
           />
           <SourcesList sources={artifact!.sources} />
