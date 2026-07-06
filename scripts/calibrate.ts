@@ -4,9 +4,11 @@
 // MAYBE-high/GO, known failures must stay low, garbage must NO-GO. Prints a scorecard
 // and exits nonzero on any failed expectation.
 //
-//   npm run calibrate -- --yes [--keep]
+//   npm run calibrate -- --yes [--keep] [--only <id-substring>]
 //
 // Spends real OpenRouter credit — refuses to run without --yes.
+// --only runs just the matching fixtures (debug a single miss without re-buying
+// the whole suite); --keep retains the fixture ideas for inspection in the app.
 
 import "./env";
 
@@ -26,12 +28,21 @@ import {
 } from "./harness";
 
 async function main(): Promise<void> {
+  // --only <substring>: debug one fixture without re-buying the whole suite
+  const onlyIx = process.argv.indexOf("--only");
+  const only = onlyIx > -1 ? (process.argv[onlyIx + 1] ?? "") : null;
+  const fixtures = only ? FIXTURES.filter((f) => f.id.includes(only)) : FIXTURES;
+  if (!fixtures.length) {
+    console.error(`--only "${only}" matched no fixtures (ids: ${FIXTURES.map((f) => f.id).join(", ")})`);
+    process.exit(1);
+  }
+
   confirmSpendOrExit(
     [
-      `calibrate: 1 validation run + 1 second-family audit for each of the ${FIXTURES.length} fixture ideas:`,
-      ...FIXTURES.map((f) => `  - ${f.id} (${f.goal}): expect ${expectLabel(f.min, f.max)}`),
+      `calibrate: 1 validation run + 1 second-family audit for each of the ${fixtures.length} fixture ideas:`,
+      ...fixtures.map((f) => `  - ${f.id} (${f.goal}): expect ${expectLabel(f.min, f.max)}`),
     ],
-    FIXTURES.length * (EST_COST_PER_VALIDATION + EST_COST_PER_CORPUS + EST_COST_PER_AUDIT)
+    fixtures.length * (EST_COST_PER_VALIDATION + EST_COST_PER_CORPUS + EST_COST_PER_AUDIT)
   );
 
   const ideaIds: string[] = [];
@@ -39,7 +50,7 @@ async function main(): Promise<void> {
   let failures = 0;
 
   try {
-    for (const f of FIXTURES) {
+    for (const f of fixtures) {
       console.log(`\n=== ${f.id} (${f.goal}) ===`);
       let row: string[];
       try {
@@ -92,8 +103,8 @@ async function main(): Promise<void> {
     console.log(`\nTier scale: ${TIERS.join(" < ")}  (* = INSUFFICIENT EVIDENCE, tier derived from the score)`);
     console.log(
       failures
-        ? `\n${failures}/${FIXTURES.length} fixtures FAILED their expected band.`
-        : `\nAll ${FIXTURES.length} fixtures landed in their expected bands.`
+        ? `\n${failures}/${fixtures.length} fixtures FAILED their expected band.`
+        : `\nAll ${fixtures.length} fixtures landed in their expected bands.`
     );
   } finally {
     // cost first — cleanup deletes the fixtures' usage_log rows with the ideas
