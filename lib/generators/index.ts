@@ -13,6 +13,7 @@ import {
   setVersionScore,
 } from "../db";
 import { collectEvidence, evidencePromptBlock, type EvidenceCorpus } from "../evidence";
+import type { EvidenceSource } from "../evidence/types";
 import {
   GATES,
   bandScore,
@@ -974,7 +975,7 @@ type DemandSignal = {
   evidence_id: string;
   quote: string;
   tag: string;
-  source?: "reddit" | "hn";
+  source?: EvidenceSource;
   url?: string;
   community?: string;
   score?: number;

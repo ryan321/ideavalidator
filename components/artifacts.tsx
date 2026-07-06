@@ -258,8 +258,8 @@ function missingEvidence(d: Validation, evidence?: EvidenceCorpus | null): strin
   const insuffDetail = d.system_adjustments?.find((a) => a.rule === "insufficient-evidence")?.detail ?? "";
   const corpusCount =
     evidence?.items.length ?? (insuffDetail.match(/Corpus:\s*(\d+)\s*items/i) ? Number(insuffDetail.match(/Corpus:\s*(\d+)\s*items/i)![1]) : null);
-  if (corpusCount === 0) parts.push("no relevant Reddit/HN evidence was found");
-  else if (corpusCount != null && corpusCount < 8) parts.push(`only ${corpusCount} Reddit/HN evidence item${corpusCount === 1 ? "" : "s"} were found`);
+  if (corpusCount === 0) parts.push("no relevant fetched evidence was found");
+  else if (corpusCount != null && corpusCount < 8) parts.push(`only ${corpusCount} fetched evidence item${corpusCount === 1 ? "" : "s"} were found`);
   if (rules.has("degraded-corpus")) parts.push("the evidence relevance ranking degraded (refresh the evidence)");
   if (rules.has("zero-web-sources")) parts.push("the grounded pass cited zero web sources (possible search-plugin regression)");
   if (rules.has("few-competitors")) parts.push("fewer than 2 real competitors were named");
@@ -699,7 +699,7 @@ export function ValidationView({
               <div>
                 <div className="mb-1 font-mono text-sm uppercase tracking-[0.1em] text-muted">What people are actually saying</div>
                 <p className="mb-2.5 text-xs text-muted">
-                  Posts fetched from the Reddit / Hacker News APIs — every link and vote count is real, not model-asserted.
+                  Posts, reviews & issues fetched from public source APIs — every link and vote count is real, not model-asserted.
                 </p>
                 <div className="space-y-2">
                   {d.market.demand_signals!.map((s, i) => (

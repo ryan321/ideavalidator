@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 // (we don't stream real events), but each label reflects a real step, so the wait
 // reads as rigor — the opposite of a "60-second" black box.
 const GROUNDED_STEPS = [
-  "Fetching real posts from Reddit & Hacker News",
+  "Fetching real posts, reviews & issues from public sources",
   "Searching the web for market & competitor evidence",
   "Reading & citing sources",
   "Scoring the idea against your goal",

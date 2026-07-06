@@ -1,16 +1,23 @@
 import { getIdea, getVersion, logUsage, saveEvidence } from "../db";
-import { fallbackQueries, generateQueries } from "./queries";
+import { ALL_SOURCES, fallbackQueries, generateQueries } from "./queries";
 import { searchHn } from "./hn";
 import { redditConfigured, searchReddit } from "./reddit";
+import { searchYouTube, youtubeConfigured } from "./youtube";
+import { searchAppStore } from "./appstore";
+import { searchStackExchange } from "./stackexchange";
+import { searchGitHub } from "./github";
+import { searchWeb, webConfigured } from "./web";
 import { dedupeAndRank } from "./rank";
-import type { EvidenceCorpus } from "./types";
+import { SOURCE_META, sourceName } from "./sources";
+import type { EvidenceCorpus, EvidenceSource, RawEvidenceItem } from "./types";
 
 export type { EvidenceCorpus, EvidenceItem } from "./types";
 
 /**
- * Collect the evidence corpus for a version: generate targeted queries, fan out to
- * HN + Reddit, dedupe + rank, assign E-ids, persist. Resilient by design — per-source
- * failures land in stats.errors and the corpus is whatever was actually fetched.
+ * Collect the evidence corpus for a version: generate targeted queries, route + fan out to
+ * the selected sources (HN always; Stack Overflow / GitHub / App Store / Web per idea; YouTube
+ * opt-in via key; Reddit parked), dedupe + rank, assign E-ids, persist. Resilient by design —
+ * per-source failures land in stats.errors and the corpus is whatever was actually fetched.
  */
 export async function collectEvidence(versionId: string): Promise<EvidenceCorpus> {
   const version = getVersion(versionId);
@@ -20,24 +27,47 @@ export async function collectEvidence(versionId: string): Promise<EvidenceCorpus
   const errors: string[] = [];
 
   // 1. targeted search queries (fast model), with a naive keyword fallback. The pass
-  // also judges audience_online (does the buyer hang out on HN/Reddit) — left undefined
-  // on the fallback path so the default (high/medium) behavior applies.
+  // also judges audience_online (does the buyer hang out on HN/Reddit) and ROUTES the
+  // sources: which specialized sources fit this idea. Both are left at their broad default
+  // on the fallback path (audience undefined → default behavior; sources → search all).
   let queries: string[];
   let audienceOnline: "high" | "medium" | "low" | undefined;
+  let selectedSources: EvidenceSource[];
   try {
     const q = await generateQueries(version.statement, idea?.goal ?? null);
     queries = q.queries;
     audienceOnline = q.audience_online;
+    selectedSources = q.sources;
     logUsage({ ideaId: version.idea_id, versionId, kind: "evidence_queries", model: q.model, usage: q.usage });
   } catch (e) {
     errors.push(`Query generation failed: ${e instanceof Error ? e.message : String(e)}`);
     queries = fallbackQueries(version.statement);
+    selectedSources = ALL_SOURCES; // no routing signal → search everything
   }
+  const enabled = new Set(selectedSources);
+  // YouTube is opt-in: off by default (not in the router's menu), included only when its
+  // API key is set. Reddit stays parked (dropped from the lineup — no legit cheap access);
+  // its fetch call below is dead unless reddit is re-added to the router menu + creds exist.
+  if (youtubeConfigured()) enabled.add("youtube");
 
-  // 2. fan out to both sources per query — one slow/failed search never blocks the rest
-  const settled = await Promise.allSettled(
-    queries.flatMap((q) => [searchHn(q), searchReddit(q)])
-  );
+  // 2. fan out across the SELECTED sources per query — one slow/failed search never blocks
+  // the rest. The free keyword engines (HN, Stack Overflow) take every query; the quota'd /
+  // rate-limited ones (YouTube 100u/search, App Store, GitHub 10 req/min unauth, Web/Exa)
+  // take only the top few.
+  const heavyQueries = queries.slice(0, 3);
+  const tasks: Promise<{ items: RawEvidenceItem[]; errors: string[] }>[] = [];
+  for (const q of queries) {
+    if (enabled.has("hn")) tasks.push(searchHn(q));
+    if (enabled.has("reddit")) tasks.push(searchReddit(q));
+    if (enabled.has("stackexchange")) tasks.push(searchStackExchange(q));
+  }
+  for (const q of heavyQueries) {
+    if (enabled.has("youtube")) tasks.push(searchYouTube(q));
+    if (enabled.has("appstore")) tasks.push(searchAppStore(q));
+    if (enabled.has("github")) tasks.push(searchGitHub(q));
+    if (enabled.has("web")) tasks.push(searchWeb(q));
+  }
+  const settled = await Promise.allSettled(tasks);
   const raw = [];
   for (const s of settled) {
     if (s.status === "fulfilled") {
@@ -56,8 +86,23 @@ export async function collectEvidence(versionId: string): Promise<EvidenceCorpus
   }
 
   const items = ranked.items;
+
+  // per-source counts
+  const source_counts: Partial<Record<EvidenceSource, number>> = {};
+  for (const i of items) source_counts[i.source] = (source_counts[i.source] ?? 0) + 1;
+
+  // distinct "communities" for the breadth signal (confidence gives +10 for ≥3): real
+  // sub-communities where available — subreddits, SE sites, repos, app names, PH topics —
+  // plus a source-level label for sources that carry no community (HN, YouTube).
   const communities = [...new Set(items.map((i) => i.community).filter((c): c is string => !!c))];
-  if (items.some((i) => i.source === "hn")) communities.push("Hacker News");
+  for (const src of new Set(items.map((i) => i.source))) {
+    if (!items.some((i) => i.source === src && i.community)) communities.push(SOURCE_META[src].name);
+  }
+
+  // sources selected for THIS idea but skipped because their required API key is absent —
+  // Web/Exa is the one keyed source in the default lineup, so it's the one worth flagging.
+  const skipped_sources: EvidenceSource[] = [];
+  if (enabled.has("web") && !webConfigured()) skipped_sources.push("web");
 
   const corpus: EvidenceCorpus = {
     version_id: versionId,
@@ -65,10 +110,13 @@ export async function collectEvidence(versionId: string): Promise<EvidenceCorpus
     queries,
     items,
     stats: {
-      reddit_count: items.filter((i) => i.source === "reddit").length,
-      hn_count: items.filter((i) => i.source === "hn").length,
+      reddit_count: source_counts.reddit ?? 0,
+      hn_count: source_counts.hn ?? 0,
+      source_counts,
+      selected_sources: [...enabled],
       communities,
-      reddit_skipped: !redditConfigured() || undefined,
+      reddit_skipped: (enabled.has("reddit") && !redditConfigured()) || undefined,
+      skipped_sources: skipped_sources.length ? skipped_sources : undefined,
       degraded: ranked.degraded || undefined,
       audience_online: audienceOnline,
       errors,
@@ -84,7 +132,12 @@ const fmtDate = (utc: number) =>
   utc ? new Date(utc * 1000).toISOString().slice(0, 7) : "unknown date";
 
 function itemLine(i: { id: string; source: string; community?: string; kind: string; score: number; num_comments?: number; created_utc: number; wtp_signal: boolean; tier?: 1 | 2 | 3 | 4; title?: string; quote: string; url: string }): string {
-  const where = i.source === "reddit" ? `Reddit r/${i.community ?? "?"}` : "Hacker News";
+  const where =
+    i.source === "reddit"
+      ? `Reddit r/${i.community ?? "?"}`
+      : i.community
+        ? `${sourceName(i.source)} · ${i.community}`
+        : sourceName(i.source);
   // Corpora persisted before evidence tiers existed have no tier — default to T3 (a
   // plain past fact/complaint) so an old item never renders as a strong or absent tier.
   const tier = i.tier ?? 3;
@@ -98,7 +151,7 @@ function itemLine(i: { id: string; source: string; community?: string; kind: str
  * so a model-invented link can never render).
  */
 export function evidencePromptBlock(corpus: EvidenceCorpus): string {
-  const header = `\n\n=== EVIDENCE — real posts we fetched from Reddit + Hacker News (queries: ${corpus.queries.join("; ")}) ===`;
+  const header = `\n\n=== EVIDENCE — real posts/reviews we fetched from public sources (Reddit, Hacker News, App Store reviews, Stack Overflow, GitHub issues, YouTube, Product Hunt) (queries: ${corpus.queries.join("; ")}) ===`;
   const body = corpus.items.length
     ? corpus.items.map(itemLine).join("\n\n")
     : "(no relevant posts were found for this idea)";
@@ -134,7 +187,7 @@ export function corpusDigest(corpus: EvidenceCorpus, maxLen = 1500): string {
   if (rest.length) {
     lines.push("Top pain/discussion themes (fetched):");
     for (const i of rest) {
-      const where = i.source === "reddit" ? `r/${i.community ?? "?"}` : "HN";
+      const where = i.source === "reddit" ? `r/${i.community ?? "?"}` : i.community ?? sourceName(i.source);
       lines.push(`- [${i.id}] (${where}, ▲${i.score}) "${i.quote.slice(0, 150)}"`);
     }
   }

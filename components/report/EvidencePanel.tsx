@@ -1,6 +1,7 @@
 "use client";
 
-import type { EvidenceCorpus, EvidenceItem } from "@/lib/evidence/types";
+import type { EvidenceCorpus, EvidenceItem, EvidenceSource } from "@/lib/evidence/types";
+import { SOURCE_META, SOURCE_ORDER, sourceName } from "@/lib/evidence/sources";
 import { Eyebrow, Panel, Tag } from "@/components/ui";
 import { TierChip, TierLegend } from "./chips";
 
@@ -15,15 +16,16 @@ export function relDate(utc: number): string {
 }
 
 export function sourceLabel(item: { source: string; community?: string }): string {
-  return item.source === "reddit" ? `r/${item.community ?? "reddit"}` : "Hacker News";
+  if (item.source === "reddit") return `r/${item.community ?? "reddit"}`;
+  return item.community ?? sourceName(item.source);
 }
 
-// "Fetched · Reddit" / "Fetched · Hacker News" — this data came from the source's
-// API, not from the model's mouth.
+// "Fetched · Reddit" / "Fetched · App Store" — this data came from the source's API,
+// not from the model's mouth.
 export function FetchedBadge({ source }: { source: string }) {
   return (
     <span className="inline-block rounded-full border border-border bg-panel2 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted">
-      Fetched · {source === "reddit" ? "Reddit" : "Hacker News"}
+      Fetched · {sourceName(source)}
     </span>
   );
 }
@@ -69,13 +71,20 @@ export function EvidencePanel({
   refreshing?: boolean;
 }) {
   const wtp = corpus.items.filter((i) => i.wtp_signal);
-  const reddit = corpus.items.filter((i) => i.source === "reddit" && !i.wtp_signal);
-  const hn = corpus.items.filter((i) => i.source === "hn" && !i.wtp_signal);
-  const groups: [string, EvidenceItem[]][] = [
-    ["💰 Willingness-to-pay signals", wtp],
-    ["Reddit", reddit],
-    ["Hacker News", hn],
-  ];
+  const rest = corpus.items.filter((i) => !i.wtp_signal);
+  const groups: [string, EvidenceItem[]][] = [["💰 Willingness-to-pay signals", wtp]];
+  for (const src of SOURCE_ORDER) {
+    const g = rest.filter((i) => i.source === src);
+    if (g.length) groups.push([sourceName(src), g]);
+  }
+
+  // per-source counts for the stats row — fall back to reddit/hn on pre-multi-source corpora
+  const counts: Partial<Record<EvidenceSource, number>> =
+    corpus.stats.source_counts ?? { hn: corpus.stats.hn_count, reddit: corpus.stats.reddit_count };
+  const countParts = SOURCE_ORDER.filter((s) => (counts[s] ?? 0) > 0).map(
+    (s) => `${counts[s]} ${SOURCE_META[s].short}`
+  );
+  const otherSkipped = (corpus.stats.skipped_sources ?? []).filter((s) => s !== "reddit");
 
   return (
     <details className="group rounded-xl border border-border bg-panel/40">
@@ -86,17 +95,16 @@ export function EvidencePanel({
       <div className="space-y-6 border-t border-border p-5">
         {/* collection stats + refresh */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-[11px] uppercase tracking-wide text-muted">
-          <span>{corpus.stats.hn_count} HN</span>
-          <span>·</span>
-          <span>{corpus.stats.reddit_count} Reddit</span>
-          {corpus.stats.communities.length > 0 && (
-            <>
-              <span>·</span>
-              <span>{corpus.stats.communities.length} communities</span>
-            </>
-          )}
-          <span>·</span>
-          <span>collected {relDate(Math.floor(corpus.collected_at / 1000))}</span>
+          {[
+            ...countParts,
+            ...(corpus.stats.communities.length > 0 ? [`${corpus.stats.communities.length} communities`] : []),
+            `collected ${relDate(Math.floor(corpus.collected_at / 1000))}`,
+          ].map((part, i) => (
+            <span key={i} className="flex items-center gap-3">
+              {i > 0 && <span>·</span>}
+              <span>{part}</span>
+            </span>
+          ))}
           {onRefresh && (
             <button
               onClick={onRefresh}
@@ -118,9 +126,22 @@ export function EvidencePanel({
           </div>
         )}
 
+        {otherSkipped.length > 0 && (
+          <div className="text-xs text-muted">
+            Not connected: {otherSkipped.map(sourceName).join(", ")} — add the API key(s) in{" "}
+            <code className="font-mono text-xs">.env.local</code> to include {otherSkipped.length === 1 ? "it" : "them"}.
+          </div>
+        )}
+
         <div className="text-xs text-muted">
           Search queries: {corpus.queries.map((q) => `“${q}”`).join(" · ")}
         </div>
+
+        {corpus.stats.selected_sources && corpus.stats.selected_sources.length > 0 && (
+          <div className="text-xs text-muted">
+            Sources matched to this idea: {corpus.stats.selected_sources.map(sourceName).join(", ")}
+          </div>
+        )}
 
         {/* Mom-Test tier ledger: each item is chipped by what it actually SHOWS
             (T1 money/behavior … T4 compliment), not how encouraging it sounds. */}

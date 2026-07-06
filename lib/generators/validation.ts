@@ -269,7 +269,11 @@ export const ValidationElicitSchema = z.object({
             tag: z.string().catch(""), // PAIN POINT | FEATURE REQUEST | DISCUSSION
             // enriched server-side from the corpus (present on stored artifacts).
             // .catch(undefined) so model junk in one field can't wipe the array.
-            source: z.enum(["reddit", "hn"]).optional().catch(undefined),
+            // keep in sync with EvidenceSource in lib/evidence/types.ts
+            source: z
+              .enum(["reddit", "hn", "youtube", "appstore", "stackexchange", "github", "producthunt", "web"])
+              .optional()
+              .catch(undefined),
             url: z.string().optional().catch(undefined),
             community: z.string().optional().catch(undefined),
             score: z.number().optional().catch(undefined),
