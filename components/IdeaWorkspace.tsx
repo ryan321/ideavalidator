@@ -740,6 +740,25 @@ export default function IdeaWorkspace({
     }
   }
 
+  // --- market intel (cited competitor facts + one-liner) --------------------------
+  const [generatingIntel, setGeneratingIntel] = useState(false);
+  async function generateIntel() {
+    setError(null);
+    setGeneratingIntel(true);
+    try {
+      const res = await fetch(`/api/versions/${activeVersionId}/intel`, { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Intel generation failed");
+      const art = j as Artifact;
+      setArtifacts((prev) => ({ ...prev, [activeVersionId]: { ...(prev[activeVersionId] ?? {}), intel: art } }));
+      setCost((c) => c + (art.cost ?? 0));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Intel generation failed");
+    } finally {
+      setGeneratingIntel(false);
+    }
+  }
+
   // --- wedge tournament ---------------------------------------------------------
   // Fan-out counterpart to the auto-iterate hill-climb: propose 3-5 DIVERGENT wedge
   // variants, validate the selected ones head-to-head on the SAME pinned corpus, and
@@ -1809,6 +1828,10 @@ export default function IdeaWorkspace({
                     kitData: activeArtifacts.kit?.data ?? null,
                     onGenerateKit: generateKit,
                     generatingKit,
+                    // the market-intel pack (cited competitor facts + one-liner)
+                    intelData: activeArtifacts.intel?.data ?? null,
+                    onGenerateIntel: generateIntel,
+                    generatingIntel,
                   }}
                 />
                 <SourcesList sources={activeArtifacts.validation.sources} />
@@ -1890,7 +1913,7 @@ export default function IdeaWorkspace({
                 key={`${activeVersionId}:${m.kind}`}
                 kind={m.kind}
                 data={activeArtifacts[m.kind].data}
-                extra={{ print: true, goal: goalBucket, provenance: idea.provenance, scoringSamples, kitData: activeArtifacts.kit?.data ?? null }}
+                extra={{ print: true, goal: goalBucket, provenance: idea.provenance, scoringSamples, kitData: activeArtifacts.kit?.data ?? null, intelData: activeArtifacts.intel?.data ?? null }}
               />
               {/* the "model estimate — see sources" tags need the sources in the PDF too */}
               <SourcesList sources={activeArtifacts[m.kind].sources} />

@@ -176,9 +176,10 @@ const db = globalForDb._db ?? init();
 if (process.env.NODE_ENV !== "production") globalForDb._db = db;
 
 // ---- types -------------------------------------------------------------------
-// "validation" is the main grounded analysis; "kit" is the kill-test execution kit
-// derived from a validation's next_test (own route — not part of the GENERATORS run).
-export type ArtifactKind = "validation" | "kit";
+// "validation" is the main grounded analysis. "kit" (kill-test execution kit) and
+// "intel" (cited competitor pricing/funding + one-liner) are on-demand artifacts with
+// their own routes — neither runs through the GENERATORS pipeline.
+export type ArtifactKind = "validation" | "kit" | "intel";
 
 export type Idea = {
   id: string;

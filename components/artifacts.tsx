@@ -21,6 +21,7 @@ import { NextTest } from "./report/NextTest";
 import { MoatPanel } from "./report/MoatPanel";
 import { KillTestKit } from "./report/KillTestKit";
 import type { Kit } from "@/lib/generators/kit";
+import type { Intel } from "@/lib/generators/intel";
 import { ClaimsLedger } from "./report/ClaimsAudit";
 import {
   AuditPanel,
@@ -92,6 +93,37 @@ function PlanBody({
       </summary>
       <div className="mt-3">{body}</div>
     </details>
+  );
+}
+
+// Light structural guard for a stored intel artifact (schema lives server-side).
+function asIntel(data: unknown): Intel | null {
+  const x = data as Intel | null;
+  return x && Array.isArray(x.competitors) && typeof x.one_liner === "string" ? x : null;
+}
+
+// The copyable positioning one-liner — a small founder deliverable, derived from the
+// current wedge (not hype), pasteable into a deck/DM/landing page.
+function OneLiner({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent">Your one-liner</div>
+        <p className="mt-0.5 text-sm font-medium leading-relaxed text-fg">“{text}”</p>
+      </div>
+      <button
+        onClick={() => {
+          navigator.clipboard?.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          });
+        }}
+        className="no-print shrink-0 rounded-md border border-accent/40 px-2.5 py-1 text-xs font-medium text-accent transition hover:bg-accent/10"
+      >
+        {copied ? "✓ copied" : "copy"}
+      </button>
+    </div>
   );
 }
 
@@ -352,6 +384,9 @@ export function ValidationView({
   kitData,
   onGenerateKit,
   generatingKit,
+  intelData,
+  onGenerateIntel,
+  generatingIntel,
   print = false,
 }: {
   d: Validation;
@@ -373,6 +408,10 @@ export function ValidationView({
   kitData?: unknown;
   onGenerateKit?: () => void;
   generatingKit?: boolean;
+  /** The stored market-intel artifact's data (cited competitor facts + one-liner). */
+  intelData?: unknown;
+  onGenerateIntel?: () => void;
+  generatingIntel?: boolean;
   /** Print/PDF render: open every collapsed section and unclamp prose. */
   print?: boolean;
 }) {
@@ -390,6 +429,8 @@ export function ValidationView({
   // provided it (it withholds the prop until there are ≥8 scores to rank against, so a
   // tiny population can't read as a meaningful "90th percentile").
   const pct = scorePercentile;
+  // The market-intel pack (cited competitor facts + one-liner), if generated.
+  const intel = asIntel(intelData);
   // "68 ± 4" sitting within the noise band of a threshold is a coin flip, not a verdict.
   const sd = MEASURED_SCORE_SD;
   const nearLine =
@@ -609,6 +650,9 @@ export function ValidationView({
             </p>
           )}
 
+          {/* the copyable positioning one-liner (from the intel pack) */}
+          {intel?.one_liner && <OneLiner text={intel.one_liner} />}
+
           {/* the actionable core, scannable — leads the brief */}
           {(strengths.length > 0 || risks.length > 0) && (
             <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
@@ -756,26 +800,89 @@ export function ValidationView({
                   Competitors
                   <ModelEstimateTag />
                 </div>
+                {/* competitor pricing range, from CITED pages only — the anchor for pricing */}
+                {intel?.pricing_anchor && (
+                  <p className="mb-2.5 rounded-lg border border-accent2/30 bg-accent2/[0.05] px-3.5 py-2 text-sm text-fg/90">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent2">
+                      Pricing anchor ·{" "}
+                    </span>
+                    {intel.pricing_anchor}
+                  </p>
+                )}
                 <div className="space-y-2">
-                  {d.market.competitors!.map((c, i) => (
-                    <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-4">
-                      <div className="text-sm font-semibold">{c.name}</div>
-                      {c.note && <p className="mt-1 text-sm text-muted">{c.note}</p>}
-                      {c.complaint_theme && (
-                        <p className="mt-1.5 text-xs">
-                          <span className="font-semibold text-warn">Customers complain: </span>
-                          <span className="text-fg/85">{c.complaint_theme}</span>
-                        </p>
-                      )}
-                      {c.your_edge && (
-                        <p className="mt-1 text-xs">
-                          <span className="font-semibold text-accent">Your edge: </span>
-                          <span className="text-fg/85">{c.your_edge}</span>
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                  {d.market.competitors!.map((c, i) => {
+                    // join the intel pack by name (case-insensitive) for cited facts
+                    const info = intel?.competitors.find(
+                      (x) => x.name && c.name && x.name.toLowerCase().includes(c.name.toLowerCase().split(" ")[0])
+                    );
+                    return (
+                      <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-4">
+                        <div className="text-sm font-semibold">{c.name}</div>
+                        {c.note && <p className="mt-1 text-sm text-muted">{c.note}</p>}
+                        {c.complaint_theme && (
+                          <p className="mt-1.5 text-xs">
+                            <span className="font-semibold text-warn">Customers complain: </span>
+                            <span className="text-fg/85">{c.complaint_theme}</span>
+                          </p>
+                        )}
+                        {c.your_edge && (
+                          <p className="mt-1 text-xs">
+                            <span className="font-semibold text-accent">Your edge: </span>
+                            <span className="text-fg/85">{c.your_edge}</span>
+                          </p>
+                        )}
+                        {(info?.pricing || info?.funding || info?.positioning) && (
+                          <div className="mt-2 space-y-1 border-t border-border/60 pt-2 text-xs">
+                            {info.positioning && (
+                              <p>
+                                <span className="font-semibold text-fg/70">They say: </span>
+                                <span className="text-fg/85">{info.positioning}</span>
+                              </p>
+                            )}
+                            {info.pricing && (
+                              <p>
+                                <span className="font-semibold text-fg/70">Pricing: </span>
+                                <span className="text-fg/85">{info.pricing}</span>{" "}
+                                {info.pricing_url && (
+                                  <a href={info.pricing_url} target="_blank" rel="noopener noreferrer" className="text-accent2 hover:underline">
+                                    source ↗
+                                  </a>
+                                )}
+                              </p>
+                            )}
+                            {info.funding && (
+                              <p>
+                                <span className="font-semibold text-fg/70">Funding: </span>
+                                <span className="text-fg/85">{info.funding}</span>{" "}
+                                {info.funding_url && (
+                                  <a href={info.funding_url} target="_blank" rel="noopener noreferrer" className="text-accent2 hover:underline">
+                                    source ↗
+                                  </a>
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+                {/* enrichment affordance — cited web facts, never estimated ones */}
+                {!intel && onGenerateIntel && !print && (
+                  <div className="no-print mt-2.5 flex items-center gap-3 rounded-lg border border-dashed border-border px-3.5 py-2.5">
+                    <span className="text-xs text-muted">
+                      Pull each competitor’s real pricing &amp; funding from the web — cited, linked, and never
+                      estimated (no invented “market share”).
+                    </span>
+                    <button
+                      onClick={onGenerateIntel}
+                      disabled={generatingIntel}
+                      className="ml-auto shrink-0 rounded-md border border-accent2/40 px-2.5 py-1 text-xs font-medium text-accent2 transition hover:bg-accent2/10 disabled:opacity-50"
+                    >
+                      {generatingIntel ? "Searching…" : "🔎 Enrich with cited facts"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
