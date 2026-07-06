@@ -4,10 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
-const STAGES = [
-  { key: "validate", label: "Validate" },
-  { key: "decide", label: "Decide" },
-];
+const STAGES = [{ key: "validate", label: "Validate" }];
 
 type IdeaLite = { id: string; title: string };
 type StageStatus = Record<string, "done" | "active" | "todo">;

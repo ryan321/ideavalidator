@@ -13,8 +13,7 @@ export default function Home() {
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Validate an idea</h1>
         <p className="mt-1 text-sm text-muted">
-          A grounded, scored GO/NO-GO report — then refine, re-validate, and pick the winning
-          version.
+          A grounded, scored GO/NO-GO report — then refine and re-validate to sharpen it.
         </p>
       </div>
 

@@ -43,7 +43,6 @@ function init(): Database.Database {
       goal              TEXT,
       goal_detail       TEXT,
       stage             TEXT,
-      chosen_version_id TEXT,
       founder_fit       TEXT,
       created_at        TEXT NOT NULL
     );
@@ -85,14 +84,13 @@ function init(): Database.Database {
   // founder context on versions + goal on ideas (added in upgrades).
   addColumn(db, "versions", "context", "TEXT");
   addColumn(db, "versions", "revenue", "TEXT");
-  // Archived versions are hidden from the switcher/compare/Decide and excluded from
+  // Archived versions are hidden from the switcher/compare and excluded from
   // best_score and the score distribution, but the row (and its artifacts) survive so
   // the history isn't destroyed — cleanupVersions archives instead of deleting.
   addColumn(db, "versions", "archived", "INTEGER DEFAULT 0");
   addColumn(db, "ideas", "goal", "TEXT");
   addColumn(db, "ideas", "goal_detail", "TEXT");
   addColumn(db, "ideas", "stage", "TEXT");
-  addColumn(db, "ideas", "chosen_version_id", "TEXT");
   addColumn(db, "ideas", "founder_fit", "TEXT");
   // provenance: "organic" (the founder lived the pain) | "whiteboard" (brainstormed) | null
   // (unasked, neutral). Feeds founderProfile — organic credits insider knowledge, whiteboard
@@ -187,7 +185,6 @@ export type Idea = {
   goal: string | null;
   goal_detail: string | null;
   stage: string | null; // current journey stage key
-  chosen_version_id: string | null; // the version the founder is betting on
   founder_fit: string | null; // founder's market knowledge / build experience / network
   provenance: "organic" | "whiteboard" | null; // did the idea come from a lived problem or a whiteboard?
   created_at: string;
@@ -214,7 +211,7 @@ export type Version = {
   context: string | null;
   score: number | null;
   revenue: string | null; // cached obtainable_revenue from validation (the forecast)
-  archived: number; // 0 = active, 1 = archived (hidden from switcher/compare/Decide/best_score)
+  archived: number; // 0 = active, 1 = archived (hidden from switcher/compare/best_score)
   created_at: string;
 };
 
@@ -270,7 +267,6 @@ export function createIdea(
     goal: goal ?? null,
     goal_detail: goalDetail ?? null,
     stage: "validate",
-    chosen_version_id: null,
     founder_fit: founderFit ?? null,
     provenance: provenance ?? null,
     created_at: now,
@@ -292,7 +288,7 @@ export function createIdea(
   };
   const tx = db.transaction(() => {
     db.prepare(
-      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, chosen_version_id, founder_fit, provenance, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @chosen_version_id, @founder_fit, @provenance, @created_at)"
+      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, founder_fit, provenance, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @founder_fit, @provenance, @created_at)"
     ).run(idea);
     db.prepare(
       `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, revenue, created_at)
@@ -325,13 +321,8 @@ export function setIdeaGoal(id: string, goal: string | null, goalDetail: string 
   db.prepare("UPDATE ideas SET goal = ?, goal_detail = ? WHERE id = ?").run(goal, goalDetail, id);
 }
 
-export function setIdeaJourney(
-  id: string,
-  fields: { stage?: string; chosenVersionId?: string | null }
-): void {
+export function setIdeaJourney(id: string, fields: { stage?: string }): void {
   if (fields.stage !== undefined) db.prepare("UPDATE ideas SET stage = ? WHERE id = ?").run(fields.stage, id);
-  if (fields.chosenVersionId !== undefined)
-    db.prepare("UPDATE ideas SET chosen_version_id = ? WHERE id = ?").run(fields.chosenVersionId, id);
 }
 
 export function deleteIdea(id: string): void {
@@ -396,12 +387,10 @@ export function getVersion(versionId: string): Version | undefined {
 }
 
 // Delete a version and everything keyed to it. Refuses to delete the original (n=1)
-// or a version the founder has chosen, so cleanup can't nuke important history.
+// so cleanup can't nuke important history.
 export function deleteVersion(versionId: string): boolean {
   const v = getVersion(versionId);
   if (!v || v.n === 1) return false;
-  const idea = getIdea(v.idea_id);
-  if (idea?.chosen_version_id === versionId) return false;
   const tx = db.transaction(() => {
     db.prepare("DELETE FROM artifacts WHERE version_id = ?").run(versionId);
     db.prepare("DELETE FROM messages WHERE version_id = ?").run(versionId);
@@ -454,15 +443,13 @@ export function setVersionScore(versionId: string, score: number): void {
 }
 
 // Archive (or un-archive) a version — the cleanup path hides intermediate tries without
-// destroying them. Refuses to archive the original (n=1) or the chosen version, exactly
-// like deleteVersion, so cleanup can't hide important history. Un-archiving (archived=0)
-// is always allowed. Returns whether the change was applied.
+// destroying them. Refuses to archive the original (n=1), exactly like deleteVersion, so
+// cleanup can't hide important history. Un-archiving (archived=0) is always allowed.
+// Returns whether the change was applied.
 export function setVersionArchived(versionId: string, archived: boolean): boolean {
   if (archived) {
     const v = getVersion(versionId);
     if (!v || v.n === 1) return false;
-    const idea = getIdea(v.idea_id);
-    if (idea?.chosen_version_id === versionId) return false;
   }
   db.prepare("UPDATE versions SET archived = ? WHERE id = ?").run(archived ? 1 : 0, versionId);
   return true;

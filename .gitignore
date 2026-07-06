@@ -45,3 +45,6 @@ next-env.d.ts
 
 # keep example committable
 !.env.example
+
+# stray agent worktrees
+.claude/worktrees/

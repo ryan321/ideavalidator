@@ -25,10 +25,14 @@ export default async function PrintReportPage({
   if (!idea) notFound();
 
   const versions = listVersions(id);
-  // The requested version (must belong to this idea), else the chosen one, else v1.
+  // The requested version (must belong to this idea), else the highest-scored
+  // non-archived version, else v1.
+  const bestScored = versions
+    .filter((v) => !v.archived && v.score != null)
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
   const version =
     (versionId && getVersion(versionId)?.idea_id === id ? getVersion(versionId) : null) ??
-    versions.find((v) => v.id === idea.chosen_version_id) ??
+    bestScored ??
     versions[0];
   if (!version) notFound();
 

@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 //   version's score, persisting the conservative pick when the fresh confirmation run
 //   rolled higher than the pinned-corpus run.
 // - archived: cleanupVersions hides intermediate tries without deleting them (the guard
-//   in setVersionArchived refuses to archive the original or chosen version).
+//   in setVersionArchived refuses to archive the original version).
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -32,7 +32,7 @@ export async function PATCH(
     const ok = setVersionArchived(id, body.archived);
     if (!ok)
       return NextResponse.json(
-        { error: "Can't archive the original or the chosen version" },
+        { error: "Can't archive the original version" },
         { status: 400 }
       );
   }
@@ -47,7 +47,7 @@ export async function DELETE(
   const ok = deleteVersion(id);
   if (!ok)
     return NextResponse.json(
-      { error: "Can't delete the original or the chosen version" },
+      { error: "Can't delete the original version" },
       { status: 400 }
     );
   return NextResponse.json({ ok: true });

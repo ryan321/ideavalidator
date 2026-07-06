@@ -27,14 +27,14 @@ All AI calls happen **server-side** (API routes) so the OpenRouter key never rea
 
 ## The journey
 
-An **idea** is a container for **versions** (v1, v2, …) of its statement. Two stages:
+An **idea** is a container for **versions** (v1, v2, …) of its statement. One stage:
 
 1. **Validate** — one comprehensive grounded pass per version produces the `validation` artifact
    (the only artifact kind): verdict + 10 scored criteria, demand → willingness-to-pay → obtainable
    revenue, market & competition, money, risks, plan. The founder iterates: manual refine, AI
    "suggest a sharper version" (`refine.ts`), "respond to the validator" with authoritative
-   context, or an auto-iterate hill-climb toward a target score.
-2. **Decide** — mark the winning version; the others stay as research.
+   context, or an auto-iterate hill-climb toward a target score. The best-scoring version is
+   starred; the others stay as research.
 
 Scoring is **band-elicited, code-computed** (full rationale in [EVALUATION.md](./EVALUATION.md) —
 authoritative). The model scores each of the 10 criteria goal-neutrally as a coarse letter band
@@ -147,7 +147,7 @@ docs/
 ## Data model (SQLite, `data/ideavalidator.db`)
 
 ```
-ideas      ( id, title, prompt, goal, goal_detail, stage, chosen_version_id, founder_fit, created_at )
+ideas      ( id, title, prompt, goal, goal_detail, stage, founder_fit, created_at )
 versions   ( id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, revenue, created_at )
 artifacts  ( id, version_id, kind='validation', data_json, sources_json, model, cost, tokens, created_at )
 evidence   ( version_id PK, data /* EvidenceCorpus JSON */, created_at )

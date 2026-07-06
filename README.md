@@ -39,9 +39,9 @@ Optional — override the per-role models (defaults are sensible; paste current 
 <https://openrouter.ai/models> if any 404):
 
 ```
-MODEL_SCORING=anthropic/claude-sonnet-4.6       # validation, refine, deep bull/bear/reconcile
-MODEL_WRITING=google/gemini-3-flash-preview     # evidence queries + ranking, chat, deep CoVe
-MODEL_AUDIT=google/gemini-3-flash-preview       # second-family audit judge (must differ from scoring)
+MODEL_SCORING=anthropic/claude-opus-4.8         # the judge: validation, refine, deep bull/bear/reconcile
+MODEL_WRITING=google/gemini-3-flash-preview     # cheap/fast: evidence queries + ranking, chat, deep CoVe
+MODEL_AUDIT=openai/gpt-5.1                       # second-family audit judge (must differ from scoring)
 ```
 
 ## Run
@@ -69,9 +69,9 @@ npm run dev      # http://localhost:3000
    replaces the single scorer with an adversarial bull/bear dual-pass reconciled under "the side
    citing retrieved evidence wins", then verifies the load-bearing claims against the evidence and
    discounts any that don't hold up (see docs/EVALUATION.md).
-4. **Decide** — mark the winning version. **Download PDF** exports the active version's full
-   report as a server-rendered, paginated PDF (headless Chrome via `puppeteer-core` — it drives
-   your installed Chrome; set `CHROME_PATH` in `.env.local` if it isn't at the macOS default).
+4. **Download PDF** exports the active version's full report as a server-rendered, paginated PDF
+   (headless Chrome via `puppeteer-core` — it drives your installed Chrome; set `CHROME_PATH` in
+   `.env.local` if it isn't at the macOS default).
 
 ## The evidence pipeline
 

@@ -116,17 +116,15 @@ const GOAL_OPTIONS = [
 const goalLabel = (k: string | null) =>
   GOAL_OPTIONS.find((o) => o.key === k)?.label ?? "Not set";
 
-// The journey: validate, then pick the winning version. Each stage groups artifact kinds (or a special view).
-type StageKey = "validate" | "decide";
+// The journey: a single validation stage. Each stage groups artifact kinds.
+type StageKey = "validate";
 const STAGES: {
   key: StageKey;
   label: string;
   blurb: string;
   kinds: ArtifactKind[];
-  special?: boolean;
 }[] = [
   { key: "validate", label: "Validate", blurb: "Is there real, paying demand?", kinds: ["validation"] },
-  { key: "decide", label: "Decide", blurb: "Pick the winning version.", kinds: [], special: true },
 ];
 const stageIndex = (k: string | null) => Math.max(0, STAGES.findIndex((s) => s.key === k));
 
@@ -259,7 +257,6 @@ export default function IdeaWorkspace({
   const [currentStage, setCurrentStage] = useState<StageKey>(() =>
     STAGES.some((s) => s.key === initialStage) ? (initialStage as StageKey) : "validate"
   );
-  const [chosenVersionId, setChosenVersionId] = useState<string | null>(idea.chosen_version_id);
   const [statementExpanded, setStatementExpanded] = useState(false);
   const [comparing, setComparing] = useState(false); // side-by-side version compare
   const [showArchived, setShowArchived] = useState(false); // reveal archived versions in the switcher
@@ -381,11 +378,6 @@ export default function IdeaWorkspace({
     }).catch(() => {});
   }
 
-  function setChosen(versionId: string) {
-    setChosenVersionId(versionId);
-    patchIdea({ chosenVersionId: versionId });
-  }
-
   // auto-iterate
   const [iterating, setIterating] = useState(false);
   const [target, setTarget] = useState(80);
@@ -394,7 +386,7 @@ export default function IdeaWorkspace({
   const [iterBest, setIterBest] = useState<{ id: string; n: number; score: number } | null>(null);
 
   // Archived versions (cleanup hid them) stay in `versions` for state sync but are
-  // filtered out of every user-facing list: the switcher, compare, Decide, and the
+  // filtered out of every user-facing list: the switcher, compare, and the
   // best-score star. The active version is always shown even if it were archived
   // (defensive — the archive guards never archive what you're viewing).
   const visibleVersions = versions.filter((v) => !v.archived || v.id === activeVersionId);
@@ -801,7 +793,7 @@ export default function IdeaWorkspace({
           );
           // The confirmation run persisted ITS score on the version row; when it
           // rolled higher than the pinned run, write the conservative min back so
-          // chips/compare/Decide/home match what the loop actually adopted.
+          // chips/compare/home match what the loop actually adopted.
           if (confirmScore > adopted) {
             await fetch(`/api/versions/${bestId}`, {
               method: "PATCH",
@@ -834,9 +826,9 @@ export default function IdeaWorkspace({
   }
 
   // After auto-iterate, ARCHIVE the intermediate AI versions (keep the original, the
-  // best, the chosen, and whatever you're viewing) so the switcher stays legible — the
-  // rows and their artifacts survive (archived, not deleted), so the history and the
-  // cross-idea score distribution stay intact but hidden from the lists.
+  // best, and whatever you're viewing) so the switcher stays legible — the rows and
+  // their artifacts survive (archived, not deleted), so the history and the cross-idea
+  // score distribution stay intact but hidden from the lists.
   async function cleanupVersions() {
     if (!iterBest) return;
     const archivable = versions.filter(
@@ -845,7 +837,6 @@ export default function IdeaWorkspace({
         v.origin === "ai" &&
         v.n !== 1 &&
         v.id !== iterBest.id &&
-        v.id !== chosenVersionId &&
         v.id !== activeVersionId
     );
     const archivedIds = new Set<string>();
@@ -936,11 +927,6 @@ export default function IdeaWorkspace({
                 {v.origin === "manual" && <span title="manual edit">✎</span>}
                 {v.origin === "context" && <span title="re-validated with founder context">💬</span>}
                 {isBest && <span title="best score">★</span>}
-                {v.id === chosenVersionId && (
-                  <span title="chosen — building the journey on this" className="font-bold text-good">
-                    ✓
-                  </span>
-                )}
                 {vbusy && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent2" />}
               </button>
             );
@@ -1015,7 +1001,6 @@ export default function IdeaWorkspace({
                     <tr key={v.id} className={`border-b border-border/60 last:border-0 ${v.id === activeVersionId ? "bg-panel2/50" : ""}`}>
                       <td className="px-3 py-2 align-top">
                         <span className="font-mono font-semibold">v{v.n}</span>
-                        {v.id === chosenVersionId && <span className="ml-1 text-good" title="chosen">✓</span>}
                         {v.score != null && v.score === bestScore && <span className="ml-1" title="best">★</span>}
                         <div className="text-[11px] text-muted">{v.label ?? v.origin}</div>
                       </td>
@@ -1409,7 +1394,7 @@ export default function IdeaWorkspace({
             )}
             {iterBest &&
               versions.filter(
-                (v) => !v.archived && v.origin === "ai" && v.n !== 1 && v.id !== iterBest.id && v.id !== chosenVersionId && v.id !== activeVersionId
+                (v) => !v.archived && v.origin === "ai" && v.n !== 1 && v.id !== iterBest.id && v.id !== activeVersionId
               ).length > 0 && (
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-sm">
                   <span>
@@ -1433,51 +1418,7 @@ export default function IdeaWorkspace({
           </div>
         )}
 
-        {currentStage === "decide" ? (
-          <div className="rounded-xl border border-border/70 bg-panel/40 p-5">
-            <h3 className="font-display text-xl font-semibold">Which version are you betting on?</h3>
-            <p className="mt-1 text-sm text-muted">
-              Mark the winning version of this idea. You can change it anytime — the others stay as
-              research.
-            </p>
-            <div className="mt-4 space-y-2">
-              {visibleVersions.map((v) => {
-                const isChosen = v.id === chosenVersionId;
-                return (
-                  <div
-                    key={v.id}
-                    className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 ${
-                      isChosen ? "border-good bg-good/5" : "border-border"
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="font-mono font-semibold">v{v.n}</span>
-                        {v.score != null && (
-                          <span className="font-mono font-bold" style={{ color: scoreColor(v.score, goalBands) }}>
-                            {v.score}
-                          </span>
-                        )}
-                        {v.revenue && <span className="font-mono text-xs text-accent2">~{v.revenue}</span>}
-                        {v.label && <span className="text-xs text-muted">· {v.label}</span>}
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-xs text-muted">{v.statement}</p>
-                    </div>
-                    <button
-                      onClick={() => setChosen(v.id)}
-                      disabled={isChosen}
-                      className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ${
-                        isChosen ? "bg-good/15 text-good" : "bg-accent text-white hover:opacity-90"
-                      }`}
-                    >
-                      {isChosen ? "✓ Chosen" : "Choose this"}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
+        {(
           <div>
             {/* once there's a report, this slim bar is the re-run control */}
             {hasValidate && (

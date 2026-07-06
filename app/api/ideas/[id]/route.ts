@@ -28,10 +28,9 @@ export async function PATCH(
       typeof body.goalDetail === "string" && body.goalDetail.trim() ? body.goalDetail.trim() : null
     );
   }
-  if ("stage" in body || "chosenVersionId" in body) {
+  if ("stage" in body) {
     setIdeaJourney(id, {
       stage: typeof body.stage === "string" ? body.stage : undefined,
-      chosenVersionId: "chosenVersionId" in body ? body.chosenVersionId : undefined,
     });
   }
   return NextResponse.json({ ok: true });
@@ -46,11 +45,10 @@ export async function GET(
   if (!idea) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const artifactsByVersion = getArtifactsByVersion(id);
   const kinds = new Set(Object.values(artifactsByVersion).flat().map((a) => a.kind));
-  const st = (done: boolean, stage: string) =>
-    done ? "done" : idea.stage === stage ? "active" : "todo";
+  // Feeds AppNav's single-stage completion dot: Validate is "done" once any version has
+  // a validation artifact, else "active" when the user is on the validate stage.
   const stageStatus = {
-    validate: st(kinds.has("validation"), "validate"),
-    decide: st(!!idea.chosen_version_id, "decide"),
+    validate: kinds.has("validation") ? "done" : idea.stage === "validate" ? "active" : "todo",
   };
   return NextResponse.json({
     idea,

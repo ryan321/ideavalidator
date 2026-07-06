@@ -499,9 +499,9 @@ default.
   here", rendered beside the score band. Plumbed through the idea GET payload and the server-
   rendered page; surfaced only once there are enough scores to rank against meaningfully.
 - **Version archiving.** `versions.archived` (idempotent migration) hides intermediate hill-climb
-  tries from the switcher/compare/Decide/best-score lists without deleting them (rows + artifacts
-  survive, so history and the score distribution stay intact). The original and chosen versions
-  can never be archived. Cleanup archives via the `/api/versions/[id]` PATCH; the switcher reveals
+  tries from the switcher/compare/best-score lists without deleting them (rows + artifacts
+  survive, so history and the score distribution stay intact). The original version can never be
+  archived. Cleanup archives via the `/api/versions/[id]` PATCH; the switcher reveals
   archived versions behind "show archived (N)" with an unarchive control, and the compare table
   gains per-criterion delta arrows vs the baseline version.
 - **`revalidateWithAlpha`.** Merges the chosen alpha into the new version's statement
