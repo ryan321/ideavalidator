@@ -18,6 +18,7 @@ import { SystemAdjustments } from "./report/SystemAdjustments";
 import { HowScored } from "./report/HowScored";
 import { EvidencePanel, FetchedBadge, WtpTag, relDate, sourceLabel } from "./report/EvidencePanel";
 import { NextTest } from "./report/NextTest";
+import { MoatPanel } from "./report/MoatPanel";
 import { KillTestKit } from "./report/KillTestKit";
 import type { Kit } from "@/lib/generators/kit";
 import { ClaimsLedger } from "./report/ClaimsAudit";
@@ -777,6 +778,9 @@ export function ValidationView({
                 </div>
               </div>
             )}
+
+            {/* defensibility — honest-to-zero moat grades + what would earn one */}
+            {d.moat && <MoatPanel moat={d.moat} />}
 
             {(d.market.demand_signals ?? []).length > 0 && (
               <div>

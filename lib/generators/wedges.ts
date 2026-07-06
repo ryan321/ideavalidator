@@ -35,6 +35,7 @@ type ValidationLike = {
   market?: {
     competitors?: { name: string; note?: string; complaint_theme?: string; your_edge?: string }[];
   };
+  moat?: { today?: string; to_build?: { path?: string; becomes_true?: string }[] };
   narrative?: { who?: string; pain?: string; verdict?: string };
 };
 
@@ -66,6 +67,11 @@ export async function proposeWedges(versionId: string): Promise<WedgeSet & { _co
     .sort((a, b) => a.score - b.score)
     .slice(0, 4)
     .map((c) => `  - ${c.name}: ${c.explanation ?? ""}`)
+    .join("\n");
+  // the moat targets: wedges that start making one of these true are worth extra credit
+  const moatTargets = (validation?.moat?.to_build ?? [])
+    .filter((m) => m.becomes_true)
+    .map((m) => `  - ${m.path ? `[${m.path}] ` : ""}${m.becomes_true}`)
     .join("\n");
 
   const corpus = getEvidence(versionId);
@@ -113,6 +119,7 @@ Current statement (v${version.n}): ${version.statement}
 ${alphas ? `\nAlpha candidates the validator already spotted (build on or beat these):\n${alphas}` : ""}
 ${competitors ? `\nNamed competitors and where their customers are unhappy (counter-position here):\n${competitors}` : ""}
 ${weak ? `\nWeakest criteria (the wedges should route around or fix these):\n${weak}` : ""}
+${moatTargets ? `\nMoat-building targets (from the defensibility read — a wedge that starts making one of these TRUE is worth extra credit):\n${moatTargets}` : ""}
 ${digest ? `\nWhat real users are saying (fetched corpus — aim wedges at these actual pains and willingness-to-pay signals):\n${digest}` : ""}
 
 Generate 3-${MAX_WEDGES} DIVERGENT wedge variants of this idea. For each, return:

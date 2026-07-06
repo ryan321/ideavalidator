@@ -24,6 +24,7 @@ type ValidationLike = {
     areas_of_concern?: { text: string }[];
   };
   risk_matrix?: { title: string; probability: number; impact: number }[];
+  moat?: { today?: string; to_build?: { path?: string; becomes_true?: string }[] };
 };
 
 /**
@@ -67,7 +68,14 @@ Top risk-matrix items: ${(validation.risk_matrix ?? [])
         .sort((a, b) => b.probability * b.impact - a.probability * a.impact)
         .slice(0, 3)
         .map((r) => r.title)
-        .join("; ")}`
+        .join("; ")}${
+        (validation.moat?.to_build ?? []).filter((m) => m.becomes_true).length
+          ? `\nMoat-building targets (from the defensibility read — refinements that start making one TRUE are worth extra credit): ${(validation.moat!.to_build ?? [])
+              .filter((m) => m.becomes_true)
+              .map((m) => m.becomes_true)
+              .join("; ")}`
+          : ""
+      }`
     : "No validation has been run yet; refine for clarity, focus, and defensibility.";
 
   // What real users actually said (fetched Reddit/HN corpus) — so the refinement
