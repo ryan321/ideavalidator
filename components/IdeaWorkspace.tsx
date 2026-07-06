@@ -1824,7 +1824,7 @@ export default function IdeaWorkspace({
                             )}
                           </div>
                         </div>
-                        <div className="flex shrink-0 items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <button
                             onClick={() => switchVersion(r.versionId)}
                             className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-panel"
@@ -1939,7 +1939,7 @@ export default function IdeaWorkspace({
                   <span className="h-1.5 w-1.5 rounded-full bg-good" aria-hidden />
                   Full analysis · one grounded pass
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {/* Deep validation — bull/bear/reconcile + CoVe + a second-family
                       cross-check. ~3-4× the cost of a standard run (flagged in the hint). */}
                   <button
