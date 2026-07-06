@@ -7,6 +7,7 @@ import type { GeneratorMeta } from "@/lib/generators";
 import type { EvidenceCorpus } from "@/lib/evidence/types";
 import GenerationProgress from "./GenerationProgress";
 import type { Refinement } from "@/lib/generators/refine";
+import type { WedgeProposal, WedgeSet } from "@/lib/generators/wedges";
 import { acceptanceMargin, percentileOf, verdictBands } from "@/lib/scoring";
 import { SourcesList, ValidationView } from "./artifacts";
 import { CriteriaDeltaTable, type DeltaVersion } from "./report/CriteriaDeltaTable";
@@ -115,6 +116,19 @@ const GOAL_OPTIONS = [
 ];
 const goalLabel = (k: string | null) =>
   GOAL_OPTIONS.find((o) => o.key === k)?.label ?? "Not set";
+
+// One row of a wedge-tournament result: the variant version + what it scored on the
+// SAME pinned corpus as every other entrant (fair comparison), or the error if its
+// validation failed (a failed entrant never sinks the tournament).
+type WedgeResult = {
+  proposal: WedgeProposal;
+  versionId: string;
+  n: number;
+  score: number | null;
+  revenue: string;
+  verdict: string;
+  error?: string;
+};
 
 // The journey: a single validation stage. Each stage groups artifact kinds.
 type StageKey = "validate";
@@ -385,6 +399,15 @@ export default function IdeaWorkspace({
   const [iterLog, setIterLog] = useState<string[]>([]);
   const [iterBest, setIterBest] = useState<{ id: string; n: number; score: number } | null>(null);
 
+  // wedge tournament (divergent variants validated head-to-head on the pinned corpus)
+  const [wedgeSet, setWedgeSet] = useState<WedgeSet | null>(null);
+  const [wedgeSelected, setWedgeSelected] = useState<Set<number>>(new Set());
+  const [wedgeFetching, setWedgeFetching] = useState(false);
+  const [wedgeRunning, setWedgeRunning] = useState(false);
+  const [wedgeLog, setWedgeLog] = useState<string[]>([]);
+  const [wedgeResults, setWedgeResults] = useState<WedgeResult[] | null>(null);
+  const [wedgeBaseline, setWedgeBaseline] = useState<{ id: string; n: number; score: number } | null>(null);
+
   // Archived versions (cleanup hid them) stay in `versions` for state sync but are
   // filtered out of every user-facing list: the switcher, compare, and the
   // best-score star. The active version is always shown even if it were archived
@@ -404,7 +427,7 @@ export default function IdeaWorkspace({
     scoreDistribution.length >= PERCENTILE_MIN_POP
       ? percentileOf(activeVersion?.score ?? null, scoreDistribution)
       : null;
-  const anyBusy = busy.size > 0 || iterating;
+  const anyBusy = busy.size > 0 || iterating || wedgeFetching || wedgeRunning;
 
   function setBusyKey(key: string, on: boolean) {
     setBusy((b) => {
@@ -694,6 +717,142 @@ export default function IdeaWorkspace({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not accept proposal");
     }
+  }
+
+  // --- wedge tournament ---------------------------------------------------------
+  // Fan-out counterpart to the auto-iterate hill-climb: propose 3-5 DIVERGENT wedge
+  // variants, validate the selected ones head-to-head on the SAME pinned corpus, and
+  // show a side-by-side so the founder adopts the angle that actually scores best.
+  async function exploreWedges() {
+    setError(null);
+    setProposal(null);
+    setEditing(false);
+    setWedgeResults(null);
+    setWedgeLog([]);
+    setWedgeBaseline(null);
+    setWedgeFetching(true);
+    try {
+      const res = await fetch(`/api/versions/${activeVersionId}/wedges`, { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Wedge proposal failed");
+      setCost((c) => c + (j._cost ?? 0));
+      const set = j as WedgeSet;
+      setWedgeSet(set);
+      setWedgeSelected(new Set(set.wedges.map((_, i) => i)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Wedge proposal failed");
+    } finally {
+      setWedgeFetching(false);
+    }
+  }
+
+  async function runWedgeTournament() {
+    if (!wedgeSet) return;
+    const entrants = wedgeSet.wedges.filter((_, i) => wedgeSelected.has(i));
+    if (!entrants.length) return;
+    setWedgeRunning(true);
+    setError(null);
+    const log = (m: string) => setWedgeLog((prev) => [...prev, m]);
+    setWedgeLog([]);
+    const scoreOf = (a: Artifact) => Math.round((a.data as { score?: number })?.score ?? 0);
+    try {
+      const baseId = activeVersionId;
+      const baseN = activeVersion.n;
+
+      // Baseline: every entrant is compared against the CURRENT version on the same
+      // corpus, so the baseline needs a score too.
+      let baseScore = activeVersion.score ?? 0;
+      if (!artifacts[baseId]?.validation) {
+        log(`Scoring baseline v${baseN} first…`);
+        baseScore = scoreOf(await generate("validation", baseId));
+      }
+      setWedgeBaseline({ id: baseId, n: baseN, score: baseScore });
+      log(`Baseline v${baseN}: ${baseScore}/100. Running ${entrants.length} wedge${entrants.length === 1 ? "" : "s"} on the same evidence…`);
+
+      // Create the variant versions sequentially (cheap, keeps version numbers tidy);
+      // each child pins the baseline's corpus server-side, so scores compare fairly.
+      const created: { proposal: WedgeProposal; v: Version }[] = [];
+      for (const p of entrants) {
+        const v = await createVersionFrom(p.statement, "ai", baseId, p.label, p.rationale);
+        created.push({ proposal: p, v });
+        log(`→ v${v.n} "${p.wedge}"`);
+      }
+
+      // Validate ALL entrants in parallel — the tournament's wall-clock is one
+      // validation, not N. A failed entrant records its error and stays in the table.
+      log(`Validating ${created.length} variants in parallel…`);
+      const results = await Promise.all(
+        created.map(async ({ proposal, v }): Promise<WedgeResult> => {
+          try {
+            const art = await generate("validation", v.id);
+            const d = art.data as {
+              score?: number;
+              verdict?: string;
+              demand?: { obtainable_revenue?: string };
+            };
+            return {
+              proposal,
+              versionId: v.id,
+              n: v.n,
+              score: typeof d?.score === "number" ? Math.round(d.score) : null,
+              revenue: d?.demand?.obtainable_revenue ?? "",
+              verdict: d?.verdict ?? "",
+            };
+          } catch (e) {
+            return {
+              proposal,
+              versionId: v.id,
+              n: v.n,
+              score: null,
+              revenue: "",
+              verdict: "",
+              error: e instanceof Error ? e.message : "validation failed",
+            };
+          }
+        })
+      );
+
+      const ranked = results
+        .slice()
+        .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+      const margin = acceptanceMargin();
+      for (const r of ranked) {
+        log(
+          r.error
+            ? `v${r.n} "${r.proposal.wedge}": failed — ${r.error}`
+            : `v${r.n} "${r.proposal.wedge}": ${r.score}/100 (${(r.score ?? 0) >= baseScore + margin ? `beats baseline by ≥${margin} — clears the noise margin` : (r.score ?? 0) > baseScore ? `+${(r.score ?? 0) - baseScore}, within the ±${margin} noise margin` : `${(r.score ?? 0) - baseScore} vs baseline`})`
+        );
+      }
+      setWedgeResults(ranked);
+      log("Tournament done — adopt a winner below, or keep exploring.");
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "Tournament failed";
+      setError(m);
+      setWedgeLog((prev) => [...prev, `Stopped: ${m}`]);
+    } finally {
+      setWedgeRunning(false);
+    }
+  }
+
+  // Adopt one entrant: switch to it and archive the losing tournament versions (they
+  // survive archived — history intact, switcher legible). Baseline is never archived.
+  async function adoptWedge(versionId: string) {
+    if (!wedgeResults) return;
+    const losers = wedgeResults.filter((r) => r.versionId !== versionId);
+    for (const l of losers) {
+      const res = await fetch(`/api/versions/${l.versionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      }).catch(() => null);
+      if (res?.ok) {
+        setVersions((prev) => prev.map((v) => (v.id === l.versionId ? { ...v, archived: 1 } : v)));
+      }
+    }
+    setWedgeSet(null);
+    setWedgeResults(null);
+    setWedgeLog([]);
+    switchVersion(versionId);
   }
 
   // --- auto-iterate -----------------------------------------------------------
@@ -1171,6 +1330,7 @@ export default function IdeaWorkspace({
                       { label: "Refine manually", hint: "Edit the statement yourself — saves a new version & re-scores.", onClick: startManual },
                       { label: "✨ Suggest a sharper version", hint: "AI targets your weakest criteria.", onClick: suggest },
                       { label: "⟳ Auto-iterate to a target", hint: "Hill-climb over several rounds toward a score.", onClick: autoIterate },
+                      { label: "🧭 Wedge tournament", hint: "3–5 divergent angles, validated head-to-head on the same evidence.", onClick: exploreWedges },
                     ]}
                   />
                   <DropMenu
@@ -1364,6 +1524,158 @@ export default function IdeaWorkspace({
                 Dismiss
               </button>
             </div>
+          </div>
+        )}
+
+        {/* wedge tournament: proposals → parallel validation → side-by-side adoption */}
+        {(wedgeFetching || wedgeSet) && (
+          <div className="mb-5 rounded-xl border border-accent/30 bg-accent/5 p-4">
+            <div className="mb-1 flex items-center justify-between">
+              <div className="text-sm font-semibold text-accent">🧭 Wedge tournament</div>
+              {!wedgeRunning && (
+                <button
+                  onClick={() => {
+                    setWedgeSet(null);
+                    setWedgeResults(null);
+                    setWedgeLog([]);
+                  }}
+                  className="text-xs text-muted hover:text-fg"
+                >
+                  close
+                </button>
+              )}
+            </div>
+            {wedgeFetching && (
+              <p className="animate-pulse text-sm text-accent2">Drafting divergent angles from the evidence…</p>
+            )}
+
+            {/* phase 1: pick entrants */}
+            {wedgeSet && !wedgeResults && (
+              <>
+                <p className="mb-3 text-xs text-muted">
+                  Each is a different strategic angle on the same core idea. Selected wedges become versions and are
+                  validated <b>in parallel on the same evidence corpus</b> — a fair head-to-head. Cost ≈ one validation
+                  per wedge.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {wedgeSet.wedges.map((w, i) => (
+                    <label
+                      key={i}
+                      className={`flex cursor-pointer flex-col rounded-lg border p-3 transition ${
+                        wedgeSelected.has(i) ? "border-accent/50 bg-panel2" : "border-border bg-panel2/50 opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={wedgeSelected.has(i)}
+                          disabled={wedgeRunning}
+                          onChange={(e) =>
+                            setWedgeSelected((prev) => {
+                              const n = new Set(prev);
+                              if (e.target.checked) n.add(i);
+                              else n.delete(i);
+                              return n;
+                            })
+                          }
+                          className="mt-0.5"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium">{w.wedge}</div>
+                          <p className="mt-1 text-xs leading-relaxed text-fg/80">{w.statement}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-muted">
+                            {w.rationale} <span className="text-accent2">→ {w.targets}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  {!wedgeRunning && (
+                    <button
+                      onClick={runWedgeTournament}
+                      disabled={wedgeSelected.size === 0 || anyBusy}
+                      className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      Run tournament ({wedgeSelected.size} wedge{wedgeSelected.size === 1 ? "" : "s"})
+                    </button>
+                  )}
+                  {wedgeRunning && <span className="animate-pulse text-sm text-accent2">tournament running…</span>}
+                </div>
+              </>
+            )}
+
+            {/* phase 2: results, ranked */}
+            {wedgeResults && wedgeBaseline && (
+              <div className="mt-1">
+                <p className="mb-2 text-xs text-muted">
+                  Ranked on the same evidence as baseline v{wedgeBaseline.n} ({wedgeBaseline.score}/100). Differences
+                  within ±{acceptanceMargin()} are scoring noise, not signal.
+                </p>
+                <div className="space-y-2">
+                  {wedgeResults.map((r) => {
+                    const delta = r.score != null ? r.score - wedgeBaseline.score : null;
+                    const clears = delta != null && delta >= acceptanceMargin();
+                    return (
+                      <div
+                        key={r.versionId}
+                        className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${
+                          clears ? "border-good/50 bg-good/5" : "border-border bg-panel2"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium">
+                            v{r.n} · {r.proposal.wedge}
+                            {clears && <span className="ml-2 text-xs text-good">← clears the noise margin</span>}
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted">
+                            {r.error ? (
+                              <span className="text-bad">failed: {r.error}</span>
+                            ) : (
+                              <>
+                                <b className="font-mono text-fg/90">{r.score}/100</b>
+                                {delta != null && (
+                                  <span className="font-mono"> ({delta >= 0 ? "+" : ""}{delta})</span>
+                                )}
+                                {r.verdict ? ` · ${r.verdict}` : ""}
+                                {r.revenue ? ` · ${r.revenue}` : ""}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button
+                            onClick={() => switchVersion(r.versionId)}
+                            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-panel"
+                          >
+                            View report
+                          </button>
+                          {!r.error && (
+                            <button
+                              onClick={() => adoptWedge(r.versionId)}
+                              className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white"
+                            >
+                              Adopt (archive the rest)
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  Adopting keeps every entrant’s report (archived, not deleted). Or keep all and compare manually in the
+                  version switcher.
+                </p>
+              </div>
+            )}
+
+            {wedgeLog.length > 0 && (
+              <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-bg/60 p-3 font-mono text-xs leading-relaxed text-muted">
+                {wedgeLog.join("\n")}
+              </pre>
+            )}
           </div>
         )}
 
