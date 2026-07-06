@@ -1888,10 +1888,8 @@ export default function IdeaWorkspace({
               typeof activeValidationData?.score === "number" &&
               (versions.length > 1 || !!activeArtifacts.kit || !!activeArtifacts.test_result) && (
               <CampaignHeader
-                verdict={activeValidationData.verdict ?? "—"}
-                score={Math.round(activeValidationData.score)}
-                color={scoreColor(Math.round(activeValidationData.score), goalBands)}
                 activeN={activeVersion.n}
+                versionCount={visibleVersions.length}
                 bestN={showBestOther ? bestOther!.n : null}
                 bestScore={showBestOther ? bestOther!.score : null}
                 bestLabel={showBestOther ? bestOther!.label ?? bestOther!.statement : null}

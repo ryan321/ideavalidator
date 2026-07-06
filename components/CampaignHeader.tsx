@@ -7,10 +7,8 @@
 type NextMove = { label: string; onClick?: () => void; href?: string };
 
 export function CampaignHeader({
-  verdict,
-  score,
-  color,
   activeN,
+  versionCount,
   bestN,
   bestScore,
   bestLabel,
@@ -19,10 +17,9 @@ export function CampaignHeader({
   testStatus,
   nextMove,
 }: {
-  verdict: string;
-  score: number;
-  color: string;
   activeN: number;
+  /** How many angles have been tried (visible versions). */
+  versionCount: number;
   /** The best-scoring OTHER version, when one exists. */
   bestN?: number | null;
   bestScore?: number | null;
@@ -41,15 +38,12 @@ export function CampaignHeader({
   return (
     <div className="mb-6 overflow-hidden rounded-xl border border-border bg-panel/60">
       <div className="grid divide-y divide-border lg:grid-cols-[auto_1fr_auto] lg:divide-x lg:divide-y-0">
-        {/* the decision */}
+        {/* the campaign — where you are; the score lives in the readout below, once */}
         <div className="flex items-center gap-3 px-4 py-3">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">The decision · v{activeN}</div>
-            <div className="mt-0.5 flex items-baseline gap-2">
-              <span className="font-display text-xl font-bold leading-none" style={{ color }}>
-                {verdict}
-              </span>
-              <span className="font-mono text-sm font-bold tabular-nums" style={{ color }}>{score}</span>
+            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">The campaign · v{activeN}</div>
+            <div className="mt-0.5 text-sm font-medium text-fg/90">
+              {versionCount} angle{versionCount === 1 ? "" : "s"} tried
             </div>
             {bestN != null && bestScore != null && (
               <button
@@ -57,7 +51,7 @@ export function CampaignHeader({
                 className="mt-1 flex items-center gap-1 text-[11px] text-muted transition hover:text-fg"
                 title={bestLabel ?? undefined}
               >
-                best angle: <b className="font-mono">v{bestN}</b> ({bestScore}) ★ →
+                best: <b className="font-mono">v{bestN}</b> ({bestScore}) ★ →
               </button>
             )}
           </div>
