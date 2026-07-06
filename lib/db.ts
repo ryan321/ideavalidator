@@ -92,6 +92,12 @@ function init(): Database.Database {
   addColumn(db, "ideas", "goal_detail", "TEXT");
   addColumn(db, "ideas", "stage", "TEXT");
   addColumn(db, "ideas", "founder_fit", "TEXT");
+  // Billing (campaign pass): one Stripe payment unlocks the idea's FULL campaign —
+  // validations, tournaments, kit, intel, revalidations — up to the run cap (the COGS
+  // guardrail). All of it is inert while billing is disabled (no STRIPE_SECRET_KEY).
+  addColumn(db, "ideas", "paid", "INTEGER DEFAULT 0");
+  addColumn(db, "ideas", "paid_session", "TEXT");
+  addColumn(db, "ideas", "campaign_runs", "INTEGER DEFAULT 0");
   // provenance: "organic" (the founder lived the pain) | "whiteboard" (brainstormed) | null
   // (unasked, neutral). Feeds founderProfile — organic credits insider knowledge, whiteboard
   // flags elevated market risk without crediting it.
@@ -192,6 +198,10 @@ export type Idea = {
   founder_fit: string | null; // founder's market knowledge / build experience / network
   provenance: "organic" | "whiteboard" | null; // did the idea come from a lived problem or a whiteboard?
   created_at: string;
+  // Billing (campaign pass) — 0/absent rows read as unpaid with zero runs.
+  paid: number; // 1 once the Stripe checkout for this idea completed
+  paid_session: string | null; // the Stripe checkout session id that paid it
+  campaign_runs: number; // validations run against the campaign's run cap
 };
 
 export type IdeaSummary = Idea & {
@@ -274,6 +284,9 @@ export function createIdea(
     founder_fit: founderFit ?? null,
     provenance: provenance ?? null,
     created_at: now,
+    paid: 0,
+    paid_session: null,
+    campaign_runs: 0,
   };
   const version: Version = {
     id: crypto.randomUUID(),
@@ -323,6 +336,18 @@ export function getIdea(id: string): Idea | undefined {
 
 export function setIdeaGoal(id: string, goal: string | null, goalDetail: string | null): void {
   db.prepare("UPDATE ideas SET goal = ?, goal_detail = ? WHERE id = ?").run(goal, goalDetail, id);
+}
+
+// ---- billing (campaign pass) ---------------------------------------------------
+
+/** Mark an idea's campaign as paid (idempotent — a replayed webhook is a no-op). */
+export function markIdeaPaid(id: string, sessionId: string): void {
+  db.prepare("UPDATE ideas SET paid = 1, paid_session = ? WHERE id = ? AND paid = 0").run(sessionId, id);
+}
+
+/** Count one validation run against the idea's campaign cap. */
+export function incrementCampaignRuns(id: string): void {
+  db.prepare("UPDATE ideas SET campaign_runs = COALESCE(campaign_runs, 0) + 1 WHERE id = ?").run(id);
 }
 
 export function setIdeaJourney(id: string, fields: { stage?: string }): void {

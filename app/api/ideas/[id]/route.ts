@@ -11,6 +11,7 @@ import {
   setIdeaGoal,
   setIdeaJourney,
 } from "@/lib/db";
+import { campaignAccess } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -61,6 +62,9 @@ export async function GET(
     // Population of all non-archived version scores across every idea — the workspace
     // computes the active version's percentile against it (SURFACE-PHASE renders it).
     scoreDistribution: scoreDistribution(),
+    // Campaign-pass state: {enabled, paid, runsUsed, runCap, priceCents, allowed}.
+    // enabled=false (billing not configured) means the paywall never renders.
+    billing: campaignAccess(idea),
   });
 }
 

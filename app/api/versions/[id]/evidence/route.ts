@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { campaignAccessForVersion } from "@/lib/billing";
 import { deleteEvidence, getVersion } from "@/lib/db";
 import { collectEvidence } from "@/lib/evidence";
 
@@ -12,6 +13,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  // campaign-pass gate (inert while billing is disabled)
+  const access = campaignAccessForVersion(id);
+  if (!access.allowed) return NextResponse.json({ error: access.reason }, { status: 402 });
   if (!getVersion(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   try {
     deleteEvidence(id);

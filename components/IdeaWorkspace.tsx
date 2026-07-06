@@ -277,6 +277,18 @@ export default function IdeaWorkspace({
   const [statementExpanded, setStatementExpanded] = useState(false);
   const [comparing, setComparing] = useState(false); // side-by-side version compare
   const [arenaOpen, setArenaOpen] = useState(false); // the every-variant scoreboard
+
+  // Campaign-pass billing state (null until loaded; enabled=false → no paywall ever).
+  const [billing, setBilling] = useState<{
+    enabled: boolean;
+    paid: boolean;
+    runsUsed: number;
+    runCap: number;
+    priceCents: number;
+    allowed: boolean;
+    reason?: string;
+  } | null>(null);
+  const locked = !!billing && billing.enabled && !billing.paid;
   const [showArchived, setShowArchived] = useState(false); // reveal archived versions in the switcher
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -511,6 +523,24 @@ export default function IdeaWorkspace({
     if (j.evidenceByVersion) setEvidence(j.evidenceByVersion);
     if (typeof j.cost === "number") setCost(j.cost);
     if (Array.isArray(j.scoreDistribution)) setScoreDistribution(j.scoreDistribution);
+    if (j.billing) setBilling(j.billing);
+  }
+
+  // Start Stripe Checkout for this idea's campaign pass and redirect to it.
+  async function startCheckout() {
+    setError(null);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ideaId: idea.id }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Could not start checkout");
+      window.location.href = j.url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start checkout");
+    }
   }
 
   // Re-collect the fetched Reddit/HN corpus for the active version (the report's
@@ -577,8 +607,33 @@ export default function IdeaWorkspace({
       .then((j) => {
         if (Array.isArray(j.runningJobs))
           for (const job of j.runningJobs) pollJob(job.version_id, job.kind as ArtifactKind);
+        if (j.billing) setBilling(j.billing);
       })
       .catch(() => {});
+
+    // Returning from Stripe Checkout: verify the session SERVER-side (the query param
+    // alone proves nothing), then reload billing state and clean the URL.
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    if (params.get("checkout") === "success" && sessionId) {
+      fetch("/api/billing/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      })
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.paid) refreshArtifacts().catch(() => {});
+          else if (j.error) setError(j.error);
+        })
+        .catch(() => {})
+        .finally(() => {
+          window.history.replaceState({}, "", window.location.pathname);
+        });
+    } else if (params.get("checkout") === "cancelled") {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
     return () => {
       mountedRef.current = false;
     };
@@ -1504,7 +1559,7 @@ export default function IdeaWorkspace({
                   <DropMenu
                     trigger={<span className="font-medium">✎ Improve idea</span>}
                     tone="accent"
-                    disabled={anyBusy}
+                    disabled={anyBusy || locked}
                     items={[
                       { label: "Refine manually", hint: "Edit the statement yourself — saves a new version & re-scores.", onClick: startManual },
                       { label: "✨ Suggest a sharper version", hint: "AI targets your weakest criteria.", onClick: suggest },
@@ -1912,6 +1967,33 @@ export default function IdeaWorkspace({
 
         {(
           <div>
+            {/* campaign paywall — one payment unlocks THIS idea's full campaign */}
+            {locked && (
+              <div className="mb-6 rounded-xl border border-accent/40 bg-accent/5 p-5">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+                      Campaign locked
+                    </div>
+                    <div className="mt-1 text-base font-semibold">
+                      Unlock the full validation campaign — ${(billing!.priceCents / 100).toFixed(0)}
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-muted">
+                      One payment covers everything for this idea: the grounded validation, the wedge
+                      tournament (every variant), the kill-test run kit, cited competitor intel, and
+                      revalidations after your real-world test — up to {billing!.runCap} validation runs.
+                    </p>
+                  </div>
+                  <button
+                    onClick={startCheckout}
+                    className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                  >
+                    Unlock for ${(billing!.priceCents / 100).toFixed(0)} →
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* the campaign header: decision state + the one next move, above the receipt.
                 Only once the campaign HAS state beyond a first report (more versions, a
                 kit, a recorded result) — on a fresh single-version validation it would
@@ -1938,13 +2020,18 @@ export default function IdeaWorkspace({
                 <div className="flex min-w-0 items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
                   <span className="h-1.5 w-1.5 rounded-full bg-good" aria-hidden />
                   Full analysis · one grounded pass
+                  {billing?.enabled && billing.paid && (
+                    <span className="ml-2 rounded border border-border bg-panel2 px-1.5 py-0.5 normal-case tracking-normal" title="Validation runs used of this campaign&apos;s fair-use cap">
+                      runs {billing.runsUsed}/{billing.runCap}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Deep validation — bull/bear/reconcile + CoVe + a second-family
                       cross-check. ~3-4× the cost of a standard run (flagged in the hint). */}
                   <button
                     onClick={() => runValidate(true)}
-                    disabled={busy.has(bk(activeVersionId, "validation")) || iterating}
+                    disabled={busy.has(bk(activeVersionId, "validation")) || iterating || locked}
                     title="Argues an independent bull case and bear case, reconciles them on the evidence, verifies the load-bearing claims (CoVe), and cross-checks with a second model family. ~3–4× the cost of a standard run."
                     className="rounded-lg border border-accent2/40 px-3 py-1.5 text-sm font-medium text-accent2 transition hover:bg-accent2/10 disabled:opacity-50"
                   >
@@ -1953,7 +2040,7 @@ export default function IdeaWorkspace({
                   </button>
                   <button
                     onClick={() => runValidate()}
-                    disabled={busy.has(bk(activeVersionId, "validation")) || iterating}
+                    disabled={busy.has(bk(activeVersionId, "validation")) || iterating || locked}
                     className="rounded-lg border border-accent/30 px-3 py-1.5 text-sm font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
                   >
                     {busy.has(bk(activeVersionId, "validation")) ? "Analyzing…" : "⟳ Re-run analysis"}
@@ -2015,7 +2102,7 @@ export default function IdeaWorkspace({
                   </div>
                   <button
                     onClick={() => runValidate()}
-                    disabled={anyBusy}
+                    disabled={anyBusy || locked}
                     className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                   >
                     Validate this idea 🌐

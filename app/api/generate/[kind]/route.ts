@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { GENERATORS, runGenerator } from "@/lib/generators";
-import { getJob, setJob, type ArtifactKind } from "@/lib/db";
+import { getJob, incrementCampaignRuns, getVersion, setJob, type ArtifactKind } from "@/lib/db";
+import { campaignAccessForVersion } from "@/lib/billing";
 
 export const runtime = "nodejs";
 // Grounded multi-step generation can take a while.
@@ -28,6 +29,17 @@ export async function POST(
   const { versionId, steer, background, deep, audit } = await req.json();
   if (!versionId) {
     return NextResponse.json({ error: "versionId is required" }, { status: 400 });
+  }
+
+  // Campaign-pass gate: one payment unlocks this idea's whole campaign, up to the
+  // run cap. Inert while billing is disabled (no STRIPE_SECRET_KEY).
+  const access = campaignAccessForVersion(versionId);
+  if (!access.allowed) {
+    return NextResponse.json({ error: access.reason, billing: access }, { status: 402 });
+  }
+  if (kind === "validation") {
+    const v = getVersion(versionId);
+    if (v) incrementCampaignRuns(v.idea_id); // every validation counts against the cap
   }
   const opts = {
     steer: typeof steer === "string" && steer.trim() ? steer.trim() : null,
