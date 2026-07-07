@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "variance": "tsx scripts/variance.ts",
-    "calibrate": "tsx scripts/calibrate.ts"
+    "calibrate": "tsx scripts/calibrate.ts",
+    "apikey": "tsx scripts/apikey.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

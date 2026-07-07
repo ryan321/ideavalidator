@@ -103,6 +103,24 @@ function init(): Database.Database {
   // flags elevated market risk without crediting it.
   addColumn(db, "ideas", "provenance", "TEXT");
 
+  // Public API: bearer keys (only the sha256 HASH is stored) that own the ideas they
+  // create, isolating agents from each other and from the local UI (owner_key NULL =
+  // the local admin surface). credits: prepaid balance, decremented per validation;
+  // -1 = unlimited. The UI routes stay owner-agnostic; only /api/v1/* is key-scoped.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id            TEXT PRIMARY KEY,
+      prefix        TEXT NOT NULL,
+      key_hash      TEXT NOT NULL UNIQUE,
+      label         TEXT,
+      credits       INTEGER NOT NULL DEFAULT 0,
+      revoked       INTEGER NOT NULL DEFAULT 0,
+      created_at    TEXT NOT NULL,
+      last_used_at  TEXT
+    );
+  `);
+  addColumn(db, "ideas", "owner_key", "TEXT"); // NULL = local UI; else api_keys.id
+
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
   addColumn(db, "artifacts", "cost", "REAL");
   addColumn(db, "artifacts", "prompt_tokens", "INTEGER");
@@ -202,6 +220,18 @@ export type Idea = {
   paid: number; // 1 once the Stripe checkout for this idea completed
   paid_session: string | null; // the Stripe checkout session id that paid it
   campaign_runs: number; // validations run against the campaign's run cap
+  owner_key: string | null; // api_keys.id when created via the public API; NULL = local UI
+};
+
+export type ApiKey = {
+  id: string;
+  prefix: string; // shown to the user for identification (e.g. "iv_live_a1b2")
+  key_hash: string; // sha256 of the full key — the raw key is never stored
+  label: string | null;
+  credits: number; // prepaid balance; -1 = unlimited
+  revoked: number; // 1 = revoked
+  created_at: string;
+  last_used_at: string | null;
 };
 
 export type IdeaSummary = Idea & {
@@ -271,7 +301,8 @@ export function createIdea(
   goal?: string | null,
   goalDetail?: string | null,
   founderFit?: string | null,
-  provenance?: "organic" | "whiteboard" | null
+  provenance?: "organic" | "whiteboard" | null,
+  ownerKey?: string | null
 ): { idea: Idea; version: Version } {
   const now = new Date().toISOString();
   const idea: Idea = {
@@ -287,6 +318,7 @@ export function createIdea(
     paid: 0,
     paid_session: null,
     campaign_runs: 0,
+    owner_key: ownerKey ?? null,
   };
   const version: Version = {
     id: crypto.randomUUID(),
@@ -305,7 +337,7 @@ export function createIdea(
   };
   const tx = db.transaction(() => {
     db.prepare(
-      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, founder_fit, provenance, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @founder_fit, @provenance, @created_at)"
+      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, founder_fit, provenance, owner_key, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @founder_fit, @provenance, @owner_key, @created_at)"
     ).run(idea);
     db.prepare(
       `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, revenue, created_at)
@@ -348,6 +380,91 @@ export function markIdeaPaid(id: string, sessionId: string): void {
 /** Count one validation run against the idea's campaign cap. */
 export function incrementCampaignRuns(id: string): void {
   db.prepare("UPDATE ideas SET campaign_runs = COALESCE(campaign_runs, 0) + 1 WHERE id = ?").run(id);
+}
+
+// ---- public API keys ----------------------------------------------------------
+
+export function insertApiKey(row: {
+  prefix: string;
+  keyHash: string;
+  label: string | null;
+  credits: number;
+}): ApiKey {
+  const key: ApiKey = {
+    id: crypto.randomUUID(),
+    prefix: row.prefix,
+    key_hash: row.keyHash,
+    label: row.label,
+    credits: row.credits,
+    revoked: 0,
+    created_at: new Date().toISOString(),
+    last_used_at: null,
+  };
+  db.prepare(
+    `INSERT INTO api_keys (id, prefix, key_hash, label, credits, revoked, created_at, last_used_at)
+     VALUES (@id, @prefix, @key_hash, @label, @credits, @revoked, @created_at, @last_used_at)`
+  ).run(key);
+  return key;
+}
+
+export function getApiKeyByHash(hash: string): ApiKey | undefined {
+  return db.prepare("SELECT * FROM api_keys WHERE key_hash = ?").get(hash) as ApiKey | undefined;
+}
+
+export function touchApiKey(id: string): void {
+  db.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+}
+
+/** Atomically spend one credit. Returns true if allowed (unlimited or balance>0 → spent),
+ * false if the key is out of credits. -1 credits = unlimited (never decrements). */
+export function spendApiCredit(id: string): boolean {
+  const row = db.prepare("SELECT credits FROM api_keys WHERE id = ?").get(id) as { credits: number } | undefined;
+  if (!row) return false;
+  if (row.credits < 0) return true; // unlimited
+  const res = db.prepare("UPDATE api_keys SET credits = credits - 1 WHERE id = ? AND credits > 0").run(id);
+  return res.changes > 0;
+}
+
+/** Refund a credit (e.g. the metered validation failed). No-op for unlimited keys. */
+export function refundApiCredit(id: string): void {
+  db.prepare("UPDATE api_keys SET credits = credits + 1 WHERE id = ? AND credits >= 0").run(id);
+}
+
+export function listApiKeys(): ApiKey[] {
+  return db.prepare("SELECT * FROM api_keys ORDER BY created_at DESC").all() as ApiKey[];
+}
+
+export function revokeApiKey(id: string): boolean {
+  return db.prepare("UPDATE api_keys SET revoked = 1 WHERE id = ?").run(id).changes > 0;
+}
+
+// ---- owner-scoped idea access (public API tenancy) ----------------------------
+
+/** An idea only if it belongs to this key — the API's isolation boundary. */
+export function getIdeaOwned(id: string, ownerKey: string): Idea | undefined {
+  return db.prepare("SELECT * FROM ideas WHERE id = ? AND owner_key = ?").get(id, ownerKey) as Idea | undefined;
+}
+
+/** Every idea owned by a key (newest first). */
+export function listIdeasByOwner(ownerKey: string): IdeaSummary[] {
+  return db
+    .prepare(
+      `SELECT i.*,
+              (SELECT MAX(v.score) FROM versions v WHERE v.idea_id = i.id AND v.archived = 0) AS best_score,
+              (SELECT COUNT(*) FROM versions v WHERE v.idea_id = i.id AND v.archived = 0) AS version_count,
+              (SELECT SUM(u.cost) FROM usage_log u WHERE u.idea_id = i.id) AS cost,
+              (SELECT v.revenue FROM versions v WHERE v.idea_id = i.id AND v.revenue IS NOT NULL AND v.archived = 0
+                 ORDER BY v.n DESC LIMIT 1) AS revenue
+         FROM ideas i WHERE i.owner_key = ? ORDER BY i.created_at DESC`
+    )
+    .all(ownerKey) as IdeaSummary[];
+}
+
+/** The current (latest, non-archived) version of an idea — the API operates on this. */
+export function currentVersion(ideaId: string): Version | undefined {
+  return db
+    .prepare("SELECT * FROM versions WHERE idea_id = ? AND archived = 0 ORDER BY n DESC LIMIT 1")
+    .get(ideaId) as Version | undefined;
 }
 
 export function setIdeaJourney(id: string, fields: { stage?: string }): void {
