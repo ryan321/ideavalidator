@@ -49,45 +49,54 @@ export async function searchAppStore(
     const search = await getJson<SearchResp>(
       `https://itunes.apple.com/search?media=software&entity=software&limit=${APPS_PER_QUERY}&term=${encodeURIComponent(query)}`
     );
-    for (const app of search.results ?? []) {
-      if (!app.trackId || !app.trackName) continue;
-      const appUrl = app.trackViewUrl ?? `https://apps.apple.com/app/id${app.trackId}`;
-      try {
-        const feed = await getJson<ReviewFeed>(
-          `https://itunes.apple.com/us/rss/customerreviews/page=1/id=${app.trackId}/sortby=mosthelpful/json`
-        );
-        let n = 0;
-        for (const e of feed.feed?.entry ?? []) {
-          if (n >= REVIEWS_PER_APP) break;
-          const body = e.content?.label?.trim();
-          const rating = e["im:rating"]?.label;
-          // the feed's first entry is the app itself (no review body/rating) — skip it
-          if (!body || !rating) continue;
-          const quote = excerpt(body);
-          if (!quote) continue;
-          n++;
-          const reviewId = e.id?.label ?? `${app.trackId}-${n}`;
-          const reviewTitle = e.title?.label?.trim();
-          items.push({
-            source: "appstore",
-            kind: "review",
-            // lead with the star rating — a 1★ review is an unmet-need goldmine
-            title: `★${rating} · ${app.trackName}${reviewTitle ? ` — ${reviewTitle}` : ""}`,
-            quote,
-            // the reviews feed has no per-review permalink; synthesize a unique url off
-            // the app page so dedupe-by-url keeps every distinct review
-            url: `${appUrl}#review-${reviewId}`,
-            author: e.author?.name?.label,
-            score: Number(e["im:voteSum"]?.label ?? 0) || 0,
-            created_utc: 0, // the customer-reviews RSS carries no reliable timestamp
-            community: app.trackName,
-            matched_query: query,
-            wtp_signal: hasWtpSignal(`${reviewTitle ?? ""} ${body}`),
-          });
+    // Fetch each app's review feed in PARALLEL — wall clock is one feed call, not the sum.
+    const apps = (search.results ?? []).filter((a) => a.trackId && a.trackName);
+    const perApp = await Promise.all(
+      apps.map(async (app) => {
+        const appUrl = app.trackViewUrl ?? `https://apps.apple.com/app/id${app.trackId}`;
+        try {
+          const feed = await getJson<ReviewFeed>(
+            `https://itunes.apple.com/us/rss/customerreviews/page=1/id=${app.trackId}/sortby=mosthelpful/json`
+          );
+          const out: RawEvidenceItem[] = [];
+          let n = 0;
+          for (const e of feed.feed?.entry ?? []) {
+            if (n >= REVIEWS_PER_APP) break;
+            const body = e.content?.label?.trim();
+            const rating = e["im:rating"]?.label;
+            // the feed's first entry is the app itself (no review body/rating) — skip it
+            if (!body || !rating) continue;
+            const quote = excerpt(body);
+            if (!quote) continue;
+            n++;
+            const reviewId = e.id?.label ?? `${app.trackId}-${n}`;
+            const reviewTitle = e.title?.label?.trim();
+            out.push({
+              source: "appstore",
+              kind: "review",
+              // lead with the star rating — a 1★ review is an unmet-need goldmine
+              title: `★${rating} · ${app.trackName}${reviewTitle ? ` — ${reviewTitle}` : ""}`,
+              quote,
+              // the reviews feed has no per-review permalink; synthesize a unique url off
+              // the app page so dedupe-by-url keeps every distinct review
+              url: `${appUrl}#review-${reviewId}`,
+              author: e.author?.name?.label,
+              score: Number(e["im:voteSum"]?.label ?? 0) || 0,
+              created_utc: 0, // the customer-reviews RSS carries no reliable timestamp
+              community: app.trackName,
+              matched_query: query,
+              wtp_signal: hasWtpSignal(`${reviewTitle ?? ""} ${body}`),
+            });
+          }
+          return { items: out, error: null as string | null };
+        } catch (e) {
+          return { items: [] as RawEvidenceItem[], error: `App Store reviews (${app.trackName}): ${e instanceof Error ? e.message : String(e)}` };
         }
-      } catch (e) {
-        errors.push(`App Store reviews (${app.trackName}): ${e instanceof Error ? e.message : String(e)}`);
-      }
+      })
+    );
+    for (const r of perApp) {
+      items.push(...r.items);
+      if (r.error) errors.push(r.error);
     }
   } catch (e) {
     errors.push(`App Store search "${query}": ${e instanceof Error ? e.message : String(e)}`);

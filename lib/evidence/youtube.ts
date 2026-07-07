@@ -56,39 +56,49 @@ export async function searchYouTube(
     const search = await getJson<SearchResp>(
       `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&order=relevance&maxResults=${VIDEOS_PER_QUERY}&q=${encodeURIComponent(query)}&key=${key}`
     );
-    for (const v of search.items ?? []) {
-      const videoId = v.id?.videoId;
-      if (!videoId) continue;
-      const videoTitle = decodeEntities(v.snippet?.title ?? "");
-      const channel = v.snippet?.channelTitle;
-      try {
-        const threads = await getJson<CommentResp>(
-          `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&order=relevance&maxResults=${COMMENTS_PER_VIDEO}&videoId=${videoId}&key=${key}`
-        );
-        for (const t of threads.items ?? []) {
-          const c = t.snippet?.topLevelComment?.snippet;
-          const text = c?.textOriginal ? excerpt(decodeEntities(c.textOriginal)) : "";
-          if (!text) continue;
-          const commentId = t.snippet?.topLevelComment?.id ?? "";
-          items.push({
-            source: "youtube",
-            kind: "comment",
-            title: videoTitle || undefined,
-            quote: text,
-            url: `https://www.youtube.com/watch?v=${videoId}${commentId ? `&lc=${commentId}` : ""}`,
-            author: c?.authorDisplayName,
-            score: c?.likeCount ?? 0,
-            num_comments: t.snippet?.totalReplyCount,
-            created_utc: c?.publishedAt ? Math.floor(new Date(c.publishedAt).getTime() / 1000) : 0,
-            community: channel,
-            matched_query: query,
-            wtp_signal: hasWtpSignal(text),
-          });
+    // Fetch every video's comments in PARALLEL — wall clock is one comment call, not the
+    // sum of all of them (each has an 8s timeout). Same quota usage.
+    const videos = (search.items ?? []).filter((v) => v.id?.videoId);
+    const perVideo = await Promise.all(
+      videos.map(async (v) => {
+        const videoId = v.id!.videoId!;
+        const videoTitle = decodeEntities(v.snippet?.title ?? "");
+        const channel = v.snippet?.channelTitle;
+        try {
+          const threads = await getJson<CommentResp>(
+            `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&order=relevance&maxResults=${COMMENTS_PER_VIDEO}&videoId=${videoId}&key=${key}`
+          );
+          const out: RawEvidenceItem[] = [];
+          for (const t of threads.items ?? []) {
+            const c = t.snippet?.topLevelComment?.snippet;
+            const text = c?.textOriginal ? excerpt(decodeEntities(c.textOriginal)) : "";
+            if (!text) continue;
+            const commentId = t.snippet?.topLevelComment?.id ?? "";
+            out.push({
+              source: "youtube",
+              kind: "comment",
+              title: videoTitle || undefined,
+              quote: text,
+              url: `https://www.youtube.com/watch?v=${videoId}${commentId ? `&lc=${commentId}` : ""}`,
+              author: c?.authorDisplayName,
+              score: c?.likeCount ?? 0,
+              num_comments: t.snippet?.totalReplyCount,
+              created_utc: c?.publishedAt ? Math.floor(new Date(c.publishedAt).getTime() / 1000) : 0,
+              community: channel,
+              matched_query: query,
+              wtp_signal: hasWtpSignal(text),
+            });
+          }
+          return { items: out, error: null as string | null };
+        } catch (e) {
+          // comments disabled on a video is common and expected — record, keep going
+          return { items: [] as RawEvidenceItem[], error: `YouTube comments (${videoId}): ${e instanceof Error ? e.message : String(e)}` };
         }
-      } catch (e) {
-        // comments disabled on a video is common and expected — record, keep going
-        errors.push(`YouTube comments (${videoId}): ${e instanceof Error ? e.message : String(e)}`);
-      }
+      })
+    );
+    for (const r of perVideo) {
+      items.push(...r.items);
+      if (r.error) errors.push(r.error);
     }
   } catch (e) {
     errors.push(`YouTube search "${query}": ${e instanceof Error ? e.message : String(e)}`);

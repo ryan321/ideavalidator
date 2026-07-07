@@ -40,6 +40,43 @@ const clampTier = (t: number | undefined): 1 | 2 | 3 | 4 | null => {
  * (keep everything at relevance 1, keyword-only WTP) rather than throw — the corpus
  * is still real fetched data.
  */
+// Rate one chunk of items (chunk-local 1-indexed). Throws on failure so the caller's
+// Promise.allSettled records it per-chunk instead of taking down the whole rank pass.
+async function rateChunk(
+  items: RawEvidenceItem[],
+  statement: string
+): Promise<{ ratings: { n: number; relevance: number; wtp?: boolean; tier?: number }[]; usage: Usage }> {
+  const list = items
+    .map((it, i) => `${i + 1}. [${it.source}] ${it.title ? `${it.title} — ` : ""}${it.quote}`.slice(0, 400))
+    .join("\n");
+  const res = await generateStructured(RatingsSchema, {
+    role: "writing",
+    grounded: false,
+    // ~45-70 tokens per pretty-printed {n,relevance,wtp,tier} entry; a chunk is ≤50 items.
+    maxTokens: Math.min(400 + items.length * 70, 8000),
+    system:
+      "You judge whether forum posts are relevant evidence for validating a startup idea. " +
+      "Rate each item 0-3: 0 = unrelated noise; 1 = same general space; 2 = discusses this " +
+      "problem or its competitors; 3 = directly expresses this pain or willingness to pay for it. " +
+      "Also set wtp per item: true ONLY if the text genuinely expresses real willingness to pay " +
+      "(stated or demonstrated — 'I'd pay for this', 'we currently pay $X'); sarcasm, jokes, " +
+      "refusals ('I would never pay for this'), hypotheticals about OTHER people paying, and " +
+      "complaints about price are wtp false.\n" +
+      "Also set tier 1-4 = the Mom-Test evidence STRENGTH of what the item shows (not its " +
+      "relevance): 1 = money or behavior actually happened (paying for it, built a workaround, " +
+      "switched tools); 2 = a costly commitment (real time/effort spent, a signed-up pilot); " +
+      "3 = a specific past fact or concrete complaint; 4 = a compliment, generic praise, or a " +
+      "hypothetical ('I would totally use this', 'sounds cool'). Bias toward the WEAKER tier when unsure.",
+    prompt: `Startup idea: ${statement}
+
+Rate each numbered item:
+${list}
+
+Return JSON: {"ratings": [{"n": 1, "relevance": 0-3, "wtp": true|false, "tier": 1-4}, ...]} — one entry per item, every item rated.`,
+  });
+  return { ratings: res.data.ratings, usage: res.usage };
+}
+
 export async function dedupeAndRank(
   raw: RawEvidenceItem[],
   statement: string
@@ -53,62 +90,51 @@ export async function dedupeAndRank(
   const deduped = [...byUrl.values()];
   if (!deduped.length) return { items: [], errors, usage: null, degraded };
 
-  // one batch call: number each item, judge title+quote vs the idea (relevance 0-3)
-  // and confirm any willingness-to-pay reading of the text (wtp boolean)
-  let relevance = new Map<number, number>();
-  let wtpConfirm = new Map<number, boolean>();
-  let tierMap = new Map<number, 1 | 2 | 3 | 4>();
+  // Rate every item: relevance 0-3, wtp confirmation, Mom-Test tier. The corpus is
+  // CHUNKED (a broad multi-source idea can dedupe to 120-250 items, and one call rating
+  // all of them blows the output-token cap — ~70 tokens/entry — forcing truncation and
+  // the degrade path). Each chunk rates in its own bounded call, chunks run in parallel,
+  // and results merge back by ABSOLUTE index. A single chunk failing degrades only its
+  // own items to the keyword fallback; we only flag the whole corpus degraded when
+  // EVERY chunk failed.
+  const relevance = new Map<number, number>();
+  const wtpConfirm = new Map<number, boolean>();
+  const tierMap = new Map<number, 1 | 2 | 3 | 4>();
   let usage: Usage | null = null;
-  try {
-    const list = deduped
-      .map((it, i) => `${i + 1}. [${it.source}] ${it.title ? `${it.title} — ` : ""}${it.quote}`.slice(0, 400))
-      .join("\n");
-    const res = await generateStructured(RatingsSchema, {
-      role: "writing",
-      grounded: false,
-      // ~45-70 tokens per pretty-printed {n,relevance,wtp,tier} entry — the old
-      // 200 + n*30 budget truncated ~30-item batches (finish=length), forcing the
-      // degrade path. Give the whole batch room to land in one response.
-      maxTokens: Math.min(400 + deduped.length * 70, 8000),
-      system:
-        "You judge whether forum posts are relevant evidence for validating a startup idea. " +
-        "Rate each item 0-3: 0 = unrelated noise; 1 = same general space; 2 = discusses this " +
-        "problem or its competitors; 3 = directly expresses this pain or willingness to pay for it. " +
-        "Also set wtp per item: true ONLY if the text genuinely expresses real willingness to pay " +
-        "(stated or demonstrated — 'I'd pay for this', 'we currently pay $X'); sarcasm, jokes, " +
-        "refusals ('I would never pay for this'), hypotheticals about OTHER people paying, and " +
-        "complaints about price are wtp false.\n" +
-        "Also set tier 1-4 = the Mom-Test evidence STRENGTH of what the item shows (not its " +
-        "relevance): 1 = money or behavior actually happened (paying for it, built a workaround, " +
-        "switched tools); 2 = a costly commitment (real time/effort spent, a signed-up pilot); " +
-        "3 = a specific past fact or concrete complaint; 4 = a compliment, generic praise, or a " +
-        "hypothetical ('I would totally use this', 'sounds cool'). Bias toward the WEAKER tier when unsure.",
-      prompt: `Startup idea: ${statement}
+  const CHUNK = 50; // ~50 × 70 ≈ 3500 output tokens — comfortably under any model cap
 
-Rate each numbered item:
-${list}
+  const chunks: { items: RawEvidenceItem[]; offset: number }[] = [];
+  for (let i = 0; i < deduped.length; i += CHUNK) chunks.push({ items: deduped.slice(i, i + CHUNK), offset: i });
 
-Return JSON: {"ratings": [{"n": 1, "relevance": 0-3, "wtp": true|false, "tier": 1-4}, ...]} — one entry per item, every item rated.`,
-    });
-    usage = res.usage;
-    relevance = new Map(res.data.ratings.map((r) => [r.n, Math.max(0, Math.min(3, Math.round(r.relevance)))]));
-    wtpConfirm = new Map(
-      res.data.ratings
-        .filter((r): r is { n: number; relevance: number; wtp: boolean } => typeof r.wtp === "boolean")
-        .map((r) => [r.n, r.wtp])
-    );
-    tierMap = new Map(
-      res.data.ratings
-        .map((r) => [r.n, clampTier(r.tier)] as const)
-        .filter((e): e is readonly [number, 1 | 2 | 3 | 4] => e[1] !== null)
-    );
-  } catch (e) {
-    // degrade: keep everything at relevance 1 (and keyword-only WTP) rather than lose
-    // the corpus — but flag it so confidence caps the corpus contribution instead of
-    // reading fake relevance.
-    degraded = true;
-    errors.push(`Relevance ranking failed: ${e instanceof Error ? e.message : String(e)}`);
-  }
+  const settled = await Promise.allSettled(chunks.map((c) => rateChunk(c.items, statement)));
+  let anyOk = false;
+  settled.forEach((s, ci) => {
+    const { offset } = chunks[ci];
+    if (s.status !== "fulfilled") {
+      errors.push(`Relevance ranking batch ${ci + 1}/${chunks.length} failed: ${String(s.reason)}`);
+      return;
+    }
+    anyOk = true;
+    const { ratings, usage: u } = s.value;
+    if (u) {
+      usage = usage
+        ? {
+            prompt_tokens: usage.prompt_tokens + u.prompt_tokens,
+            completion_tokens: usage.completion_tokens + u.completion_tokens,
+            cost: usage.cost + u.cost,
+          }
+        : u;
+    }
+    for (const r of ratings) {
+      const n = offset + r.n; // chunk-local 1-index → absolute 1-index
+      relevance.set(n, Math.max(0, Math.min(3, Math.round(r.relevance))));
+      if (typeof r.wtp === "boolean") wtpConfirm.set(n, r.wtp);
+      const t = clampTier(r.tier);
+      if (t !== null) tierMap.set(n, t);
+    }
+  });
+  // degrade only when NOTHING rated — a partial failure keeps the chunks that landed.
+  if (!anyOk) degraded = true;
 
   const rated = deduped
     .map((it, i) => {

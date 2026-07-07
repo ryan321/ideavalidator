@@ -24,10 +24,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed") {
+  // Instant (card) completion AND delayed/async methods that clear later — both must
+  // unlock. checkout.session.completed can arrive with payment_status "unpaid" for async
+  // methods; the real unlock then comes via async_payment_succeeded.
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded"
+  ) {
     const session = event.data.object;
     const ideaId = session.metadata?.ideaId;
-    if (ideaId && getIdea(ideaId) && session.payment_status === "paid") {
+    if (ideaId && session.payment_status === "paid") {
+      if (!getIdea(ideaId)) {
+        // A paid session names an idea we can't read (transient db issue) — return 5xx
+        // so Stripe REDELIVERS rather than dropping a real payment on the floor.
+        return NextResponse.json({ error: "Idea not resolvable; retry" }, { status: 503 });
+      }
       markIdeaPaid(ideaId, session.id); // idempotent — replays are no-ops
     }
   }

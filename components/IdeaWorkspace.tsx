@@ -102,7 +102,10 @@ function SafeArtifact({
   onRegenerate?: () => void;
   extra?: Record<string, unknown>;
 }) {
-  if (!isCurrent(kind, data)) return <StaleNotice onRegenerate={onRegenerate} />;
+  // safeParse of a ~21KB artifact is expensive; memoize it on the data object's identity
+  // so it doesn't re-run on every unrelated keystroke/log re-render of the workspace.
+  const current = React.useMemo(() => isCurrent(kind, data), [kind, data]);
+  if (!current) return <StaleNotice onRegenerate={onRegenerate} />;
   return <ArtifactBoundary onRegenerate={onRegenerate}>{renderView(kind, data, extra)}</ArtifactBoundary>;
 }
 
@@ -616,19 +619,29 @@ export default function IdeaWorkspace({
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session_id");
     if (params.get("checkout") === "success" && sessionId) {
+      const cleanUrl = () => window.history.replaceState({}, "", window.location.pathname);
       fetch("/api/billing/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId }),
       })
-        .then((r) => r.json())
-        .then((j) => {
-          if (j.paid) refreshArtifacts().catch(() => {});
-          else if (j.error) setError(j.error);
+        .then(async (r) => {
+          const j = await r.json().catch(() => ({}));
+          if (j.paid) {
+            await refreshArtifacts().catch(() => {});
+            cleanUrl(); // unlocked — safe to drop the session id
+          } else if (r.status >= 400 && r.status < 500) {
+            // definitive client error (bad/foreign session) — surface it, stop retrying
+            setError(j.error ?? "Payment could not be confirmed.");
+            cleanUrl();
+          } else {
+            // not-yet-paid or a 5xx/transient — KEEP ?session_id= so a reload retries
+            setError("Payment received — finishing the unlock. Reload this page if it doesn't appear shortly.");
+          }
         })
-        .catch(() => {})
-        .finally(() => {
-          window.history.replaceState({}, "", window.location.pathname);
+        .catch(() => {
+          // network failure: leave the session id in the URL so a reload retries confirm
+          setError("You paid, but confirmation didn't reach the server. Reload this page to finish unlocking.");
         });
     } else if (params.get("checkout") === "cancelled") {
       window.history.replaceState({}, "", window.location.pathname);
@@ -993,16 +1006,21 @@ export default function IdeaWorkspace({
   async function adoptWedge(versionId: string) {
     if (!wedgeResults) return;
     const losers = wedgeResults.filter((r) => r.versionId !== versionId);
-    for (const l of losers) {
-      const res = await fetch(`/api/versions/${l.versionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived: true }),
-      }).catch(() => null);
-      if (res?.ok) {
-        setVersions((prev) => prev.map((v) => (v.id === l.versionId ? { ...v, archived: 1 } : v)));
-      }
-    }
+    // Archive the losers in PARALLEL — the "Adopt" click shouldn't stall for the sum of
+    // N round-trips (it froze visibly once network latency was real).
+    const archived = await Promise.all(
+      losers.map((l) =>
+        fetch(`/api/versions/${l.versionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archived: true }),
+        })
+          .then((res) => (res.ok ? l.versionId : null))
+          .catch(() => null)
+      )
+    );
+    const ok = new Set(archived.filter(Boolean));
+    if (ok.size) setVersions((prev) => prev.map((v) => (ok.has(v.id) ? { ...v, archived: 1 } : v)));
     setWedgeSet(null);
     setWedgeResults(null);
     setWedgeLog([]);
@@ -2150,29 +2168,64 @@ export default function IdeaWorkspace({
         )}
       </div>
 
-      {/* print-only: active version's full report */}
-      <div className="print-only">
-        <h1 style={{ fontSize: 22, fontWeight: 700 }}>
-          {idea.title} — v{activeVersion.n}
-        </h1>
-        <p style={{ color: "#555" }}>{activeVersion.statement}</p>
-        {meta.map((m) =>
-          activeArtifacts[m.kind] ? (
-            <div key={m.kind} className="print-section" style={{ marginTop: 24 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{m.label}</h2>
-              {/* print: expand the collapsed sections + unclamp prose so the PDF is the FULL report */}
-              <SafeArtifact
-                key={`${activeVersionId}:${m.kind}`}
-                kind={m.kind}
-                data={activeArtifacts[m.kind].data}
-                extra={{ print: true, goal: goalBucket, provenance: idea.provenance, scoringSamples, kitData: activeArtifacts.kit?.data ?? null, intelData: activeArtifacts.intel?.data ?? null }}
-              />
-              {/* the "model estimate — see sources" tags need the sources in the PDF too */}
-              <SourcesList sources={activeArtifacts[m.kind].sources} />
-            </div>
-          ) : null
-        )}
-      </div>
+      {/* print-only: active version's full report. Always in the DOM so native Cmd+P
+          captures it (gating on beforeprint risks React not flushing in time), but
+          MEMOIZED so typing in chat / tournament log lines don't re-render this whole
+          second report tree — it only rebuilds when its actual inputs change. */}
+      <PrintReport
+        idea={idea}
+        activeVersion={activeVersion}
+        activeVersionId={activeVersionId}
+        activeArtifacts={activeArtifacts}
+        meta={meta}
+        goalBucket={goalBucket}
+        scoringSamples={scoringSamples}
+      />
     </div>
   );
 }
+
+// Memoized print-only tree: re-renders only when the active version's artifacts/goal
+// change, not on every keystroke in the live workspace above it.
+const PrintReport = React.memo(function PrintReport({
+  idea,
+  activeVersion,
+  activeVersionId,
+  activeArtifacts,
+  meta,
+  goalBucket,
+  scoringSamples,
+}: {
+  idea: Idea;
+  activeVersion: Version;
+  activeVersionId: string;
+  activeArtifacts: Record<string, Artifact>;
+  meta: GeneratorMeta[];
+  goalBucket: string | null;
+  scoringSamples: number;
+}) {
+  return (
+    <div className="print-only">
+      <h1 style={{ fontSize: 22, fontWeight: 700 }}>
+        {idea.title} — v{activeVersion.n}
+      </h1>
+      <p style={{ color: "#555" }}>{activeVersion.statement}</p>
+      {meta.map((m) =>
+        activeArtifacts[m.kind] ? (
+          <div key={m.kind} className="print-section" style={{ marginTop: 24 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{m.label}</h2>
+            {/* print: expand the collapsed sections + unclamp prose so the PDF is the FULL report */}
+            <SafeArtifact
+              key={`${activeVersionId}:${m.kind}`}
+              kind={m.kind}
+              data={activeArtifacts[m.kind].data}
+              extra={{ print: true, goal: goalBucket, provenance: idea.provenance, scoringSamples, kitData: activeArtifacts.kit?.data ?? null, intelData: activeArtifacts.intel?.data ?? null }}
+            />
+            {/* the "model estimate — see sources" tags need the sources in the PDF too */}
+            <SourcesList sources={activeArtifacts[m.kind].sources} />
+          </div>
+        ) : null
+      )}
+    </div>
+  );
+});

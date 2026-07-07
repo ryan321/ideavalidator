@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { answerQuestion } from "@/lib/generators/ask";
 import { getMessages } from "@/lib/db";
+import { campaignAccessForVersion } from "@/lib/billing";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -18,6 +19,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  // campaign-pass gate — grounded Q&A spends OpenRouter money (inert without billing)
+  const access = campaignAccessForVersion(id);
+  if (!access.allowed) return NextResponse.json({ error: access.reason, billing: access }, { status: 402 });
   const { question } = await req.json();
   if (typeof question !== "string" || question.trim().length < 2) {
     return NextResponse.json({ error: "Ask a question." }, { status: 400 });
