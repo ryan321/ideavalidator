@@ -1,0 +1,18 @@
+# Rebuilt/compiled inside the image
+node_modules
+.next
+
+# Never ship local state or secrets
+data
+.env
+.env.local
+.env.*.local
+
+# Dev noise
+.git
+.gitignore
+*.log
+.DS_Store
+.claude
+docs
+README.md

@@ -9,7 +9,8 @@
     "lint": "eslint",
     "variance": "tsx scripts/variance.ts",
     "calibrate": "tsx scripts/calibrate.ts",
-    "apikey": "tsx scripts/apikey.ts"
+    "apikey": "tsx scripts/apikey.ts",
+    "backup": "tsx scripts/backup.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

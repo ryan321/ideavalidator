@@ -5,7 +5,9 @@ import type { Source, Usage } from "./ai/client";
 import type { EvidenceCorpus } from "./evidence/types";
 
 // ---- connection (singleton across dev hot-reloads) ---------------------------
-const DATA_DIR = path.join(process.cwd(), "data");
+// DATA_DIR points at the durable store. Locally that's ./data; in production set it to a
+// mounted volume (e.g. DATA_DIR=/data on Fly) so the SQLite file survives deploys/restarts.
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const globalForDb = globalThis as unknown as { _db?: Database.Database };
@@ -381,6 +383,11 @@ export function createIdea(
   });
   tx();
   return { idea, version };
+}
+
+/** Cheap DB reachability probe for the health check. Throws if the store is unreachable. */
+export function healthcheck(): void {
+  db.prepare("SELECT 1").get();
 }
 
 export function listIdeas(): IdeaSummary[] {
