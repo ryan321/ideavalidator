@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GENERATORS, runGenerator } from "@/lib/generators";
 import { getJob, incrementCampaignRuns, getVersion, setJob, type ArtifactKind } from "@/lib/db";
 import { campaignAccessForVersion } from "@/lib/billing";
+import { requireVersionOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
 // Grounded multi-step generation can take a while.
@@ -19,6 +20,8 @@ export async function GET(
   const { kind } = await params;
   const versionId = new URL(req.url).searchParams.get("versionId");
   if (!versionId) return NextResponse.json({ error: "versionId required" }, { status: 400 });
+  const owner = await requireVersionOwner(versionId);
+  if ("response" in owner) return owner.response;
   return NextResponse.json({ job: getJob(versionId, kind) ?? null });
 }
 
@@ -34,6 +37,8 @@ export async function POST(
   if (!versionId) {
     return NextResponse.json({ error: "versionId is required" }, { status: 400 });
   }
+  const owner = await requireVersionOwner(versionId);
+  if ("response" in owner) return owner.response;
 
   // Campaign-pass gate: one payment unlocks this idea's whole campaign, up to the
   // run cap. Inert while billing is disabled (no STRIPE_SECRET_KEY). The cap is counted

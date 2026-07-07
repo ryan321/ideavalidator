@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
-import { createIdea, listIdeas } from "@/lib/db";
+import { createIdea, listIdeasForUser } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  return NextResponse.json(listIdeas());
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  return NextResponse.json(listIdeasForUser(auth.user.id));
 }
 
 export async function POST(req: Request) {
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
   const { prompt, goal, goalDetail, founderFit, provenance } = await req.json();
   if (typeof prompt !== "string" || prompt.trim().length < 8) {
     return NextResponse.json(
@@ -25,7 +30,9 @@ export async function POST(req: Request) {
     typeof goal === "string" && goal ? goal : null,
     typeof goalDetail === "string" && goalDetail.trim() ? goalDetail.trim() : null,
     typeof founderFit === "string" && founderFit.trim() ? founderFit.trim() : null,
-    prov
+    prov, // provenance
+    null, // owner_key: web-created ideas are user-owned, not API-key-owned
+    auth.user.id
   );
   return NextResponse.json({ ...idea, version }, { status: 201 });
 }

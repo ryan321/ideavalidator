@@ -51,6 +51,15 @@ export default function AppNav() {
           <li className="px-3 py-2 text-xs text-muted">No ideas yet.</li>
         )}
       </ul>
+
+      <Link
+        href="/account"
+        className={`mt-auto flex items-center gap-2 rounded-lg px-3 py-1.5 transition ${
+          pathname === "/account" ? "bg-panel2 text-fg" : "text-muted hover:text-fg"
+        }`}
+      >
+        <span aria-hidden>⚙</span> Account
+      </Link>
     </nav>
   );
 }

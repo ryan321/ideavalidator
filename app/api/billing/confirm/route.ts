@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getIdea, markIdeaPaid } from "@/lib/db";
+import { getIdeaForUser, markIdeaPaid } from "@/lib/db";
 import { billingEnabled, stripe } from "@/lib/billing";
+import { requireUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,8 @@ export async function POST(req: Request) {
   if (!billingEnabled()) {
     return NextResponse.json({ error: "Billing is not configured." }, { status: 400 });
   }
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
   const { sessionId } = await req.json();
   if (typeof sessionId !== "string" || !sessionId) {
     return NextResponse.json({ error: "sessionId required" }, { status: 400 });
@@ -18,7 +21,8 @@ export async function POST(req: Request) {
   try {
     const session = await stripe().checkout.sessions.retrieve(sessionId);
     const ideaId = session.metadata?.ideaId;
-    if (!ideaId || !getIdea(ideaId)) {
+    // only unlock an idea the caller actually owns (defense in depth vs. a replayed id)
+    if (!ideaId || !getIdeaForUser(ideaId, auth.user.id)) {
       return NextResponse.json({ error: "Session has no known idea." }, { status: 400 });
     }
     if (session.payment_status !== "paid") {

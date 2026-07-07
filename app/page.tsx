@@ -1,13 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import NewIdeaForm from "@/components/NewIdeaForm";
 import { SectionHead } from "@/components/ui";
-import { listIdeas } from "@/lib/db";
+import { listIdeasForUser } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import { verdictBands } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
 
-export default function Home() {
-  const ideas = listIdeas();
+export default async function Home() {
+  const user = await getSessionUser();
+  if (!user) redirect("/login");
+  const ideas = listIdeasForUser(user.id);
   return (
     <div>
       <div className="mb-8">

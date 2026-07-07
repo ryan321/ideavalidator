@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { SourcesList, ValidationView } from "@/components/artifacts";
-import { getArtifacts, getEvidence, getIdea, getVersion, listVersions, scoreDistribution } from "@/lib/db";
+import { getArtifacts, getEvidence, getIdeaForUser, getVersion, listVersions, scoreDistribution } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import { ValidationSchema } from "@/lib/generators/validation";
 import { percentileOf, scoringSamples } from "@/lib/scoring";
 
@@ -21,7 +22,9 @@ export default async function PrintReportPage({
 }) {
   const { id } = await params;
   const { version: versionId } = await searchParams;
-  const idea = getIdea(id);
+  const user = await getSessionUser();
+  if (!user) notFound();
+  const idea = getIdeaForUser(id, user.id);
   if (!idea) notFound();
 
   const versions = listVersions(id);

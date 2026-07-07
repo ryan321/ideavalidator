@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import puppeteer from "puppeteer-core";
 import { getIdea, getVersion } from "@/lib/db";
+import { requireVersionOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
 // Headless-Chrome rendering can take a while for a long report.
@@ -26,6 +27,8 @@ function slugify(s: string): string {
 // paginated by headless Chrome (real @media print CSS, proper page breaks).
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const owner = await requireVersionOwner(id);
+  if ("response" in owner) return owner.response;
   const version = getVersion(id);
   if (!version) return NextResponse.json({ error: "Version not found" }, { status: 404 });
   const idea = getIdea(version.idea_id);
@@ -43,6 +46,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     const page = await browser.newPage();
+    // The print page is auth-gated, and headless Chrome has no session — forward the
+    // authenticated caller's own session cookie so the render sees the same user.
+    const cookieHeader = req.headers.get("cookie");
+    if (cookieHeader) await page.setExtraHTTPHeaders({ cookie: cookieHeader });
     await page.setViewport({ width: 1000, height: 1400, deviceScaleFactor: 2 });
     await page.emulateMediaType("print");
     await page.goto(printUrl, { waitUntil: "networkidle0", timeout: 60_000 });

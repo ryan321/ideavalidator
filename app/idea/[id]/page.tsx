@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import IdeaWorkspace from "@/components/IdeaWorkspace";
-import { getArtifactsByVersion, getEvidenceByVersion, getIdea, getIdeaCost, listVersions, scoreDistribution } from "@/lib/db";
+import { getArtifactsByVersion, getEvidenceByVersion, getIdeaForUser, getIdeaCost, listVersions, scoreDistribution } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import { generatorMeta } from "@/lib/generators";
 import { scoringSamples } from "@/lib/scoring";
 
@@ -15,8 +16,10 @@ export default async function IdeaPage({
 }) {
   const { id } = await params;
   const { stage } = await searchParams;
-  const idea = getIdea(id);
-  if (!idea) notFound();
+  const user = await getSessionUser();
+  if (!user) redirect("/login");
+  const idea = getIdeaForUser(id, user.id);
+  if (!idea) notFound(); // not yours → indistinguishable from missing
 
   return (
     <IdeaWorkspace

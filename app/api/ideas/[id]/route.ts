@@ -3,7 +3,6 @@ import {
   deleteIdea,
   getArtifactsByVersion,
   getEvidenceByVersion,
-  getIdea,
   getIdeaCost,
   listVersions,
   runningJobsForIdea,
@@ -12,6 +11,7 @@ import {
   setIdeaJourney,
 } from "@/lib/db";
 import { campaignAccess } from "@/lib/billing";
+import { requireIdeaOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -20,7 +20,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  if (!getIdea(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const owned = await requireIdeaOwner(id);
+  if ("response" in owned) return owned.response;
   const body = await req.json();
   if ("goal" in body || "goalDetail" in body) {
     setIdeaGoal(
@@ -42,8 +43,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const idea = getIdea(id);
-  if (!idea) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const owned = await requireIdeaOwner(id);
+  if ("response" in owned) return owned.response;
+  const idea = owned.idea;
   const artifactsByVersion = getArtifactsByVersion(id);
   const kinds = new Set(Object.values(artifactsByVersion).flat().map((a) => a.kind));
   // Feeds AppNav's single-stage completion dot: Validate is "done" once any version has
@@ -73,6 +75,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const owned = await requireIdeaOwner(id);
+  if ("response" in owned) return owned.response;
   deleteIdea(id);
   return NextResponse.json({ ok: true });
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { answerQuestion } from "@/lib/generators/ask";
 import { getMessages } from "@/lib/db";
 import { campaignAccessForVersion } from "@/lib/billing";
+import { requireVersionOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -11,6 +12,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const owner = await requireVersionOwner(id);
+  if ("response" in owner) return owner.response;
   return NextResponse.json(getMessages(id));
 }
 
@@ -19,6 +22,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const owner = await requireVersionOwner(id);
+  if ("response" in owner) return owner.response;
   // campaign-pass gate — grounded Q&A spends OpenRouter money (inert without billing)
   const access = campaignAccessForVersion(id);
   if (!access.allowed) return NextResponse.json({ error: access.reason, billing: access }, { status: 402 });

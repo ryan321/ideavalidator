@@ -2,19 +2,19 @@ import { NextResponse } from "next/server";
 import {
   createVersion,
   getEvidence,
-  getIdea,
   getVersion,
   saveEvidence,
   type VersionOrigin,
 } from "@/lib/db";
+import { requireIdeaOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   const { ideaId, statement, label, origin, parentId, rationale, context } = await req.json();
-  if (!ideaId || !getIdea(ideaId)) {
-    return NextResponse.json({ error: "Unknown ideaId" }, { status: 400 });
-  }
+  if (!ideaId) return NextResponse.json({ error: "Unknown ideaId" }, { status: 400 });
+  const owned = await requireIdeaOwner(ideaId);
+  if ("response" in owned) return owned.response;
   if (typeof statement !== "string" || statement.trim().length < 8) {
     return NextResponse.json(
       { error: "Statement must be at least a sentence." },

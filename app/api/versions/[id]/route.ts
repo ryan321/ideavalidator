@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteVersion, setVersionArchived, setVersionScore } from "@/lib/db";
+import { requireVersionOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const owner = await requireVersionOwner(id);
+  if ("response" in owner) return owner.response;
   const body = await req.json().catch(() => ({}));
   const hasScore = "score" in body;
   const hasArchived = "archived" in body;
@@ -44,6 +47,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const owner = await requireVersionOwner(id);
+  if ("response" in owner) return owner.response;
   const ok = deleteVersion(id);
   if (!ok)
     return NextResponse.json(

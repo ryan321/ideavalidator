@@ -119,7 +119,30 @@ function init(): Database.Database {
       last_used_at  TEXT
     );
   `);
-  addColumn(db, "ideas", "owner_key", "TEXT"); // NULL = local UI; else api_keys.id
+  addColumn(db, "ideas", "owner_key", "TEXT"); // NULL = human/UI-owned; else api_keys.id
+
+  // Human accounts (email + password) + server-side sessions. The web UI is scoped to
+  // the logged-in user: ideas carry user_id, and only their owner can read them. sessions
+  // store the sha256 of the cookie token (a db leak never exposes a live session), with a
+  // hard expiry. api_keys also belong to a user (self-serve minting from the account page).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id            TEXT PRIMARY KEY,
+      email         TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      name          TEXT,
+      created_at    TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      token_hash    TEXT PRIMARY KEY,
+      user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at    TEXT NOT NULL,
+      expires_at    TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+  `);
+  addColumn(db, "ideas", "user_id", "TEXT"); // NULL = legacy/local; else users.id
+  addColumn(db, "api_keys", "user_id", "TEXT"); // NULL = CLI-minted; else the owning user
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
   addColumn(db, "artifacts", "cost", "REAL");
@@ -221,6 +244,7 @@ export type Idea = {
   paid_session: string | null; // the Stripe checkout session id that paid it
   campaign_runs: number; // validations run against the campaign's run cap
   owner_key: string | null; // api_keys.id when created via the public API; NULL = local UI
+  user_id: string | null; // the human account that owns this idea (web UI)
 };
 
 export type ApiKey = {
@@ -232,6 +256,15 @@ export type ApiKey = {
   revoked: number; // 1 = revoked
   created_at: string;
   last_used_at: string | null;
+  user_id: string | null; // the account that minted it (NULL for CLI-minted keys)
+};
+
+export type User = {
+  id: string;
+  email: string;
+  password_hash: string;
+  name: string | null;
+  created_at: string;
 };
 
 export type IdeaSummary = Idea & {
@@ -302,7 +335,8 @@ export function createIdea(
   goalDetail?: string | null,
   founderFit?: string | null,
   provenance?: "organic" | "whiteboard" | null,
-  ownerKey?: string | null
+  ownerKey?: string | null,
+  userId?: string | null
 ): { idea: Idea; version: Version } {
   const now = new Date().toISOString();
   const idea: Idea = {
@@ -319,6 +353,7 @@ export function createIdea(
     paid_session: null,
     campaign_runs: 0,
     owner_key: ownerKey ?? null,
+    user_id: userId ?? null,
   };
   const version: Version = {
     id: crypto.randomUUID(),
@@ -337,7 +372,7 @@ export function createIdea(
   };
   const tx = db.transaction(() => {
     db.prepare(
-      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, founder_fit, provenance, owner_key, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @founder_fit, @provenance, @owner_key, @created_at)"
+      "INSERT INTO ideas (id, title, prompt, goal, goal_detail, stage, founder_fit, provenance, owner_key, user_id, created_at) VALUES (@id, @title, @prompt, @goal, @goal_detail, @stage, @founder_fit, @provenance, @owner_key, @user_id, @created_at)"
     ).run(idea);
     db.prepare(
       `INSERT INTO versions (id, idea_id, n, statement, label, origin, parent_id, rationale, context, score, revenue, created_at)
@@ -382,6 +417,93 @@ export function incrementCampaignRuns(id: string): void {
   db.prepare("UPDATE ideas SET campaign_runs = COALESCE(campaign_runs, 0) + 1 WHERE id = ?").run(id);
 }
 
+// ---- users + sessions (web accounts) ------------------------------------------
+
+export function createUser(email: string, passwordHash: string, name: string | null): User {
+  const user: User = {
+    id: crypto.randomUUID(),
+    email: email.toLowerCase(),
+    password_hash: passwordHash,
+    name,
+    created_at: new Date().toISOString(),
+  };
+  db.prepare(
+    "INSERT INTO users (id, email, password_hash, name, created_at) VALUES (@id, @email, @password_hash, @name, @created_at)"
+  ).run(user);
+  return user;
+}
+
+export function getUserByEmail(email: string): User | undefined {
+  return db.prepare("SELECT * FROM users WHERE email = ?").get(email.toLowerCase()) as User | undefined;
+}
+
+export function getUserById(id: string): User | undefined {
+  return db.prepare("SELECT * FROM users WHERE id = ?").get(id) as User | undefined;
+}
+
+export function updateUserPassword(id: string, passwordHash: string): void {
+  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(passwordHash, id);
+}
+
+/** Delete a user and everything they own (ideas cascade via their own delete). */
+export function deleteUser(id: string): void {
+  const tx = db.transaction(() => {
+    for (const row of db.prepare("SELECT id FROM ideas WHERE user_id = ?").all(id) as { id: string }[]) {
+      deleteIdea(row.id);
+    }
+    db.prepare("DELETE FROM api_keys WHERE user_id = ?").run(id);
+    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(id);
+    db.prepare("DELETE FROM users WHERE id = ?").run(id);
+  });
+  tx();
+}
+
+/** Persist a session (only the token's sha256 is stored). */
+export function createSession(tokenHash: string, userId: string, expiresAt: string): void {
+  db.prepare(
+    "INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)"
+  ).run(tokenHash, userId, new Date().toISOString(), expiresAt);
+}
+
+/** The user behind a session token hash, if the session exists and hasn't expired. */
+export function getUserBySessionHash(tokenHash: string): User | undefined {
+  const row = db
+    .prepare("SELECT user_id, expires_at FROM sessions WHERE token_hash = ?")
+    .get(tokenHash) as { user_id: string; expires_at: string } | undefined;
+  if (!row) return undefined;
+  if (Date.parse(row.expires_at) < Date.now()) {
+    db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash); // reap expired
+    return undefined;
+  }
+  return getUserById(row.user_id);
+}
+
+export function deleteSession(tokenHash: string): void {
+  db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash);
+}
+
+// ---- user-scoped idea access (web tenancy) ------------------------------------
+
+/** An idea only if this user owns it — the web UI's isolation boundary. */
+export function getIdeaForUser(id: string, userId: string): Idea | undefined {
+  return db.prepare("SELECT * FROM ideas WHERE id = ? AND user_id = ?").get(id, userId) as Idea | undefined;
+}
+
+/** Every idea owned by a user (newest first), with the summary aggregates. */
+export function listIdeasForUser(userId: string): IdeaSummary[] {
+  return db
+    .prepare(
+      `SELECT i.*,
+              (SELECT MAX(v.score) FROM versions v WHERE v.idea_id = i.id AND v.archived = 0) AS best_score,
+              (SELECT COUNT(*) FROM versions v WHERE v.idea_id = i.id AND v.archived = 0) AS version_count,
+              (SELECT COALESCE(SUM(u.cost), 0) FROM usage_log u WHERE u.idea_id = i.id) AS cost,
+              (SELECT v.revenue FROM versions v WHERE v.idea_id = i.id AND v.revenue IS NOT NULL AND v.archived = 0
+                 ORDER BY v.score DESC LIMIT 1) AS revenue
+         FROM ideas i WHERE i.user_id = ? ORDER BY i.created_at DESC`
+    )
+    .all(userId) as IdeaSummary[];
+}
+
 // ---- public API keys ----------------------------------------------------------
 
 export function insertApiKey(row: {
@@ -389,6 +511,7 @@ export function insertApiKey(row: {
   keyHash: string;
   label: string | null;
   credits: number;
+  userId?: string | null;
 }): ApiKey {
   const key: ApiKey = {
     id: crypto.randomUUID(),
@@ -399,12 +522,23 @@ export function insertApiKey(row: {
     revoked: 0,
     created_at: new Date().toISOString(),
     last_used_at: null,
+    user_id: row.userId ?? null,
   };
   db.prepare(
-    `INSERT INTO api_keys (id, prefix, key_hash, label, credits, revoked, created_at, last_used_at)
-     VALUES (@id, @prefix, @key_hash, @label, @credits, @revoked, @created_at, @last_used_at)`
+    `INSERT INTO api_keys (id, prefix, key_hash, label, credits, revoked, created_at, last_used_at, user_id)
+     VALUES (@id, @prefix, @key_hash, @label, @credits, @revoked, @created_at, @last_used_at, @user_id)`
   ).run(key);
   return key;
+}
+
+/** A user's API keys (for the account page). */
+export function listApiKeysForUser(userId: string): ApiKey[] {
+  return db.prepare("SELECT * FROM api_keys WHERE user_id = ? ORDER BY created_at DESC").all(userId) as ApiKey[];
+}
+
+/** Revoke a key only if it belongs to this user (self-serve, safe). */
+export function revokeApiKeyForUser(id: string, userId: string): boolean {
+  return db.prepare("UPDATE api_keys SET revoked = 1 WHERE id = ? AND user_id = ?").run(id, userId).changes > 0;
 }
 
 export function getApiKeyByHash(hash: string): ApiKey | undefined {

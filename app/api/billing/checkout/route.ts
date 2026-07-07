@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getIdea } from "@/lib/db";
 import { billingEnabled, priceCents, stripe } from "@/lib/billing";
+import { requireIdeaOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -12,8 +12,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Billing is not configured." }, { status: 400 });
   }
   const { ideaId } = await req.json();
-  const idea = getIdea(ideaId);
-  if (!idea) return NextResponse.json({ error: "Unknown ideaId" }, { status: 400 });
+  const owned = await requireIdeaOwner(ideaId);
+  if ("response" in owned) return owned.response;
+  const idea = owned.idea;
   if (idea.paid) return NextResponse.json({ error: "This campaign is already unlocked." }, { status: 400 });
 
   const origin =
