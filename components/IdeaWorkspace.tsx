@@ -8,11 +8,11 @@ import type { EvidenceCorpus } from "@/lib/evidence/types";
 import GenerationProgress from "./GenerationProgress";
 import type { Refinement } from "@/lib/generators/refine";
 import type { WedgeProposal, WedgeSet } from "@/lib/generators/wedges";
-import { MEASURED_SCORE_SD, acceptanceMargin, percentileOf, verdictBands } from "@/lib/scoring";
+import { acceptanceMargin, percentileOf, verdictBands } from "@/lib/scoring";
 import { SourcesList, ValidationView } from "./artifacts";
 import { ArenaBoard } from "./ArenaBoard";
-import { CampaignHeader } from "./CampaignHeader";
-import { VerdictBox } from "./VerdictBox";
+import { DecisionCard } from "./DecisionCard";
+import { AnglesPicker } from "./AnglesPicker";
 import { CriteriaDeltaTable, type DeltaVersion } from "./report/CriteriaDeltaTable";
 import type { ZodType } from "zod";
 import { ValidationSchema, type Validation } from "@/lib/generators/validation";
@@ -277,7 +277,7 @@ export default function IdeaWorkspace({
   const [currentStage, setCurrentStage] = useState<StageKey>(() =>
     STAGES.some((s) => s.key === initialStage) ? (initialStage as StageKey) : "validate"
   );
-  const [statementExpanded, setStatementExpanded] = useState(false);
+
   const [comparing, setComparing] = useState(false); // side-by-side version compare
   const [arenaOpen, setArenaOpen] = useState(false); // the every-variant scoreboard
 
@@ -426,6 +426,13 @@ export default function IdeaWorkspace({
   const [wedgeLog, setWedgeLog] = useState<string[]>([]);
   const [wedgeResults, setWedgeResults] = useState<WedgeResult[] | null>(null);
   const [wedgeBaseline, setWedgeBaseline] = useState<{ id: string; n: number; score: number } | null>(null);
+  // Sticky failure message inside the panel so a failed draft isn't only an error
+  // toast buried under the report.
+  const [wedgeError, setWedgeError] = useState<string | null>(null);
+  // Anchor for scroll-into-view when Improve idea → Wedge tournament starts (the panel
+  // used to live below the fold with only a faint pulse line, so the disabled button
+  // was the only visible feedback).
+  const wedgePanelRef = useRef<HTMLDivElement>(null);
 
   // Archived versions (cleanup hid them) stay in `versions` for state sync but are
   // filtered out of every user-facing list: the switcher, compare, and the
@@ -890,14 +897,16 @@ export default function IdeaWorkspace({
   // show a side-by-side so the founder adopts the angle that actually scores best.
   async function exploreWedges() {
     setError(null);
+    setWedgeError(null);
     setProposal(null);
     setEditing(false);
+    setChatting(false);
+    setResponding(false);
     setWedgeResults(null);
     setWedgeLog([]);
     setWedgeBaseline(null);
+    setWedgeSet(null);
     setWedgeFetching(true);
-    // the panel lives above the report — bring it into view for clicks from the alpha card
-    window.scrollTo({ top: 0, behavior: "smooth" });
     try {
       const res = await fetch(`/api/versions/${activeVersionId}/wedges`, { method: "POST" });
       const j = await res.json();
@@ -907,11 +916,25 @@ export default function IdeaWorkspace({
       setWedgeSet(set);
       setWedgeSelected(new Set(set.wedges.map((_, i) => i)));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Wedge proposal failed");
+      const msg = e instanceof Error ? e.message : "Wedge proposal failed";
+      setWedgeError(msg);
+      setError(msg);
     } finally {
       setWedgeFetching(false);
     }
   }
+
+  // Keep the tournament panel on-screen for the whole busy window — fetching proposals
+  // and the parallel validation pass both take long enough that a disabled button alone
+  // reads as a hang.
+  useEffect(() => {
+    if (!wedgeFetching && !wedgeRunning) return;
+    // rAF: wait until the panel is mounted after wedgeFetching flips true
+    const id = requestAnimationFrame(() => {
+      wedgePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [wedgeFetching, wedgeRunning]);
 
   async function runWedgeTournament() {
     if (!wedgeSet) return;
@@ -1205,7 +1228,26 @@ export default function IdeaWorkspace({
     router.push("/");
   }
 
-  const activeValidationData = activeArtifacts.validation?.data as
+  // Prefer a schema-valid Validation for typed UI (WhyThisScore, etc.); fall back to a
+  // partial cast so older/stale shapes still drive the lighter masthead chrome.
+  // Memoize: full-schema safeParse of a ~21KB artifact is not free.
+  const activeValidation: Validation | null = React.useMemo(() => {
+    if (!activeArtifacts.validation) return null;
+    const parsed = ValidationSchema.safeParse(activeArtifacts.validation.data);
+    return parsed.success ? parsed.data : null;
+  }, [activeArtifacts.validation]);
+  const activeValidationData = (activeValidation ??
+    (activeArtifacts.validation?.data as
+      | {
+          clarifying_questions?: string[];
+          possible_alphas?: { alpha: string; rationale: string }[];
+          verdict?: string;
+          score?: number;
+          confidence?: number;
+          demand?: { obtainable_revenue?: string };
+          next_test?: { riskiest_assumption?: string; pivotal_criterion?: string };
+        }
+      | undefined)) as
     | {
         clarifying_questions?: string[];
         possible_alphas?: { alpha: string; rationale: string }[];
@@ -1214,8 +1256,10 @@ export default function IdeaWorkspace({
         confidence?: number;
         demand?: { obtainable_revenue?: string };
         next_test?: { riskiest_assumption?: string; pivotal_criterion?: string };
+        summary?: string;
       }
-    | undefined;
+    | undefined
+    | null;
   const activeQuestions = activeValidationData?.clarifying_questions ?? [];
   const activeAlphas = activeValidationData?.possible_alphas ?? [];
   const stage = STAGES.find((s) => s.key === currentStage) ?? STAGES[0];
@@ -1234,87 +1278,45 @@ export default function IdeaWorkspace({
   const showBestOther = !!bestOther && (bestOther.score ?? 0) > (activeVersion?.score ?? -1);
   const campaignNextMove =
     activeValidationData?.verdict === "GO"
-      ? { label: "The plan is unlocked — build", href: "#plan" }
+      ? { label: "The plan is unlocked — build", href: "#plan" as string | undefined, onClick: undefined as (() => void) | undefined }
       : activeOutcome
-        ? { label: "Re-validate with the result", onClick: revalidateWithResult }
+        ? { label: "Re-validate with the result", href: undefined, onClick: revalidateWithResult }
         : activeArtifacts.kit
-          ? { label: "Run the test — kit is ready", href: "#next-test" }
-          : { label: "Generate the run kit", onClick: generateKit };
+          ? { label: "Run the test — kit is ready", href: "#next-test", onClick: undefined }
+          : { label: generatingKit ? "Writing the kit…" : "Generate the run kit", href: undefined, onClick: generateKit };
+
+  // Score bands for the active artifact (goal it was scored under), so chrome can't
+  // recolor a stale number after a mid-flight goal edit.
+  const decisionBands = verdictBands(activeValidation?.goal_scored ?? goalBucket);
+  const decisionScore =
+    typeof activeValidationData?.score === "number" ? Math.round(activeValidationData.score) : null;
+  const decisionColor =
+    decisionScore != null ? scoreColor(decisionScore, decisionBands) : "var(--color-muted)";
 
   return (
     <div>
       <div className="no-print">
-        {/* stage header — compact: the answer below deserves the vertical space, not the chrome.
-            (The 01/01 journey counter was dropped: a one-stage journey encodes nothing.) */}
-        <div className="mb-4 flex items-baseline gap-3">
+        <div className="mb-3 flex flex-wrap items-baseline gap-3">
           <h1 className="text-lg font-semibold">{stage.label}</h1>
           <span className="text-sm text-muted">{stage.blurb}</span>
         </div>
 
-        {/* version switcher */}
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          {visibleVersions.map((v) => {
-            const vbusy = [...busy].some((k) => k.startsWith(v.id + ":"));
-            const isActive = v.id === activeVersionId;
-            const isBest = v.score != null && v.score === bestScore && visibleVersions.length > 1;
-            return (
-              <button
-                key={v.id}
-                onClick={() => switchVersion(v.id)}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition ${
-                  isActive ? "border-accent bg-panel2" : "border-border text-muted hover:text-fg"
-                }`}
-                title={v.label ?? v.statement}
-              >
-                <span className="font-mono font-semibold">v{v.n}</span>
-                {v.score != null ? (
-                  <span className="font-mono font-bold" style={{ color: scoreColor(v.score, goalBands) }}>
-                    {v.score}
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted">—</span>
-                )}
-                {v.origin === "ai" && <span title="AI refinement">✨</span>}
-                {v.origin === "manual" && <span title="manual edit">✎</span>}
-                {v.origin === "context" && <span title="re-validated with founder context">💬</span>}
-                {isBest && <span title="best score">★</span>}
-                {vbusy && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent2" />}
-              </button>
-            );
-          })}
-          {versions.length > 1 && (
-            <button
-              onClick={() => setArenaOpen((a) => !a)}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-                arenaOpen ? "border-accent2 bg-accent2/10 text-accent2" : "border-border text-muted hover:text-fg"
-              }`}
-              title="Every variant on one score axis, with the noise band drawn"
-            >
-              ▦ Arena
-            </button>
-          )}
-          {visibleVersions.length > 1 && (
-            <button
-              onClick={() => setComparing((c) => !c)}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-                comparing ? "border-accent2 bg-accent2/10 text-accent2" : "border-border text-muted hover:text-fg"
-              }`}
-              title="Compare criteria side by side"
-            >
-              ⇄ Compare
-            </button>
-          )}
-          {archivedVersions.length > 0 && (
-            <button
-              onClick={() => setShowArchived((s) => !s)}
-              className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                showArchived ? "border-border bg-panel2 text-fg" : "border-border/60 text-muted hover:text-fg"
-              }`}
-              title="Versions hidden by cleanup — kept as research"
-            >
-              {showArchived ? "hide archived" : `show archived (${archivedVersions.length})`}
-            </button>
-          )}
+        <div className="mb-4">
+          <AnglesPicker
+            versions={visibleVersions}
+            activeId={activeVersionId}
+            bestScore={bestScore}
+            scoreColor={(n) => scoreColor(n, goalBands)}
+            busyIds={busy}
+            onSelect={switchVersion}
+            onArena={versions.length > 1 ? () => setArenaOpen((a) => !a) : undefined}
+            onCompare={visibleVersions.length > 1 ? () => setComparing((c) => !c) : undefined}
+            arenaOpen={arenaOpen}
+            comparing={comparing}
+            archivedCount={archivedVersions.length}
+            showArchived={showArchived}
+            onToggleArchived={() => setShowArchived((s) => !s)}
+          />
         </div>
 
         {/* the arena — every variant (archived included) on one score axis */}
@@ -1428,106 +1430,169 @@ export default function IdeaWorkspace({
           </div>
         )}
 
-        {/* masthead — split pane once validated: the instrument (score box) beside the
-            subject (the idea). The box is the ONE prominent score on screen; the
-            readout below renders compact (no giant verdict repeat). */}
-        <div
-          className={
-            hasValidate && typeof activeValidationData?.score === "number"
-              ? "mb-5 grid gap-4 lg:grid-cols-[minmax(240px,300px)_1fr]"
-              : "mb-5"
-          }
-        >
-          {hasValidate && typeof activeValidationData?.score === "number" && (
-            <VerdictBox
-              verdict={activeValidationData.verdict ?? "—"}
-              score={activeValidationData.score}
-              sd={MEASURED_SCORE_SD}
-              bands={goalBands}
-              color={scoreColor(Math.round(activeValidationData.score), goalBands)}
-              confidence={activeValidationData.confidence ?? null}
-              revenue={activeValidationData.demand?.obtainable_revenue ?? null}
-              borderline={
-                Math.abs(activeValidationData.score - goalBands.go) <= MEASURED_SCORE_SD
-                  ? "GO"
-                  : Math.abs(activeValidationData.score - goalBands.maybe) <= MEASURED_SCORE_SD
-                    ? "MAYBE"
-                    : null
-              }
-              insufficient={activeValidationData.verdict === "INSUFFICIENT EVIDENCE"}
-            />
-          )}
-        <div className="rounded-xl border border-border bg-panel/50 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="mb-1 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-                <span>The idea</span>
-                <span className="text-border">·</span>
-                <span>v{activeVersion.n}</span>
-                <span
-                  className="rounded border border-border bg-panel2 px-1.5 py-0.5 normal-case tracking-normal"
-                  title="Total OpenRouter spend on this idea (all versions)"
-                >
-                  spent {fmtCost(cost)}
-                </span>
-              </div>
-              <h1 className="text-base font-semibold">{idea.title}</h1>
-              {editing ? (
-                <div className="mt-2">
-                  <textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    rows={3}
-                    className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
-                  />
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={saveManual}
-                      disabled={draft.trim().length < 8}
-                      className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                    >
-                      Save as v{versions.length + 1}
-                    </button>
-                    <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-1 max-w-3xl">
-                  <p
-                    className={`text-sm leading-relaxed text-muted ${
-                      statementExpanded ? "whitespace-pre-wrap" : "line-clamp-3"
-                    }`}
+        {/* ONE decision surface — score, why, open question, primary CTA. No peer cards. */}
+        {hasValidate && activeValidation && decisionScore != null ? (
+          <DecisionCard
+            d={activeValidation}
+            bands={decisionBands}
+            color={decisionColor}
+            goal={activeValidation.goal_scored ?? goalBucket}
+            title={idea.title}
+            statement={activeVersion.statement}
+            versionLabel={`v${activeVersion.n} · spent ${fmtCost(cost)}`}
+            rationale={
+              activeVersion.rationale
+                ? `${activeVersion.label ? `${activeVersion.label}: ` : ""}${activeVersion.rationale}`
+                : null
+            }
+            goalLabel={goalLabel(goalBucket)}
+            goalDetail={goalDetail || null}
+            testStatus={testStatus}
+            primary={{
+              label: campaignNextMove.label,
+              href: campaignNextMove.href,
+              onClick: campaignNextMove.onClick,
+            }}
+            primaryBusy={generatingKit || busy.has(bk(activeVersionId, "validation"))}
+            primaryDisabled={anyBusy || locked || generatingKit}
+            secondary={
+              <>
+                <DropMenu
+                  trigger={
+                    <span className="flex items-center gap-1.5 text-sm">
+                      {(wedgeFetching || wedgeRunning) && (
+                        <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+                      )}
+                      {wedgeFetching
+                        ? "Drafting wedges…"
+                        : wedgeRunning
+                          ? "Tournament…"
+                          : iterating
+                            ? "Auto-iterating…"
+                            : "Improve"}
+                    </span>
+                  }
+                  tone="default"
+                  disabled={anyBusy || locked}
+                  items={[
+                    { label: "Refine manually", hint: "Edit the statement yourself.", onClick: startManual },
+                    { label: "✨ Suggest a sharper version", hint: "AI targets weak criteria.", onClick: suggest },
+                    { label: "⟳ Auto-iterate to a target", hint: "Hill-climb toward a score.", onClick: autoIterate },
+                    { label: "🧭 Wedge tournament", hint: "3–5 angles, head-to-head.", onClick: exploreWedges },
+                  ]}
+                />
+                <DropMenu
+                  trigger={<span className="text-sm">Discuss</span>}
+                  tone="default"
+                  disabled={anyBusy}
+                  items={[
+                    {
+                      label: "Respond to the validator",
+                      hint: "Push back or add context, then re-validate.",
+                      onClick: () => {
+                        setProposal(null);
+                        setEditing(false);
+                        setChatting(false);
+                        setResponseDraft("");
+                        setResponding(true);
+                      },
+                    },
+                    {
+                      label: "Ask about this analysis",
+                      hint: "Q&A grounded in the research.",
+                      onClick: () => {
+                        setResponding(false);
+                        openChat();
+                      },
+                    },
+                  ]}
+                />
+                {suggesting && <span className="animate-pulse font-mono text-xs text-accent">✨ drafting…</span>}
+                {showBestOther && bestOther && (
+                  <button
+                    type="button"
+                    onClick={() => switchVersion(bestOther.id)}
+                    className="text-xs text-muted hover:text-fg"
+                    title={bestOther.label ?? bestOther.statement}
                   >
-                    {activeVersion.statement}
-                  </p>
-                  {activeVersion.statement.length > 240 && (
-                    <button
-                      onClick={() => setStatementExpanded((v) => !v)}
-                      className="mt-1 font-mono text-xs text-accent hover:underline"
-                    >
-                      {statementExpanded ? "− Collapse" : "+ Expand"}
-                    </button>
-                  )}
+                    best v{bestOther.n} ({bestOther.score}) ★
+                  </button>
+                )}
+                <div className="ml-auto">
+                  <DropMenu
+                    trigger={<span aria-hidden className="px-0.5 text-base leading-none">⋯</span>}
+                    align="right"
+                    caret={false}
+                    items={[
+                      {
+                        label: "⎙ Download PDF",
+                        onClick: () => {
+                          const a = document.createElement("a");
+                          a.href = `/api/versions/${activeVersionId}/pdf`;
+                          a.download = "";
+                          document.body.appendChild(a);
+                          a.click();
+                          a.remove();
+                        },
+                      },
+                      {
+                        label: "◆ Deep validation",
+                        hint: "~3–4× cost.",
+                        onClick: () => runValidate(true),
+                        disabled: anyBusy || locked,
+                      },
+                      {
+                        label: "⟳ Re-run analysis",
+                        onClick: () => runValidate(),
+                        disabled: anyBusy || locked,
+                      },
+                      {
+                        label: "✎ Edit idea statement",
+                        onClick: startManual,
+                      },
+                      {
+                        label: "✎ Edit goal",
+                        onClick: openGoalEditor,
+                      },
+                      { label: "Delete idea", danger: true, onClick: remove },
+                    ]}
+                  />
                 </div>
-              )}
-              {!editing && activeVersion.rationale && (
-                <p className="mt-2 text-xs text-accent">
-                  {activeVersion.label ? <b>{activeVersion.label}: </b> : null}
-                  {activeVersion.rationale}
-                </p>
-              )}
-              {!editing && (
-                <div className="mt-2 text-xs">
-                  {editingGoal ? (
+              </>
+            }
+            ideaExtras={
+              editing || editingGoal ? (
+                <div className="mt-3 space-y-3">
+                  {editing && (
+                    <div>
+                      <textarea
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        rows={3}
+                        className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
+                      />
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={saveManual}
+                          disabled={draft.trim().length < 8}
+                          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                        >
+                          Save as v{versions.length + 1}
+                        </button>
+                        <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {editingGoal && (
                     <div className="rounded-lg border border-border bg-panel2 p-2">
                       <div className="flex flex-wrap gap-1.5">
                         {GOAL_OPTIONS.map((o) => (
                           <button
                             key={o.key}
                             onClick={() => setGoalDraft(o.key)}
-                            className={`rounded-md border px-2 py-1 ${
+                            className={`rounded-md border px-2 py-1 text-xs ${
                               goalDraft === o.key
                                 ? "border-accent bg-accent/15 text-accent"
                                 : "border-border text-muted hover:text-fg"
@@ -1540,106 +1605,244 @@ export default function IdeaWorkspace({
                       <input
                         value={goalDetailDraft}
                         onChange={(e) => setGoalDetailDraft(e.target.value)}
-                        placeholder="time, effort & budget — e.g. “~$200k/yr, solo, nights & weekends”"
-                        className="mt-1.5 w-full rounded-md border border-border bg-panel px-2 py-1 outline-none focus:border-accent"
+                        placeholder="time, effort & budget"
+                        className="mt-1.5 w-full rounded-md border border-border bg-panel px-2 py-1 text-sm outline-none focus:border-accent"
                       />
                       <div className="mt-1.5 flex items-center gap-2">
-                        <button onClick={saveGoal} className="rounded-md bg-accent px-2 py-1 font-medium text-white">
+                        <button onClick={saveGoal} className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-white">
                           Save
                         </button>
-                        <button onClick={() => setEditingGoal(false)} className="rounded-md border border-border px-2 py-1 hover:bg-panel">
+                        <button onClick={() => setEditingGoal(false)} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-panel">
                           Cancel
                         </button>
-                        <span className="text-muted">Then regenerate validation to apply.</span>
                       </div>
                     </div>
-                  ) : (
-                    <span className="text-muted">
-                      Goal: <span className="text-fg/80">{goalLabel(goalBucket)}</span>
-                      {goalDetail ? ` · ${goalDetail}` : ""}{" "}
-                      {currentStage === "validate" && (
-                        <button onClick={openGoalEditor} className="text-accent hover:underline">
-                          ✎ edit
-                        </button>
-                      )}
-                    </span>
                   )}
                 </div>
-              )}
-            </div>
+              ) : null
+            }
+          />
+        ) : (
+          /* not yet validated — simple idea card + validate */
+          <div className="mb-5 rounded-xl border border-border bg-panel/50 p-4">
+            <h1 className="text-base font-semibold">{idea.title}</h1>
+            <p className="mt-1 text-sm text-muted line-clamp-3">{activeVersion.statement}</p>
+            <button
+              onClick={() => runValidate()}
+              disabled={anyBusy || locked}
+              className="mt-3 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              Validate this idea →
+            </button>
           </div>
+        )}
 
-          {!editing && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {/* validation / idea-changing actions only belong on the Validate stage */}
-              {currentStage === "validate" && (
-                <>
-                  <DropMenu
-                    trigger={<span className="font-medium">✎ Improve idea</span>}
-                    tone="accent"
-                    disabled={anyBusy || locked}
-                    items={[
-                      { label: "Refine manually", hint: "Edit the statement yourself — saves a new version & re-scores.", onClick: startManual },
-                      { label: "✨ Suggest a sharper version", hint: "AI targets your weakest criteria.", onClick: suggest },
-                      { label: "⟳ Auto-iterate to a target", hint: "Hill-climb over several rounds toward a score.", onClick: autoIterate },
-                      { label: "🧭 Wedge tournament", hint: "3–5 divergent angles, validated head-to-head on the same evidence.", onClick: exploreWedges },
-                    ]}
-                  />
-                  <DropMenu
-                    trigger={<span className="font-medium">💬 Discuss</span>}
-                    tone="accent2"
-                    disabled={anyBusy}
-                    items={[
-                      {
-                        label: "Respond to the validator",
-                        hint: "Push back or add context, then re-validate.",
-                        onClick: () => {
-                          setProposal(null);
-                          setEditing(false);
-                          setChatting(false);
-                          setResponseDraft("");
-                          setResponding(true);
-                        },
-                      },
-                      {
-                        label: "Ask about this analysis",
-                        hint: "Q&A grounded in the research. Changes nothing.",
-                        onClick: () => {
-                          setResponding(false);
-                          openChat();
-                        },
-                      },
-                    ]}
-                  />
-                  {suggesting && <span className="animate-pulse font-mono text-xs text-accent">✨ drafting…</span>}
-                </>
-              )}
-              <div className="ml-auto">
-                <DropMenu
-                  trigger={<span aria-hidden className="px-0.5 text-base leading-none">⋯</span>}
-                  align="right"
-                  caret={false}
-                  items={[
-                    {
-                      label: "⎙ Download PDF",
-                      hint: "Server-rendered, paginated report (a few seconds).",
-                      onClick: () => {
-                        const a = document.createElement("a");
-                        a.href = `/api/versions/${activeVersionId}/pdf`;
-                        a.download = "";
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                      },
-                    },
-                    { label: "Delete idea", hint: "Removes all versions & artifacts.", danger: true, onClick: remove },
-                  ]}
-                />
+        {/* wedge tournament progress */}
+        {(wedgeFetching || wedgeSet || wedgeError) && (
+          <div
+            ref={wedgePanelRef}
+            className="mb-5 scroll-mt-4 rounded-xl border border-accent/40 bg-accent/5 p-4 shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]"
+          >
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-accent">
+                {(wedgeFetching || wedgeRunning) && (
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+                )}
+                🧭 Wedge tournament
               </div>
+              {!wedgeRunning && !wedgeFetching && (
+                <button
+                  onClick={() => {
+                    setWedgeSet(null);
+                    setWedgeResults(null);
+                    setWedgeLog([]);
+                    setWedgeError(null);
+                  }}
+                  className="text-xs text-muted hover:text-fg"
+                >
+                  close
+                </button>
+              )}
             </div>
-          )}
-        </div>
-        </div>
+
+            {wedgeError && !wedgeFetching && !wedgeSet && (
+              <div className="mt-3 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">
+                {wedgeError}
+                <button
+                  onClick={() => {
+                    setWedgeError(null);
+                    void exploreWedges();
+                  }}
+                  className="ml-3 font-medium text-accent underline-offset-2 hover:underline"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {wedgeFetching && (
+              <div className="mt-3 space-y-3">
+                <p className="text-sm text-fg/90">
+                  Drafting 3–5 divergent angles from the evidence…
+                </p>
+                <ul className="space-y-2 text-sm">
+                  {[
+                    "Reading the validation & evidence corpus",
+                    "Finding alternate ICPs, wedges & positionings",
+                    "Writing tournament entrants",
+                  ].map((step, i) => (
+                    <li key={step} className="flex items-center gap-2.5">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          i === 0
+                            ? "animate-pulse bg-accent"
+                            : "bg-border"
+                        }`}
+                      />
+                      <span className={i === 0 ? "text-fg" : "text-muted/70"}>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-muted">
+                  Usually 15–40 seconds. The Improve idea control stays disabled until proposals are ready.
+                </p>
+              </div>
+            )}
+
+            {/* phase 1: pick entrants */}
+            {wedgeSet && !wedgeResults && !wedgeFetching && (
+              <>
+                <p className="mb-3 text-xs text-muted">
+                  Each is a different strategic angle on the same core idea. Selected wedges become versions and are
+                  validated <b>in parallel on the same evidence corpus</b> — a fair head-to-head. Cost ≈ one validation
+                  per wedge.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {wedgeSet.wedges.map((w, i) => (
+                    <label
+                      key={i}
+                      className={`flex cursor-pointer flex-col rounded-lg border p-3 transition ${
+                        wedgeSelected.has(i) ? "border-accent/50 bg-panel2" : "border-border bg-panel2/50 opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={wedgeSelected.has(i)}
+                          disabled={wedgeRunning}
+                          onChange={(e) =>
+                            setWedgeSelected((prev) => {
+                              const n = new Set(prev);
+                              if (e.target.checked) n.add(i);
+                              else n.delete(i);
+                              return n;
+                            })
+                          }
+                          className="mt-0.5"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium">{w.wedge}</div>
+                          <p className="mt-1 text-xs leading-relaxed text-fg/80">{w.statement}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-muted">
+                            {w.rationale} <span className="text-accent2">→ {w.targets}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {!wedgeRunning && (
+                    <button
+                      onClick={runWedgeTournament}
+                      disabled={wedgeSelected.size === 0 || anyBusy}
+                      className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      Run tournament ({wedgeSelected.size} wedge{wedgeSelected.size === 1 ? "" : "s"})
+                    </button>
+                  )}
+                  {wedgeRunning && (
+                    <div className="flex items-center gap-2 text-sm text-accent2">
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent2/30 border-t-accent2" />
+                      Validating selected wedges in parallel on the same corpus…
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* phase 2: results, ranked */}
+            {wedgeResults && wedgeBaseline && (
+              <div className="mt-1">
+                <p className="mb-2 text-xs text-muted">
+                  Ranked on the same evidence as baseline v{wedgeBaseline.n} ({wedgeBaseline.score}/100). Differences
+                  within ±{acceptanceMargin()} are scoring noise, not signal.
+                </p>
+                <div className="space-y-2">
+                  {wedgeResults.map((r) => {
+                    const delta = r.score != null ? r.score - wedgeBaseline.score : null;
+                    const clears = delta != null && delta >= acceptanceMargin();
+                    return (
+                      <div
+                        key={r.versionId}
+                        className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${
+                          clears ? "border-good/50 bg-good/5" : "border-border bg-panel2"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium">
+                            v{r.n} · {r.proposal.wedge}
+                            {clears && <span className="ml-2 text-xs text-good">← clears the noise margin</span>}
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted">
+                            {r.error ? (
+                              <span className="text-bad">failed: {r.error}</span>
+                            ) : (
+                              <>
+                                <b className="font-mono text-fg/90">{r.score}/100</b>
+                                {delta != null && (
+                                  <span className="font-mono"> ({delta >= 0 ? "+" : ""}{delta})</span>
+                                )}
+                                {r.verdict ? ` · ${r.verdict}` : ""}
+                                {r.revenue ? ` · ${r.revenue}` : ""}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => switchVersion(r.versionId)}
+                            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-panel"
+                          >
+                            View report
+                          </button>
+                          {!r.error && (
+                            <button
+                              onClick={() => adoptWedge(r.versionId)}
+                              className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white"
+                            >
+                              Adopt (archive the rest)
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  Adopting keeps every entrant’s report (archived, not deleted). Or keep all and compare manually in the
+                  version switcher.
+                </p>
+              </div>
+            )}
+
+            {wedgeLog.length > 0 && (
+              <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-bg/60 p-3 font-mono text-xs leading-relaxed text-muted">
+                {wedgeLog.join("\n")}
+              </pre>
+            )}
+          </div>
+        )}
 
         {/* ask-about-this chat */}
         {chatting && (
@@ -1780,158 +1983,6 @@ export default function IdeaWorkspace({
           </div>
         )}
 
-        {/* wedge tournament: proposals → parallel validation → side-by-side adoption */}
-        {(wedgeFetching || wedgeSet) && (
-          <div className="mb-5 rounded-xl border border-accent/30 bg-accent/5 p-4">
-            <div className="mb-1 flex items-center justify-between">
-              <div className="text-sm font-semibold text-accent">🧭 Wedge tournament</div>
-              {!wedgeRunning && (
-                <button
-                  onClick={() => {
-                    setWedgeSet(null);
-                    setWedgeResults(null);
-                    setWedgeLog([]);
-                  }}
-                  className="text-xs text-muted hover:text-fg"
-                >
-                  close
-                </button>
-              )}
-            </div>
-            {wedgeFetching && (
-              <p className="animate-pulse text-sm text-accent2">Drafting divergent angles from the evidence…</p>
-            )}
-
-            {/* phase 1: pick entrants */}
-            {wedgeSet && !wedgeResults && (
-              <>
-                <p className="mb-3 text-xs text-muted">
-                  Each is a different strategic angle on the same core idea. Selected wedges become versions and are
-                  validated <b>in parallel on the same evidence corpus</b> — a fair head-to-head. Cost ≈ one validation
-                  per wedge.
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {wedgeSet.wedges.map((w, i) => (
-                    <label
-                      key={i}
-                      className={`flex cursor-pointer flex-col rounded-lg border p-3 transition ${
-                        wedgeSelected.has(i) ? "border-accent/50 bg-panel2" : "border-border bg-panel2/50 opacity-60"
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <input
-                          type="checkbox"
-                          checked={wedgeSelected.has(i)}
-                          disabled={wedgeRunning}
-                          onChange={(e) =>
-                            setWedgeSelected((prev) => {
-                              const n = new Set(prev);
-                              if (e.target.checked) n.add(i);
-                              else n.delete(i);
-                              return n;
-                            })
-                          }
-                          className="mt-0.5"
-                        />
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium">{w.wedge}</div>
-                          <p className="mt-1 text-xs leading-relaxed text-fg/80">{w.statement}</p>
-                          <p className="mt-1 text-xs leading-relaxed text-muted">
-                            {w.rationale} <span className="text-accent2">→ {w.targets}</span>
-                          </p>
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-                <div className="mt-3 flex items-center gap-2">
-                  {!wedgeRunning && (
-                    <button
-                      onClick={runWedgeTournament}
-                      disabled={wedgeSelected.size === 0 || anyBusy}
-                      className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                    >
-                      Run tournament ({wedgeSelected.size} wedge{wedgeSelected.size === 1 ? "" : "s"})
-                    </button>
-                  )}
-                  {wedgeRunning && <span className="animate-pulse text-sm text-accent2">tournament running…</span>}
-                </div>
-              </>
-            )}
-
-            {/* phase 2: results, ranked */}
-            {wedgeResults && wedgeBaseline && (
-              <div className="mt-1">
-                <p className="mb-2 text-xs text-muted">
-                  Ranked on the same evidence as baseline v{wedgeBaseline.n} ({wedgeBaseline.score}/100). Differences
-                  within ±{acceptanceMargin()} are scoring noise, not signal.
-                </p>
-                <div className="space-y-2">
-                  {wedgeResults.map((r) => {
-                    const delta = r.score != null ? r.score - wedgeBaseline.score : null;
-                    const clears = delta != null && delta >= acceptanceMargin();
-                    return (
-                      <div
-                        key={r.versionId}
-                        className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${
-                          clears ? "border-good/50 bg-good/5" : "border-border bg-panel2"
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium">
-                            v{r.n} · {r.proposal.wedge}
-                            {clears && <span className="ml-2 text-xs text-good">← clears the noise margin</span>}
-                          </div>
-                          <div className="mt-0.5 text-xs text-muted">
-                            {r.error ? (
-                              <span className="text-bad">failed: {r.error}</span>
-                            ) : (
-                              <>
-                                <b className="font-mono text-fg/90">{r.score}/100</b>
-                                {delta != null && (
-                                  <span className="font-mono"> ({delta >= 0 ? "+" : ""}{delta})</span>
-                                )}
-                                {r.verdict ? ` · ${r.verdict}` : ""}
-                                {r.revenue ? ` · ${r.revenue}` : ""}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            onClick={() => switchVersion(r.versionId)}
-                            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-panel"
-                          >
-                            View report
-                          </button>
-                          {!r.error && (
-                            <button
-                              onClick={() => adoptWedge(r.versionId)}
-                              className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white"
-                            >
-                              Adopt (archive the rest)
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="mt-2 text-xs text-muted">
-                  Adopting keeps every entrant’s report (archived, not deleted). Or keep all and compare manually in the
-                  version switcher.
-                </p>
-              </div>
-            )}
-
-            {wedgeLog.length > 0 && (
-              <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-bg/60 p-3 font-mono text-xs leading-relaxed text-muted">
-                {wedgeLog.join("\n")}
-              </pre>
-            )}
-          </div>
-        )}
-
         {/* auto-iterate config + log */}
         {(iterating || iterLog.length > 0) && (
           <div className="mb-5 rounded-xl border border-border bg-panel p-4">
@@ -2012,58 +2063,11 @@ export default function IdeaWorkspace({
               </div>
             )}
 
-            {/* the campaign header: decision state + the one next move, above the receipt.
-                Only once the campaign HAS state beyond a first report (more versions, a
-                kit, a recorded result) — on a fresh single-version validation it would
-                just duplicate the readout directly below it. */}
-            {hasValidate &&
-              typeof activeValidationData?.score === "number" &&
-              (versions.length > 1 || !!activeArtifacts.kit || !!activeArtifacts.test_result) && (
-              <CampaignHeader
-                activeN={activeVersion.n}
-                versionCount={visibleVersions.length}
-                bestN={showBestOther ? bestOther!.n : null}
-                bestScore={showBestOther ? bestOther!.score : null}
-                bestLabel={showBestOther ? bestOther!.label ?? bestOther!.statement : null}
-                onViewBest={() => bestOther && switchVersion(bestOther.id)}
-                openQuestion={activeValidationData.next_test?.riskiest_assumption ?? null}
-                testStatus={testStatus}
-                nextMove={campaignNextMove}
-              />
-            )}
-
-            {/* once there's a report, this slim bar is the re-run control */}
-            {hasValidate && (
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-                <div className="flex min-w-0 items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
-                  <span className="h-1.5 w-1.5 rounded-full bg-good" aria-hidden />
-                  Full analysis · one grounded pass
-                  {billing?.enabled && billing.paid && (
-                    <span className="ml-2 rounded border border-border bg-panel2 px-1.5 py-0.5 normal-case tracking-normal" title="Validation runs used of this campaign&apos;s fair-use cap">
-                      runs {billing.runsUsed}/{billing.runCap}
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Deep validation — bull/bear/reconcile + CoVe + a second-family
-                      cross-check. ~3-4× the cost of a standard run (flagged in the hint). */}
-                  <button
-                    onClick={() => runValidate(true)}
-                    disabled={busy.has(bk(activeVersionId, "validation")) || iterating || locked}
-                    title="Argues an independent bull case and bear case, reconciles them on the evidence, verifies the load-bearing claims (CoVe), and cross-checks with a second model family. ~3–4× the cost of a standard run."
-                    className="rounded-lg border border-accent2/40 px-3 py-1.5 text-sm font-medium text-accent2 transition hover:bg-accent2/10 disabled:opacity-50"
-                  >
-                    ◆ Deep validation
-                    <span className="ml-1.5 font-mono text-[10px] uppercase tracking-wide text-muted">~3–4× cost</span>
-                  </button>
-                  <button
-                    onClick={() => runValidate()}
-                    disabled={busy.has(bk(activeVersionId, "validation")) || iterating || locked}
-                    className="rounded-lg border border-accent/30 px-3 py-1.5 text-sm font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
-                  >
-                    {busy.has(bk(activeVersionId, "validation")) ? "Analyzing…" : "⟳ Re-run analysis"}
-                  </button>
-                </div>
+            {/* Zone 2–3 body lives inside ValidationView (test + evidence chapters).
+                Rigor controls sit in the decision ⋯ menu so they don't compete with the CTA. */}
+            {hasValidate && billing?.enabled && billing.paid && (
+              <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+                Campaign runs {billing.runsUsed}/{billing.runCap}
               </div>
             )}
 
@@ -2100,7 +2104,7 @@ export default function IdeaWorkspace({
                     onRecordResult: recordResult,
                     recordingResult,
                     onRevalidateWithResult: revalidateWithResult,
-                    // the masthead VerdictBox already leads with the score on screen
+                    // DecisionCard owns the score — report is test (when ready) + chapters
                     compactHero: true,
                   }}
                 />

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Card, Metric, Section, SectionHead } from "./ui";
+import { Card, Metric, Section } from "./ui";
 import type { Source } from "@/lib/ai/client";
 import type { Validation } from "@/lib/generators/validation";
 import type { EvidenceCorpus } from "@/lib/evidence/types";
@@ -35,6 +35,8 @@ import {
   SispFlag,
   TarpitCallout,
 } from "./report/DeepReport";
+import { WhyThisScore } from "./report/WhyThisScore";
+import { ReportChapter } from "./report/ReportChapter";
 
 // Light structural guard for a stored kit artifact (KitSchema lives server-side with
 // the generator — its module pulls in the db, so the client checks shape, not zod).
@@ -164,11 +166,41 @@ const GOAL_NOUN: Record<string, string> = {
   unsure: "unspecified",
 };
 
-export function SourcesList({ sources }: { sources: Source[] }) {
+/** Cited web sources — collapsed by default (audit trail, not the primary read). */
+export function SourcesList({
+  sources,
+  defaultOpen = false,
+}: {
+  sources: Source[];
+  /** Print/PDF should pass true so the full list is present. */
+  defaultOpen?: boolean;
+}) {
   if (!sources?.length) return null;
   return (
-    <Section title={`Sources (${sources.length})`}>
-      <ul className="space-y-1">
+    <details
+      className="group mt-4 overflow-hidden rounded-xl border border-border bg-panel/50 transition hover:border-accent/35 hover:bg-panel2/40"
+      open={defaultOpen}
+    >
+      <summary
+        className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3 select-none transition hover:bg-panel2/55 sm:px-4"
+        title="Click to expand or collapse cited sources"
+      >
+        <span
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border bg-panel2 font-mono text-sm text-accent2 transition group-open:border-accent/40 group-open:bg-accent/10"
+          aria-hidden
+        >
+          <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
+        </span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-fg/85">
+          Sources ({sources.length})
+        </span>
+        <span className="hidden text-xs text-muted sm:inline">cited links · optional</span>
+        <span className="ml-auto shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
+          <span className="group-open:hidden">Expand</span>
+          <span className="hidden group-open:inline">Collapse</span>
+        </span>
+      </summary>
+      <ul className="space-y-1.5 border-t border-border/60 px-4 py-3">
         {sources.map((s, i) => (
           <li key={i} className="truncate text-sm">
             <a href={s.url} target="_blank" rel="noreferrer" className="text-accent2 hover:underline">
@@ -177,7 +209,7 @@ export function SourcesList({ sources }: { sources: Source[] }) {
           </li>
         ))}
       </ul>
-    </Section>
+    </details>
   );
 }
 
@@ -225,22 +257,6 @@ function MiniSignals({ tone, label, items }: { tone: "good" | "warn"; label: str
         ))}
       </ul>
     </div>
-  );
-}
-
-function PainkillerTag({ verdict }: { verdict: "Painkiller" | "Vitamin" }) {
-  const pain = verdict === "Painkiller";
-  const c = pain ? "var(--color-good)" : "var(--color-warn)";
-  return (
-    <span
-      className="shrink-0 rounded-full border px-3 py-1 text-xs font-bold"
-      title={pain
-        ? "Painkiller — solves an urgent, must-fix pain people already pay to relieve. Easier to sell."
-        : "Vitamin — a nice-to-have improvement. Real, but harder to sell because no one is forced to act."}
-      style={{ color: c, borderColor: `color-mix(in srgb, ${c} 40%, transparent)`, background: `color-mix(in srgb, ${c} 8%, transparent)` }}
-    >
-      {pain ? "💊 Painkiller" : "🟡 Vitamin"}
-    </span>
   );
 }
 
@@ -524,148 +540,163 @@ export function ValidationView({
       ]
     : [];
 
+  // Chapter mode (workspace): decision lives above; this report is a library you open.
+  // Print keeps the full expanded editorial layout.
+  const chapters = compactHero && !print;
+
+  // One-line previews for collapsed chapters — "why open this".
+  const briefPreview =
+    d.narrative?.why ||
+    (strengths[0]?.text ? strengths[0].text : null) ||
+    (risks[0]?.text ? risks[0].text : null);
+  const marketPreview =
+    d.market?.competitors?.[0]
+      ? `vs ${d.market.competitors[0].name}${d.market.competitors.length > 1 ? ` +${d.market.competitors.length - 1}` : ""}`
+      : d.market?.momentum || d.market?.search_trend?.note || null;
+  const moneyPreview = d.financials?.revenue_model || d.demand?.obtainable_revenue || null;
+  const risksPreview = d.pre_mortem?.[0] || d.risk_matrix?.[0]?.title || null;
+  const planPreview =
+    d.verdict === "GO"
+      ? d.plan?.milestones?.[0]?.title || "Path to first revenue"
+      : "Gated on the kill-test";
+  const evidencePreview = evidence
+    ? `${evidence.items?.length ?? 0} fetched items`
+    : null;
+
   return (
-    <div className="space-y-12">
-      {/* on-this-report nav — carries the verdict so the answer is NEVER off-screen */}
-      <nav className="no-print sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-1 border-b border-border bg-bg/85 px-1 py-2.5 backdrop-blur">
-        {!heroVisible && (
-          <a
-            href="#verdict"
-            className="mr-2 flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-xs font-bold tracking-tight"
-            style={{ color, borderColor: `color-mix(in srgb, ${color} 35%, transparent)` }}
-            title={`${d.verdict} · ${Math.round(d.score)} ± ${sd} at ${d.confidence}% confidence`}
-          >
-            {insufficient ? "INSUFFICIENT" : d.verdict}
-            <span className="tabular-nums">{Math.round(d.score)}</span>
-          </a>
-        )}
-        <a href="#verdict" className={navLink}>Verdict</a>
-        <a href="#brief" className={navLink}>Brief</a>
-        {showMarket && <a href="#market" className={navLink}>Market</a>}
-        {showMoney && <a href="#money" className={navLink}>Money</a>}
-        {d.risk_matrix?.length || d.pre_mortem?.length ? <a href="#risks" className={navLink}>Risks</a> : null}
-        {showPlan && <a href="#plan" className={navLink}>Plan</a>}
-        {evidence && <a href="#evidence" className={navLink}>Evidence</a>}
-      </nav>
-
-      {/* ============================ VERDICT (hero) ============================ */}
-      {/* Order: the ANSWER first (verdict readout), then the cheapest way to change it
-          (kill-test + kit). The readout carries a one-line pointer to the test so the
-          decision and its lever stay one glance apart. */}
-      <section id="verdict" className="scroll-mt-20 space-y-5">
-        <div ref={heroRef} className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-panel2 to-panel">
-          {/* verdict-tinted top hairline — the only place the verdict color leads */}
-          <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
-          <div className="p-6 sm:p-7">
-            <div className="flex items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-              <span className="flex flex-wrap items-center gap-2">
-                Validation readout
-                <ModeBadge mode={d.mode} />
-                <ProvenanceTag provenance={provenance} />
-              </span>
-              <span
-                className="flex shrink-0 items-center gap-1.5"
-                title="Computed from the fetched evidence corpus + distinct cited web sources; the model's self-report only nudges it (max 15 pts)."
-              >
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
-                {d.confidence}% confidence
-              </span>
-            </div>
-
-            {/* the giant verdict/score row — skipped when the masthead box already
-                leads with it (insufficient always shows: its explanation lives here) */}
-            <div
-              className="mt-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-4"
-              hidden={compactHero && !insufficient && !print}
+    <div className={chapters ? "space-y-3" : "space-y-12"}>
+      {/* on-this-report nav — only when the full readout is the lead (print / non-workspace) */}
+      {!chapters && (
+        <nav className="no-print sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-1 border-b border-border bg-bg/85 px-1 py-2.5 backdrop-blur">
+          {!heroVisible && (
+            <a
+              href="#verdict"
+              className="mr-2 flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-xs font-bold tracking-tight"
+              style={{ color, borderColor: `color-mix(in srgb, ${color} 35%, transparent)` }}
+              title={`${d.verdict} · ${Math.round(d.score)} ± ${sd} at ${d.confidence}% confidence`}
             >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-baseline gap-3">
-                  <span
-                    className={`font-display font-bold leading-none tracking-tight ${
-                      insufficient ? "text-3xl sm:text-4xl" : "text-5xl sm:text-6xl"
-                    }`}
-                    style={{ color }}
-                  >
-                    {d.verdict}
-                  </span>
-                  <span className="font-mono text-2xl font-bold tabular-nums" style={{ color }}>
-                    {Math.round(d.score)}
-                    <span className="text-base font-semibold text-muted"> ± {sd}</span>
-                    <span className="text-base text-muted">/100</span>
-                  </span>
-                  {nearLine && !insufficient && (
+              {insufficient ? "INSUFFICIENT" : d.verdict}
+              <span className="tabular-nums">{Math.round(d.score)}</span>
+            </a>
+          )}
+          <a href="#verdict" className={navLink}>Verdict</a>
+          <a href="#brief" className={navLink}>Brief</a>
+          {showMarket && <a href="#market" className={navLink}>Market</a>}
+          {showMoney && <a href="#money" className={navLink}>Money</a>}
+          {d.risk_matrix?.length || d.pre_mortem?.length ? <a href="#risks" className={navLink}>Risks</a> : null}
+          {showPlan && <a href="#plan" className={navLink}>Plan</a>}
+          {evidence && <a href="#evidence" className={navLink}>Evidence</a>}
+        </nav>
+      )}
+
+      {/* ============================ VERDICT / TEST ============================ */}
+      <section id="verdict" className="scroll-mt-20 space-y-4">
+        {/* Full hero instrument — print & standalone only. Workspace decision zone owns the score. */}
+        {!chapters && (
+          <div ref={heroRef} className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-panel2 to-panel">
+            <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
+            <div className="p-6 sm:p-7">
+              <div className="flex items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
+                <span className="flex flex-wrap items-center gap-2">
+                  Validation readout
+                  <ModeBadge mode={d.mode} />
+                  <ProvenanceTag provenance={provenance} />
+                </span>
+                <span
+                  className="flex shrink-0 items-center gap-1.5"
+                  title="Computed from the fetched evidence corpus + distinct cited web sources; the model's self-report only nudges it (max 15 pts)."
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+                  {d.confidence}% confidence
+                </span>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-baseline gap-3">
                     <span
-                      className="rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-warn"
-                      title={`The score sits within the ±${sd}-point run-to-run scoring noise of this goal's ${nearLine} threshold (${nearLine === "GO" ? bands.go : bands.maybe}) — a re-run could land on the other side.`}
+                      className={`font-display font-bold leading-none tracking-tight ${
+                        insufficient ? "text-3xl sm:text-4xl" : "text-5xl sm:text-6xl"
+                      }`}
+                      style={{ color }}
                     >
-                      borderline · ±{sd} of the {nearLine} line
+                      {d.verdict}
                     </span>
-                  )}
-                </div>
-                {insufficient ? (
-                  <div className="mt-2.5 max-w-md text-sm leading-relaxed text-muted">
-                    <b className="text-fg/80">Not enough evidence to grade this idea:</b>{" "}
-                    {missingEvidence(d, evidence)}. The weighted score is shown, but at{" "}
-                    {d.confidence}% confidence (floor: {GATES.insufficientEvidenceConfidence}%) it
-                    is a guess — refresh the evidence or add founder context, then re-run.
-                  </div>
-                ) : (
-                  <div className="mt-2.5 max-w-md text-sm leading-relaxed text-muted">
-                    <b className="text-fg/80">{band.label}.</b> {band.hint}
-                    {pct != null && (
+                    <span className="font-mono text-2xl font-bold tabular-nums" style={{ color }}>
+                      {Math.round(d.score)}
+                      <span className="text-base font-semibold text-muted"> ± {sd}</span>
+                      <span className="text-base text-muted">/100</span>
+                    </span>
+                    {nearLine && !insufficient && (
                       <span
-                        className="mt-1.5 block font-mono text-[11px] uppercase tracking-wide text-accent2"
-                        title="Percentile across every non-archived, scored idea validated in this app."
+                        className="rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-warn"
+                        title={`The score sits within the ±${sd}-point run-to-run scoring noise of this goal's ${nearLine} threshold (${nearLine === "GO" ? bands.go : bands.maybe}) — a re-run could land on the other side.`}
                       >
-                        scores higher than {pct}% of ideas validated here
+                        borderline · ±{sd} of the {nearLine} line
                       </span>
                     )}
                   </div>
-                )}
-              </div>
-              <div className="max-w-[15rem] text-right">
-                <div className="font-mono text-2xl font-bold leading-tight text-accent2 [overflow-wrap:anywhere] sm:text-3xl">
-                  {d.demand?.obtainable_revenue ?? "—"}
+                  {insufficient ? (
+                    <div className="mt-2.5 max-w-md text-sm leading-relaxed text-muted">
+                      <b className="text-fg/80">Not enough evidence to grade this idea:</b>{" "}
+                      {missingEvidence(d, evidence)}. The weighted score is shown, but at{" "}
+                      {d.confidence}% confidence (floor: {GATES.insufficientEvidenceConfidence}%) it
+                      is a guess — refresh the evidence or add founder context, then re-run.
+                    </div>
+                  ) : (
+                    <div className="mt-2.5 max-w-md text-sm leading-relaxed text-muted">
+                      <b className="text-fg/80">{band.label}.</b> {band.hint}
+                      {pct != null && (
+                        <span
+                          className="mt-1.5 block font-mono text-[11px] uppercase tracking-wide text-accent2"
+                          title="Percentile across every non-archived, scored idea validated in this app."
+                        >
+                          scores higher than {pct}% of ideas validated here
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">obtainable / yr</div>
+                <div className="max-w-[15rem] text-right">
+                  <div className="font-mono text-2xl font-bold leading-tight text-accent2 [overflow-wrap:anywhere] sm:text-3xl">
+                    {d.demand?.obtainable_revenue ?? "—"}
+                  </div>
+                  <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">obtainable / yr</div>
+                </div>
               </div>
-            </div>
 
-            <div className="mt-7">
-              <VerdictMeter score={d.score} bands={bands} insufficient={insufficient} />
-            </div>
+              <div className="mt-7">
+                <VerdictMeter score={d.score} bands={bands} insufficient={insufficient} />
+              </div>
 
-            {/* the decision's lever, one glance from the decision */}
-            {d.next_test && (
-              <a
-                href="#next-test"
-                className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-fg/85 transition hover:text-fg"
-              >
-                <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent2">Next ·</span>
-                <span className="min-w-0">
-                  {d.next_test.pivotal_criterion && d.verdict === "MAYBE" ? (
-                    <>resolving <b className="text-fg">{d.next_test.pivotal_criterion}</b> moves this off the line — </>
-                  ) : null}
-                  a ≤1-week test is ready below <span className="text-accent2">↓</span>
-                </span>
-              </a>
-            )}
+              {d.next_test && (
+                <a
+                  href="#next-test"
+                  className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-fg/85 transition hover:text-fg"
+                >
+                  <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent2">Next ·</span>
+                  <span className="min-w-0">
+                    {d.next_test.pivotal_criterion && d.verdict === "MAYBE" ? (
+                      <>resolving <b className="text-fg">{d.next_test.pivotal_criterion}</b> moves this off the line — </>
+                    ) : null}
+                    a ≤1-week test is ready below <span className="text-accent2">↓</span>
+                  </span>
+                </a>
+              )}
+            </div>
+            <DimensionStrip dims={dims} />
           </div>
+        )}
 
-          {/* the four reads as the instrument footer */}
-          <DimensionStrip dims={dims} />
-        </div>
+        {!compactHero || print ? (
+          <WhyThisScore d={d} bands={bands} color={color} goal={goal} />
+        ) : null}
 
-        {/* the read, in plain words — clamped so the verdict stays above the fold */}
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <ClampText text={d.summary} print={print} className="max-w-2xl text-[15px] text-fg/90" />
-          {d.narrative && <PainkillerTag verdict={d.narrative.verdict} />}
-        </div>
-
-        {/* the cheapest way to CHANGE the verdict above — the kit that runs it, and the
-            place the REAL-WORLD result comes home to be judged against the bars */}
-        {d.next_test && (
-          <div id="next-test" className="scroll-mt-20 space-y-3 pt-2">
+        {/* Kill-test detail — deferred in workspace until kit/result exists so it
+            doesn't restate the DecisionCard open question. CTA generates the kit. */}
+        {d.next_test &&
+          (!chapters || print || kitData != null || testResultData != null || generatingKit) && (
+          <div id="next-test" className="scroll-mt-20 space-y-3">
             <NextTest next={d.next_test} verdict={d.verdict} print={print} />
             <KillTestKit
               kit={asKit(kitData)}
@@ -685,50 +716,98 @@ export function ValidationView({
           </div>
         )}
 
-        {/* Wave 3 normal-path guards — a known-tarpit match (names the pattern + prior
-            attempts + the differentiated-insight ask) and the solution-in-search-of-a-
-            problem flag. Neither is an auto-fail; both explain a low band. */}
-        <TarpitCallout tarpit={d.tarpit} />
-        <SispFlag sisp={d.sisp} />
-
-        {/* code-level rules that fired on this run — visible enforcement */}
-        {d.system_adjustments?.length ? (
-          <SystemAdjustments adjustments={d.system_adjustments} goalLabel={GOAL_NOUN[goalKey]} />
-        ) : null}
-
-        {/* the neutral restatement the scorer actually judged (sycophancy firewall),
-            plus the typed/tiered claim ledger (self-facts vs market-assumptions). */}
-        {d.claims_audit?.brief && (
-          <details className="group" open={print}>
-            <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
-              <span className="transition group-open:rotate-90">▸</span>
-              What we scored — the neutral claims brief
+        {/* Scoring notes — collapsed in workspace (not a peer to the decision) */}
+        {chapters ? (
+          <details
+            className="group overflow-hidden rounded-xl border border-border bg-panel/50 transition hover:border-accent/35 hover:bg-panel2/40"
+            open={print}
+          >
+            <summary
+              className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3 select-none transition hover:bg-panel2/55 sm:px-4"
+              title="Click to expand or collapse scoring notes"
+            >
+              <span
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border bg-panel2 font-mono text-sm text-accent2 transition group-open:border-accent/40 group-open:bg-accent/10"
+                aria-hidden
+              >
+                <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
+              </span>
+              <span className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.14em] text-fg/85">
+                Scoring notes &amp; guards
+              </span>
+              <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
+                <span className="group-open:hidden">Expand</span>
+                <span className="hidden group-open:inline">Collapse</span>
+              </span>
             </summary>
-            <div className="mt-3 max-w-2xl border-l border-border pl-4">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{d.claims_audit.brief}</p>
-              <p className="mt-2 text-xs text-muted/80">
-                The scorer judged this third-person restatement — the enthusiasm and superlatives
-                in the original wording carry no evidential weight.
-              </p>
-              {d.claims_audit.claims?.length ? <ClaimsLedger claims={d.claims_audit.claims} /> : null}
+            <div className="space-y-4 border-t border-border/60 px-4 py-4">
+              <TarpitCallout tarpit={d.tarpit} />
+              <SispFlag sisp={d.sisp} />
+              {d.system_adjustments?.length ? (
+                <SystemAdjustments adjustments={d.system_adjustments} goalLabel={GOAL_NOUN[goalKey]} />
+              ) : null}
+              {d.claims_audit?.brief && (
+                <div className="max-w-2xl border-l border-border pl-4">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{d.claims_audit.brief}</p>
+                  {d.claims_audit.claims?.length ? <ClaimsLedger claims={d.claims_audit.claims} /> : null}
+                </div>
+              )}
+              <HowScored goal={goalKey} samples={scoringSamples} print={print} />
+              <DeepMemos bull={d.bull_memo} bear={d.bear_memo} print={print} />
+              <CoveLedger cove={d.cove} print={print} />
+              <AuditPanel audit={d.audit} print={print} />
             </div>
           </details>
+        ) : (
+          <>
+            <TarpitCallout tarpit={d.tarpit} />
+            <SispFlag sisp={d.sisp} />
+            {d.system_adjustments?.length ? (
+              <SystemAdjustments adjustments={d.system_adjustments} goalLabel={GOAL_NOUN[goalKey]} />
+            ) : null}
+            {d.claims_audit?.brief && (
+              <details className="group" open={print}>
+                <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
+                  <span className="transition group-open:rotate-90">▸</span>
+                  What we scored — the neutral claims brief
+                </summary>
+                <div className="mt-3 max-w-2xl border-l border-border pl-4">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{d.claims_audit.brief}</p>
+                  <p className="mt-2 text-xs text-muted/80">
+                    The scorer judged this third-person restatement — the enthusiasm and superlatives
+                    in the original wording carry no evidential weight.
+                  </p>
+                  {d.claims_audit.claims?.length ? <ClaimsLedger claims={d.claims_audit.claims} /> : null}
+                </div>
+              </details>
+            )}
+            <HowScored goal={goalKey} samples={scoringSamples} print={print} />
+            <DeepMemos bull={d.bull_memo} bear={d.bear_memo} print={print} />
+            <CoveLedger cove={d.cove} print={print} />
+            <AuditPanel audit={d.audit} print={print} />
+          </>
         )}
-
-        {/* the published scoring machinery, from lib/scoring.ts */}
-        <HowScored goal={goalKey} samples={scoringSamples} print={print} />
-
-        {/* Wave 3 deep mode: the adversarial memos, the CoVe claim-verification ledger,
-            and (deep always, plus the periodic auto-iterate round) the second-family
-            cross-check. Each renders only when its stored field is present. */}
-        <DeepMemos bull={d.bull_memo} bear={d.bear_memo} print={print} />
-        <CoveLedger cove={d.cove} print={print} />
-        <AuditPanel audit={d.audit} print={print} />
       </section>
 
+      {chapters && (
+        <div className="pt-2">
+          <p className="text-sm font-medium text-fg/85">Dig deeper</p>
+          <p className="mt-0.5 text-xs text-muted">
+            Click any section below to expand it — Brief, Market, Money, Risks, Plan, Evidence.
+          </p>
+        </div>
+      )}
+
       {/* ============================== THE BRIEF ============================== */}
-      <section id="brief" className="scroll-mt-20">
-        <SectionHead n="01" title="The brief" hint="what you need to know" />
+      <ReportChapter
+        id="brief"
+        n="01"
+        title="The brief"
+        hint="what you need to know"
+        preview={briefPreview}
+        print={print}
+        defaultOpen={!chapters}
+      >
         <div className="space-y-8">
           {/* thesis — the one-line painkiller read, always visible */}
           {d.narrative?.why && (
@@ -840,12 +919,18 @@ export function ValidationView({
             </details>
           )}
         </div>
-      </section>
+      </ReportChapter>
 
       {/* ============================ MARKET ============================ */}
       {showMarket && d.market && (
-        <section id="market" className="scroll-mt-20">
-          <SectionHead n="02" title="Market & competition" hint="proof the pain is real" />
+        <ReportChapter
+          id="market"
+          n="02"
+          title="Market & competition"
+          hint="proof the pain is real"
+          preview={marketPreview}
+          print={print}
+        >
           <div className="space-y-6">
             {d.market.sizing && (d.market.sizing.tam?.value || d.market.sizing.sam?.value || d.market.sizing.som?.value) && (
               <MarketSizing sizing={d.market.sizing} cagrPct={d.market.cagr_pct ?? 0} />
@@ -1021,13 +1106,22 @@ export function ValidationView({
               </div>
             )}
           </div>
-        </section>
+        </ReportChapter>
       )}
 
       {/* ============================ MONEY ============================ */}
       {showMoney && d.financials && (
-        <section id="money" className="scroll-mt-20">
-          <SectionHead n="03" title="Money" hint="the unit economics" right={<ModelEstimateTag />} />
+        <ReportChapter
+          id="money"
+          n="03"
+          title="Money"
+          hint="the unit economics"
+          preview={moneyPreview}
+          print={print}
+        >
+          <div className="mb-3 flex justify-end">
+            <ModelEstimateTag />
+          </div>
           <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
             <Metric label="Startup cost" value={d.financials.startup_cost || "—"} />
             <Metric label="CAC" value={d.financials.unit_economics?.cac || "—"} hint="Cost to acquire a customer" />
@@ -1065,14 +1159,19 @@ export function ValidationView({
               </div>
             </div>
           )}
-        </section>
+        </ReportChapter>
       )}
 
       {/* ============================ RISKS ============================ */}
       {d.risk_matrix?.length || d.pre_mortem?.length ? (
-        <section id="risks" className="scroll-mt-20">
-          <SectionHead n="04" title="Risks" hint="pre-mortem + probability × impact" />
-          {/* prospective hindsight, written BEFORE the bands — the report leads with it */}
+        <ReportChapter
+          id="risks"
+          n="04"
+          title="Risks"
+          hint="pre-mortem + probability × impact"
+          preview={risksPreview}
+          print={print}
+        >
           {d.pre_mortem?.length ? (
             <div className="mb-5 rounded-xl border border-bad/25 bg-bad/5 p-4">
               <div className="mb-1 font-mono text-[13px] uppercase tracking-[0.12em] text-bad">Pre-mortem</div>
@@ -1100,22 +1199,19 @@ export function ValidationView({
               <Metric label="If it fails" value={d.downside.if_it_fails} />
             </div>
           )}
-        </section>
+        </ReportChapter>
       ) : null}
 
       {/* ============================ PLAN ============================ */}
-      {/* Verdict-gated: on a clean GO the build plan stands on its own. On MAYBE /
-          NO-GO / INSUFFICIENT EVIDENCE the plan's step zero IS the kill-test — a
-          confident build timeline for an unvalidated idea is exactly the theater this
-          product exists to avoid. The milestones stay one click away (and print fully),
-          framed as what unlocks when the test passes. */}
       {showPlan && d.plan && (
-        <section id="plan" className="scroll-mt-20">
-          <SectionHead
-            n="05"
-            title="Plan"
-            hint={d.verdict === "GO" ? "path to first revenue" : "the test comes first"}
-          />
+        <ReportChapter
+          id="plan"
+          n="05"
+          title="Plan"
+          hint={d.verdict === "GO" ? "path to first revenue" : "the test comes first"}
+          preview={planPreview}
+          print={print}
+        >
           {d.verdict !== "GO" && (
             <div className="mb-3 flex gap-3 rounded-lg border border-accent2/40 bg-accent2/[0.06] p-3">
               <span className="mt-0.5 font-mono text-xs text-accent2">00</span>
@@ -1124,7 +1220,7 @@ export function ValidationView({
                 <div className="mt-0.5 text-xs text-muted">
                   This verdict is {d.verdict || "not a GO"}: the evidence doesn&apos;t yet justify a build
                   timeline. Run{" "}
-                  <a href="#verdict" className="text-accent2 hover:underline">
+                  <a href="#next-test" className="text-accent2 hover:underline">
                     the one thing to test next
                   </a>{" "}
                   against its pre-registered thresholds, then revalidate — a pass unlocks this plan with a
@@ -1134,22 +1230,47 @@ export function ValidationView({
             </div>
           )}
           <PlanBody plan={d.plan} collapsed={d.verdict !== "GO"} print={print} />
-        </section>
+        </ReportChapter>
       )}
 
       {/* ============================ EVIDENCE ============================ */}
       {evidence && (
-        <section id="evidence" className="no-print scroll-mt-20">
-          <SectionHead n="06" title="Evidence" hint="the fetched corpus behind the demand read" />
-          <EvidencePanel corpus={evidence} onRefresh={onRefreshEvidence} refreshing={refreshingEvidence} />
-        </section>
+        <div className="no-print">
+          <ReportChapter
+            id="evidence"
+            n="06"
+            title="Evidence"
+            hint="the fetched corpus behind the demand read"
+            preview={evidencePreview}
+            print={print}
+          >
+            <EvidencePanel corpus={evidence} onRefresh={onRefreshEvidence} refreshing={refreshingEvidence} />
+          </ReportChapter>
+        </div>
       )}
 
       {/* ===================== full scorecard (the deep dive) ===================== */}
-      <details className="group rounded-xl border border-border bg-panel/40" open={print}>
-        <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
-          <span className="transition group-open:rotate-90">▸</span>
-          Full scorecard &amp; signals — the evidence behind the score
+      <details
+        className="group overflow-hidden rounded-xl border border-border bg-panel/50 transition hover:border-accent/35 hover:bg-panel2/40"
+        open={print}
+      >
+        <summary
+          className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3.5 select-none transition hover:bg-panel2/55 sm:px-4"
+          title="Click to expand or collapse the full scorecard"
+        >
+          <span
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border bg-panel2 font-mono text-sm text-accent2 transition group-open:border-accent/40 group-open:bg-accent/10"
+            aria-hidden
+          >
+            <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
+          </span>
+          <span className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.12em] text-fg/85">
+            Full scorecard &amp; signals
+          </span>
+          <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
+            <span className="group-open:hidden">Expand</span>
+            <span className="hidden group-open:inline">Collapse</span>
+          </span>
         </summary>
         <div className="space-y-6 border-t border-border p-5">
           <Section title="Visual Overview">

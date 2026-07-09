@@ -563,8 +563,8 @@ whole market), capture (the share/conversion of those they'd actually win, e.g. 
 revenue per customer) } — the three numbers must multiply to roughly the obtainable_revenue (the system
 CHECKS this arithmetic and rewrites a headline that doesn't multiply) }. What matters is the absolute
 obtainable dollars judged against the GOAL: a small slice of a huge market can beat a large slice of a tiny
-one. Make the "summary" lead with what the founder can realistically expect (the obtainable revenue vs
-their goal), then the crux of the assessment.
+one. Make the "summary" answer WHY the score lands where it does: lead with obtainable revenue vs the
+goal, name the 1–2 criteria that set the band, and end on the lever that would move the verdict.
 
 Band these 10 criteria (rationale first, then band — HIGHER ALWAYS MEANS MORE FAVORABLE, no inverted axes).
 Let the bands TRACK THE EVIDENCE and differ — well-evidenced criteria belong at B+/A-, genuinely unproven
@@ -615,7 +615,7 @@ Difficulty/schlep NEVER lowers demand-side criteria — route it to Moat and Goa
 ${COMPETITION_GUIDANCE}
 
 Also produce:
-- "confidence" (0-100) = how much corroborating evidence you actually found (lower it when you relied on assumption). The system RECOMPUTES confidence from the fetched corpus + citation counts (your self-report only nudges it), and COMPUTES the overall score and verdict from your 10 bands via published weights and non-compensatory gates — so put your effort into banding the 10 criteria honestly and distinctly, NOT into tuning headline numbers. Add a TIGHT evidence-based "summary" — AT MOST 2 sentences (~45 words) — that leads with what the founder can realistically expect (obtainable revenue vs goal), then the crux.
+- "confidence" (0-100) = how much corroborating evidence you actually found (lower it when you relied on assumption). The system RECOMPUTES confidence from the fetched corpus + citation counts (your self-report only nudges it), and COMPUTES the overall score and verdict from your 10 bands via published weights and non-compensatory gates — so put your effort into banding the 10 criteria honestly and distinctly, NOT into tuning headline numbers. Add an evidence-based "summary" that answers WHY this idea lands where it does — 2 short paragraphs, ~80–120 words total: (1) what the founder can realistically expect (obtainable revenue vs their goal) and where the score sits for that goal, (2) the 1–2 criteria / forces that set the band (name them) and the single lever that would move the verdict. No throat-clearing; lead with the expectation.
 - "pre_mortem": the 3-5 failure-cause bullets described above (each ONE sentence, specific to THIS idea, naming the criterion it maps to).
 - "next_test": the KILL-TEST — the deliverable is a decision plus the cheapest way to change it, and this block is that way (it renders above the score). { riskiest_assumption (the ONE load-bearing belief the EVIDENCE CORPUS does NOT already prove — never something the corpus settles — naming the criteria it underpins, e.g. "brokers will pay for this, not just complain — underpins Willingness to Pay and Demand Strength"), cheapest_test (a concrete test runnable in ≤1 WEEK for ≤$100 that MUST name its channel from the corpus's own communities${
       ctx.corpusCommunities?.filter(Boolean).length

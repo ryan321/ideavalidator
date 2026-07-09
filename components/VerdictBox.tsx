@@ -9,7 +9,8 @@
 // run-to-run noise renders as a translucent halo around the score's position —
 // the gauge itself admits the measurement's uncertainty.
 
-function ScoreRing({
+/** Exported so DecisionCard can reuse the same honest gauge (ticks + ±SD halo). */
+export function ScoreRing({
   score,
   sd,
   color,

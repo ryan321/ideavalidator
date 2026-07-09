@@ -70,7 +70,7 @@ export default async function PrintReportPage({
             evidence={getEvidence(version.id) ?? null}
             print
           />
-          <SourcesList sources={artifact!.sources} />
+          <SourcesList sources={artifact!.sources} defaultOpen />
         </>
       ) : (
         <p className="text-sm text-muted">
