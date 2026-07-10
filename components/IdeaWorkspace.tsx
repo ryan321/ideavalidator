@@ -61,7 +61,7 @@ class ArtifactBoundary extends React.Component<
           {this.props.onRegenerate && (
             <button
               onClick={this.props.onRegenerate}
-              className="mt-3 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white"
+              className="mt-3 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
             >
               Regenerate
             </button>
@@ -83,7 +83,7 @@ function StaleNotice({ onRegenerate }: { onRegenerate?: () => void }) {
       {onRegenerate && (
         <button
           onClick={onRegenerate}
-          className="mt-3 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white"
+          className="mt-3 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
         >
           Regenerate
         </button>
@@ -294,7 +294,7 @@ function DropMenu({
         ref={menuRef}
         role="menu"
         style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 80 }}
-        className="overflow-hidden rounded-lg border border-border bg-panel shadow-xl shadow-black/40"
+        className="overflow-hidden rounded-xl border border-border bg-panel shadow-2xl shadow-[#1a1612]/12"
       >
         {items.map((it, i) => (
           <button
@@ -327,7 +327,7 @@ function DropMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition disabled:opacity-50 ${toneCls}`}
+        className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition disabled:opacity-50 ${toneCls}`}
       >
         {trigger}
         {caret && <span className={`text-[10px] transition ${open ? "rotate-180" : ""}`}>▾</span>}
@@ -1646,9 +1646,16 @@ export default function IdeaWorkspace({
   return (
     <div>
       <div className="no-print">
-        <div className="mb-3 flex flex-wrap items-baseline gap-3">
-          <h1 className="text-lg font-semibold">{stage.label}</h1>
-          <span className="text-sm text-muted">{stage.blurb}</span>
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-accent2">
+              Case file
+            </p>
+            <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+              {stage.label}
+            </h1>
+            <p className="mt-1 max-w-xl text-sm text-muted">{stage.blurb}</p>
+          </div>
         </div>
 
         <div className="mb-4">
@@ -1842,10 +1849,10 @@ export default function IdeaWorkspace({
                   type="button"
                   disabled={anyBusy}
                   onClick={() => (chatting ? setChatting(false) : openChat())}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition disabled:opacity-50 ${
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition disabled:opacity-50 ${
                     chatting
-                      ? "border-accent2/50 bg-accent2/10 text-accent2"
-                      : "border-border text-muted hover:text-fg"
+                      ? "border-accent2/50 bg-accent2/15 text-accent2"
+                      : "border-border text-muted hover:border-accent/30 hover:text-fg"
                   }`}
                   title="Conversational Q&A about this report — does not create a version or re-score"
                 >
@@ -1860,10 +1867,10 @@ export default function IdeaWorkspace({
                   onClick={() =>
                     composerMode ? closeComposer() : openComposer("write")
                   }
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition disabled:opacity-50 ${
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition disabled:opacity-50 ${
                     composerMode
-                      ? "border-accent/50 bg-accent/10 text-accent"
-                      : "border-border text-muted hover:text-fg"
+                      ? "border-accent/50 bg-accent/15 text-accent2"
+                      : "border-border text-muted hover:border-accent/30 hover:text-fg"
                   }`}
                   title="Create a new version — edit, sharpen, add context, or run advanced modes"
                 >
@@ -1947,7 +1954,7 @@ export default function IdeaWorkspace({
                     setGoalDetailDraft={setGoalDetailDraft}
                   />
                   <div className="mt-1.5 flex items-center gap-2">
-                    <button onClick={saveGoal} className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-white">
+                    <button onClick={saveGoal} className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-on-accent">
                       Save
                     </button>
                     <button
@@ -1963,8 +1970,8 @@ export default function IdeaWorkspace({
           />
         ) : (
           /* not yet validated — idea + ONE path (auto-start usually already running) */
-          <div className="mb-5 rounded-xl border border-border bg-panel/50 p-4">
-            <h1 className="text-base font-semibold">{idea.title}</h1>
+          <div className="folio mb-5 p-5">
+            <h1 className="font-display text-lg font-bold tracking-tight">{idea.title}</h1>
             <p className="mt-1 text-sm text-muted line-clamp-3">{activeVersion.statement}</p>
             {busy.has(bk(activeVersionId, "validation")) ? (
               <p className="mt-3 font-mono text-xs uppercase tracking-wide text-accent2">
@@ -1974,7 +1981,7 @@ export default function IdeaWorkspace({
               <button
                 onClick={() => runValidate()}
                 disabled={anyBusy || locked}
-                className="mt-3 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="mt-3 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-on-accent disabled:opacity-50"
               >
                 {locked ? "Unlock to validate →" : "Validate this idea →"}
               </button>
@@ -2180,7 +2187,7 @@ export default function IdeaWorkspace({
                       <button
                         onClick={runWedgeTournament}
                         disabled={wedgeSelected.size === 0 || anyBusy}
-                        className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                        className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-50"
                       >
                         Run tournament ({wedgeSelected.size} wedge{wedgeSelected.size === 1 ? "" : "s"})
                       </button>
@@ -2238,7 +2245,7 @@ export default function IdeaWorkspace({
                           {!r.error && (
                             <button
                               onClick={() => adoptWedge(r.versionId)}
-                              className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white"
+                              className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-on-accent"
                             >
                               Adopt (archive the rest)
                             </button>
@@ -2286,10 +2293,10 @@ export default function IdeaWorkspace({
 
         {/* Ask — Q&A only, never creates a version */}
         {chatting && (
-          <div className="mb-5 rounded-xl border border-accent2/40 bg-accent2/5 p-4">
+          <div className="folio mb-5 border-accent2/30 p-5">
             <div className="mb-1 flex items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="text-sm font-semibold text-accent2">Ask about this analysis</div>
+                <div className="font-display text-base font-bold text-accent2">Ask about this analysis</div>
                 <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent2">
                   no rescore
                 </span>
@@ -2334,7 +2341,7 @@ export default function IdeaWorkspace({
                   <div
                     className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-left text-sm leading-relaxed ${
                       m.role === "user"
-                        ? "whitespace-pre-wrap bg-accent text-white"
+                        ? "whitespace-pre-wrap bg-accent text-on-accent"
                         : "bg-panel2 text-fg/90"
                     }`}
                   >
@@ -2386,7 +2393,7 @@ export default function IdeaWorkspace({
               <button
                 onClick={sendQuestion}
                 disabled={chatLoading || !chatInput.trim()}
-                className="shrink-0 rounded-lg bg-accent2 px-4 py-2 text-sm font-medium text-bg disabled:opacity-50"
+                className="shrink-0 rounded-lg bg-accent2 px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-50"
               >
                 Send
               </button>
@@ -2398,11 +2405,11 @@ export default function IdeaWorkspace({
         {composerMode && (
           <div
             ref={composerRef}
-            className="mb-5 scroll-mt-4 rounded-xl border border-accent/40 bg-accent/5 p-4"
+            className="folio mb-5 scroll-mt-4 border-accent/35 p-5"
           >
             <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="text-sm font-semibold text-accent">New version</div>
+                <div className="font-display text-base font-bold text-accent2">New version</div>
                 <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent">
                   creates v{versions.length + 1}
                 </span>
@@ -2470,7 +2477,7 @@ export default function IdeaWorkspace({
                   <button
                     onClick={() => saveManual(true)}
                     disabled={anyBusy || draft.trim().length < 8}
-                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-50"
                   >
                     Create v{versions.length + 1} &amp; validate
                   </button>
@@ -2530,7 +2537,7 @@ export default function IdeaWorkspace({
                       <button
                         onClick={acceptProposal}
                         disabled={anyBusy}
-                        className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                        className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-50"
                       >
                         Create v{versions.length + 1} &amp; validate
                       </button>
@@ -2552,7 +2559,7 @@ export default function IdeaWorkspace({
                     <button
                       onClick={() => void runSuggest()}
                       disabled={anyBusy}
-                      className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                      className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-50"
                     >
                       Draft a sharper version
                     </button>
@@ -2610,7 +2617,7 @@ export default function IdeaWorkspace({
                   <button
                     onClick={respondToValidator}
                     disabled={anyBusy || responseDraft.trim().length < 4}
-                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-50"
                   >
                     Create v{versions.length + 1} &amp; validate
                   </button>
@@ -2679,7 +2686,7 @@ export default function IdeaWorkspace({
                 <input type="number" value={maxRounds} onChange={(e) => setMaxRounds(+e.target.value)} disabled={iterating} className="w-14 rounded-md border border-border bg-panel2 px-2 py-0.5 text-right font-mono" />
               </label>
               {!iterating && (
-                <button onClick={autoIterate} disabled={anyBusy} className="rounded-lg bg-accent px-3 py-1 text-sm font-medium text-white disabled:opacity-50">
+                <button onClick={autoIterate} disabled={anyBusy} className="rounded-lg bg-accent px-3 py-1 text-sm font-medium text-on-accent disabled:opacity-50">
                   Run
                 </button>
               )}
@@ -2699,7 +2706,7 @@ export default function IdeaWorkspace({
                     Best is <b className="font-mono">v{iterBest.n}</b> at {iterBest.score}/100. Clear the
                     intermediate tries?
                   </span>
-                  <button onClick={cleanupVersions} className="ml-auto rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white">
+                  <button onClick={cleanupVersions} className="ml-auto rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-on-accent">
                     Keep best, remove the rest
                   </button>
                   <button onClick={() => setIterBest(null)} className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-panel2">
@@ -2737,7 +2744,7 @@ export default function IdeaWorkspace({
                   </div>
                   <button
                     onClick={startCheckout}
-                    className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                    className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:opacity-90"
                   >
                     Unlock for ${(billing!.priceCents / 100).toFixed(0)} →
                   </button>
@@ -2802,9 +2809,9 @@ export default function IdeaWorkspace({
 
             {/* edges to test — derived from the verdict */}
             {activeArtifacts.validation && activeAlphas.length > 0 && (
-              <div className="mt-10 rounded-xl border border-accent/30 bg-accent/5 p-4">
+              <div className="folio mt-10 border-accent/30 p-5">
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-accent">✨ Possible alpha — test a different edge</div>
+                  <div className="font-display text-base font-bold text-accent2">Possible alpha — test a different edge</div>
                   <button
                     onClick={exploreWedges}
                     disabled={anyBusy}
@@ -2849,7 +2856,7 @@ export default function IdeaWorkspace({
                       <button
                         onClick={() => revalidateWithAlpha(a.alpha, a.rationale)}
                         disabled={anyBusy}
-                        className="mt-2 self-start rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                        className="mt-2 self-start rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-on-accent disabled:opacity-50"
                       >
                         Re-validate with this alpha →
                       </button>

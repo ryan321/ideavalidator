@@ -22,17 +22,14 @@ export function NextTest({
   const showPivotal = !!pivotal && verdict === "MAYBE";
 
   return (
-    <section
-      className="rounded-2xl border border-accent2/40 bg-accent2/[0.06] p-5 sm:p-6"
-      style={print ? undefined : { boxShadow: "0 0 0 1px color-mix(in srgb, var(--color-accent2) 8%, transparent)" }}
-    >
-      <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-accent2">
+    <section className="folio border-accent2/35 p-5 sm:p-6">
+      <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-accent2">
         <span aria-hidden>◎</span>
         The one thing to test next
       </div>
 
       {/* the riskiest assumption — the belief the corpus does NOT already settle */}
-      <p className="mt-3 text-base font-semibold leading-snug text-fg sm:text-[17px]">
+      <p className="mt-3 font-display text-lg font-bold leading-snug tracking-tight text-fg sm:text-xl">
         {next.riskiest_assumption}
       </p>
 

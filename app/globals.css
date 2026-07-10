@@ -1,49 +1,183 @@
 @import "tailwindcss";
 
+/* -------------------------------------------------------------------------- */
+/* Default tokens = Paper (committee ledger). Other packs override via         */
+/* html[data-style="…"]. Tailwind @theme maps these into utilities.            */
+/* -------------------------------------------------------------------------- */
+
 @theme {
-  /* Graphite chassis — cool, near-black, a faint blue undertone so the ink accent
-     feels integrated rather than pasted on. */
+  --color-bg: #f3efe6;
+  --color-panel: #fffcf6;
+  --color-panel2: #ebe4d6;
+  --color-border: #d4cbb8;
+  --color-fg: #1a1612;
+  --color-muted: #6b6358;
+  --color-accent: #8b6914;
+  --color-accent2: #6f5410;
+  --color-on-accent: #fffcf6;
+  --color-good: #1a7f4b;
+  --color-warn: #b8720e;
+  --color-bad: #c23b2e;
+  --color-header: #fffcf6e6;
+
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+
+  --radius-card: 1.25rem;
+  --radius-control: 0.65rem;
+}
+
+/* ---- Style packs ------------------------------------------------------------ */
+
+html[data-style="paper"],
+html:not([data-style]) {
+  color-scheme: light;
+  --color-bg: #f3efe6;
+  --color-panel: #fffcf6;
+  --color-panel2: #ebe4d6;
+  --color-border: #d4cbb8;
+  --color-fg: #1a1612;
+  --color-muted: #6b6358;
+  --color-accent: #8b6914;
+  --color-accent2: #6f5410;
+  --color-on-accent: #fffcf6;
+  --color-good: #1a7f4b;
+  --color-warn: #b8720e;
+  --color-bad: #c23b2e;
+  --color-header: #fffcf6e6;
+  --desk-glow: rgba(139, 105, 20, 0.07);
+  --desk-glow-2: rgba(194, 59, 46, 0.03);
+  --folio-top: #fffcf6;
+  --folio-bot: #faf6ee;
+  --folio-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 1px 2px rgba(26, 22, 18, 0.04),
+    0 12px 28px -16px rgba(26, 22, 18, 0.14);
+  --stamp-fill: #fffcf6;
+  --noise-opacity: 0.035;
+}
+
+html[data-style="ink"] {
+  color-scheme: dark;
+  --color-bg: #100e0c;
+  --color-panel: #1a1612;
+  --color-panel2: #241f1a;
+  --color-border: #3a322a;
+  --color-fg: #f3ebe0;
+  --color-muted: #9c9080;
+  --color-accent: #d4a017;
+  --color-accent2: #e8c547;
+  --color-on-accent: #1a1612;
+  --color-good: #3dba7a;
+  --color-warn: #e09a2e;
+  --color-bad: #e05a4a;
+  --color-header: #100e0ce6;
+  --desk-glow: rgba(212, 160, 23, 0.09);
+  --desk-glow-2: rgba(224, 90, 74, 0.04);
+  --folio-top: color-mix(in srgb, #241f1a 80%, #3a2a18);
+  --folio-bot: #1a1612;
+  --folio-shadow: 0 1px 0 color-mix(in srgb, #d4a017 8%, transparent),
+    0 18px 40px -24px rgba(0, 0, 0, 0.65);
+  --stamp-fill: #1a1612;
+  --noise-opacity: 0.04;
+}
+
+html[data-style="slate"] {
+  color-scheme: dark;
   --color-bg: #0a0c11;
   --color-panel: #13161e;
   --color-panel2: #1b1f29;
   --color-border: #272d3a;
   --color-fg: #e9edf4;
   --color-muted: #8b93a3;
-  /* One brand hue — blueprint-steel blue, the instrument's "ink". It deliberately
-     sits OFF the verdict arc (red→amber→green) so it never competes with a verdict.
-     accent = UI/controls/structure; accent2 = the same ink lit up, for live readouts. */
   --color-accent: #5a8fcf;
   --color-accent2: #72b2ec;
-  /* Signal lights — the ONLY saturated colour that carries meaning: the verdict. */
+  --color-on-accent: #0a0c11;
   --color-good: #33cb8c;
   --color-warn: #f2b13c;
   --color-bad: #f06b6b;
-
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-jb-mono), ui-monospace, monospace;
+  --color-header: #0a0c11e6;
+  --desk-glow: rgba(90, 143, 207, 0.08);
+  --desk-glow-2: rgba(114, 178, 236, 0.03);
+  --folio-top: #1b1f29;
+  --folio-bot: #13161e;
+  --folio-shadow: 0 1px 0 rgba(114, 178, 236, 0.06), 0 18px 40px -24px rgba(0, 0, 0, 0.7);
+  --stamp-fill: #13161e;
+  --noise-opacity: 0.03;
 }
 
+html[data-style="signal"] {
+  color-scheme: light;
+  --color-bg: #f7f7f5;
+  --color-panel: #ffffff;
+  --color-panel2: #efefeb;
+  --color-border: #d4d4cc;
+  --color-fg: #121212;
+  --color-muted: #5c5c56;
+  --color-accent: #c43c2c;
+  --color-accent2: #9e2f22;
+  --color-on-accent: #ffffff;
+  --color-good: #0d7a4f;
+  --color-warn: #b86e00;
+  --color-bad: #c43c2c;
+  --color-header: #fffffff2;
+  --desk-glow: rgba(196, 60, 44, 0.05);
+  --desk-glow-2: transparent;
+  --folio-top: #ffffff;
+  --folio-bot: #fafaf8;
+  --folio-shadow: 0 1px 0 #fff inset, 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 24px -14px rgba(0, 0, 0, 0.12);
+  --stamp-fill: #ffffff;
+  --noise-opacity: 0.02;
+  --radius-card: 0.35rem;
+}
+
+html[data-style="grove"] {
+  color-scheme: light;
+  --color-bg: #eef2eb;
+  --color-panel: #f7faf5;
+  --color-panel2: #e2e9dc;
+  --color-border: #c5d0bc;
+  --color-fg: #1a2418;
+  --color-muted: #5a6656;
+  --color-accent: #3d6b4f;
+  --color-accent2: #2a5a3a;
+  --color-on-accent: #f7faf5;
+  --color-good: #2a7a48;
+  --color-warn: #b07a1a;
+  --color-bad: #b8433a;
+  --color-header: #f7faf5e6;
+  --desk-glow: rgba(61, 107, 79, 0.08);
+  --desk-glow-2: rgba(42, 90, 58, 0.04);
+  --folio-top: #f7faf5;
+  --folio-bot: #f0f5ec;
+  --folio-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 1px 2px rgba(26, 36, 24, 0.04),
+    0 12px 28px -16px rgba(26, 36, 24, 0.12);
+  --stamp-fill: #f7faf5;
+  --noise-opacity: 0.03;
+}
+
+/* ---- Base ------------------------------------------------------------------- */
+
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
   background-color: var(--color-bg);
-  /* faint blueprint dot-grid — the "planning surface" texture */
-  background-image: radial-gradient(circle at 1px 1px, rgba(180, 200, 255, 0.03) 1px, transparent 0);
-  background-size: 24px 24px;
-  background-attachment: fixed;
   color: var(--color-fg);
   font-family: var(--font-sans);
+  background-image:
+    radial-gradient(ellipse 100% 55% at 50% -20%, var(--desk-glow, transparent), transparent 55%),
+    radial-gradient(ellipse 50% 35% at 100% 100%, var(--desk-glow-2, transparent), transparent 50%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-attachment: fixed;
 }
 
-/* headings + the journey carry the display face */
 h1,
 h2,
 h3 {
   font-family: var(--font-display);
-  letter-spacing: -0.012em;
+  letter-spacing: -0.03em;
+  font-weight: 700;
 }
 
 * {
@@ -51,7 +185,6 @@ h3 {
   scrollbar-color: var(--color-border) transparent;
 }
 
-/* respect users who ask for less motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -63,13 +196,89 @@ h3 {
   }
 }
 
-/* keyboard focus stays clearly visible on the dark theme */
 :focus-visible {
-  outline: 2px solid var(--color-accent2);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-/* print: hide interactive chrome, reveal the stacked full-report view for PDF export */
+/* Signature: rubber-stamp verdict */
+.verdict-stamp {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  border: 3px solid currentColor;
+  border-radius: 0.35rem;
+  padding: 0.35em 0.5em 0.28em;
+  transform: rotate(-3.5deg);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, currentColor 20%, transparent),
+    2px 3px 0 color-mix(in srgb, currentColor 12%, transparent);
+  background: color-mix(in srgb, currentColor 7%, var(--stamp-fill, var(--color-panel)));
+}
+
+html[data-style="signal"] .verdict-stamp {
+  border-radius: 0.15rem;
+  transform: rotate(-2deg);
+  letter-spacing: 0.08em;
+}
+
+/* Folio card */
+.folio {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-border);
+  background: linear-gradient(180deg, var(--folio-top, var(--color-panel)) 0%, var(--folio-bot, var(--color-panel)) 100%);
+  box-shadow: var(--folio-shadow);
+}
+
+html[data-style="signal"] .folio {
+  border-radius: 0.35rem;
+  border-width: 1.5px;
+  border-color: var(--color-fg);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--color-fg) 12%, transparent);
+}
+
+.folio-inset {
+  border-radius: calc(var(--radius-card) - 4px);
+  border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
+  background: color-mix(in srgb, var(--color-bg) 70%, var(--color-panel));
+}
+
+html[data-style="signal"] .folio-inset {
+  border-radius: 0.2rem;
+}
+
+.rule-brass {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-accent) 50%, transparent),
+    transparent
+  );
+}
+
+@keyframes folio-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.folio-enter {
+  animation: folio-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Utility: text/icon on solid accent fills */
+.text-on-accent {
+  color: var(--color-on-accent);
+}
+
 .print-only {
   display: none;
 }
@@ -77,24 +286,20 @@ h3 {
   margin: 14mm;
 }
 @media print {
-  /* Remap the dark-theme tokens to ink-on-paper — the whole UI is built on these
-     CSS vars, so overriding them here re-colours every text-fg/text-muted/bg-panel/
-     border-border utility for the PDF in one place (the old `body{color:#000}` left
-     all the muted grays washed out on white). */
-  :root {
-    /* !important so these win over Tailwind v4's @theme layer, which otherwise keeps
-       the dark-theme values and washes every muted/fg text out on white paper. */
+  :root,
+  html[data-style] {
     --color-bg: #ffffff !important;
     --color-panel: #ffffff !important;
-    --color-panel2: #f3f4f7 !important;
-    --color-border: #d5d9e0 !important;
-    --color-fg: #14171d !important;
-    --color-muted: #545c69 !important;
-    --color-accent: #2f6bb0 !important;
-    --color-accent2: #2f6bb0 !important;
-    --color-good: #1f9e69 !important;
-    --color-warn: #b9821c !important;
-    --color-bad: #d63f3f !important;
+    --color-panel2: #f5f1ea !important;
+    --color-border: #d0c8b8 !important;
+    --color-fg: #1a1612 !important;
+    --color-muted: #5c5348 !important;
+    --color-accent: #6f5410 !important;
+    --color-accent2: #6f5410 !important;
+    --color-on-accent: #ffffff !important;
+    --color-good: #1a7f4b !important;
+    --color-warn: #b8720e !important;
+    --color-bad: #c23b2e !important;
   }
   html {
     color-scheme: light;
@@ -110,9 +315,14 @@ h3 {
   .print-only {
     display: block;
   }
-  /* Only keep SMALL atomic blocks intact across a page break — a blanket avoid on
-     every card pushed tall blocks (memos, the scorecard) to a fresh page and left
-     the prior one half-empty. Big containers may break; small ones stay whole. */
+  .verdict-stamp {
+    transform: none;
+    box-shadow: none;
+  }
+  .folio {
+    box-shadow: none !important;
+    border-color: #ccc !important;
+  }
   tr,
   li,
   svg,
@@ -130,8 +340,6 @@ h3 {
   .print-section:first-of-type {
     break-before: auto;
   }
-  /* keep meaningful fills/tints (risk heatmap, chart fills, legend swatches) in the
-     PDF — scoped so card/panel backgrounds still drop out to white */
   .keep-color,
   .keep-color * {
     -webkit-print-color-adjust: exact !important;

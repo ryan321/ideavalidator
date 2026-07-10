@@ -34,8 +34,11 @@ export default function GenerationProgress({
   }, [grounded]);
 
   return (
-    <div className="rounded-xl border border-border bg-panel p-6">
-      <div className="text-sm font-medium">Generating {label.toLowerCase()}…</div>
+    <div className="folio p-6">
+      <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent2">In session</div>
+      <div className="mt-1 font-display text-lg font-bold tracking-tight">
+        Assembling {label.toLowerCase()}…
+      </div>
       <ul className="mt-4 space-y-2.5">
         {steps.map((s, i) => {
           const state = i < idx ? "done" : i === idx ? "active" : "todo";

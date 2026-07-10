@@ -8,9 +8,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div
-      className={`rounded-xl border border-border bg-panel p-5 ${className}`}
-    >
+    <div className={`folio p-5 ${className}`}>
       {children}
     </div>
   );
@@ -111,10 +109,18 @@ export function SectionHead({
 }) {
   return (
     <div id={id} className="mb-5 flex scroll-mt-20 items-center gap-3">
-      {n && <span className="font-mono text-sm font-semibold tabular-nums text-accent2">{n}</span>}
-      <h2 className="font-display text-2xl font-semibold uppercase tracking-[0.05em] text-fg">{title}</h2>
-      <div className="h-px flex-1 bg-border" />
-      {hint && <span className="hidden font-mono text-[11px] uppercase tracking-[0.12em] text-muted sm:block">{hint}</span>}
+      {n && (
+        <span className="font-mono text-xs font-semibold tabular-nums text-accent2">
+          {n}
+        </span>
+      )}
+      <h2 className="font-display text-xl font-bold tracking-tight text-fg sm:text-2xl">{title}</h2>
+      <div className="rule-brass hidden flex-1 sm:block" />
+      {hint && (
+        <span className="hidden font-mono text-[10px] uppercase tracking-[0.14em] text-muted sm:block">
+          {hint}
+        </span>
+      )}
       {right}
     </div>
   );
@@ -151,7 +157,9 @@ export function Panel({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={`rounded-lg border border-border/70 bg-panel/40 p-4 ${className}`}>{children}</div>;
+  return (
+    <div className={`folio-inset p-4 ${className}`}>{children}</div>
+  );
 }
 
 // A borderless metric cell for hairline (gap-px) grids — the instrument-panel look.

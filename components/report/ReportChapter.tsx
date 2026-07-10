@@ -29,11 +29,11 @@ export function ReportChapter({
     return (
       <section id={id} className="scroll-mt-20">
         <div className="mb-5 flex scroll-mt-20 items-center gap-3">
-          {n && <span className="font-mono text-sm font-semibold tabular-nums text-accent2">{n}</span>}
-          <h2 className="font-display text-2xl font-semibold uppercase tracking-[0.05em] text-fg">{title}</h2>
-          <div className="h-px flex-1 bg-border" />
+          {n && <span className="font-mono text-xs font-semibold tabular-nums text-accent2">{n}</span>}
+          <h2 className="font-display text-xl font-bold tracking-tight text-fg sm:text-2xl">{title}</h2>
+          <div className="rule-brass hidden flex-1 sm:block" />
           {hint && (
-            <span className="hidden font-mono text-[11px] uppercase tracking-[0.12em] text-muted sm:block">
+            <span className="hidden font-mono text-[10px] uppercase tracking-[0.14em] text-muted sm:block">
               {hint}
             </span>
           )}
@@ -46,7 +46,7 @@ export function ReportChapter({
   return (
     <section
       id={id}
-      className="scroll-mt-20 overflow-hidden rounded-xl border border-border bg-panel/50 shadow-[inset_0_0_0_1px_transparent] transition hover:border-accent/35 hover:bg-panel2/40"
+      className="folio scroll-mt-20 overflow-hidden transition hover:border-accent/40"
     >
       <details className="group" open={defaultOpen}>
         <summary

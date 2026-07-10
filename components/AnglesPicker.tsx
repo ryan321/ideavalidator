@@ -53,11 +53,11 @@ export function AnglesPicker({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-lg border border-border bg-panel/60 px-2.5 py-1.5 text-sm transition hover:bg-panel2"
+        className="flex items-center gap-2 rounded-full border border-border bg-panel/80 px-3 py-1.5 text-sm transition hover:border-accent/35 hover:bg-panel2"
         title="Switch angle / version"
       >
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
-          Angle
+          Exhibit
         </span>
         <span className="font-mono font-semibold">v{active.n}</span>
         {active.score != null && (
@@ -75,10 +75,10 @@ export function AnglesPicker({
         <button
           type="button"
           onClick={onCompareVariants}
-          className={`rounded-lg px-3.5 py-1.5 text-sm font-semibold transition ${
+          className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
             comparingVariants
-              ? "bg-accent2 text-bg hover:opacity-90"
-              : "bg-accent text-white hover:opacity-90"
+              ? "bg-accent2 text-on-accent hover:opacity-90"
+              : "bg-accent text-on-accent hover:opacity-90"
           }`}
           title="Score axis, statements, and per-criterion deltas across angles"
           aria-pressed={comparingVariants}
@@ -97,7 +97,7 @@ export function AnglesPicker({
       )}
 
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-1 max-h-72 w-80 overflow-auto rounded-lg border border-border bg-panel shadow-xl shadow-black/40">
+        <div className="absolute left-0 top-full z-30 mt-1 max-h-72 w-80 overflow-auto rounded-xl border border-border bg-panel shadow-xl shadow-[#1a1612]/12">
           {versions.map((v) => {
             const isActive = v.id === activeId;
             const isBest = v.score != null && v.score === bestScore && versions.length > 1;

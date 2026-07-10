@@ -125,75 +125,78 @@ export function DecisionCard({
   const summaryLong = summary.length > 280 || summary.split(/\n+/).length > 2;
 
   return (
-    <section
-      className="mb-5 overflow-hidden rounded-2xl border bg-gradient-to-b from-panel2 to-panel"
-      style={{ borderColor: `color-mix(in srgb, ${color} 32%, var(--color-border))` }}
-      aria-label="Decision"
-    >
-      {/* 1 · Score — ring leads; verdict + revenue sit beside it */}
-      <div className="relative grid gap-4 border-b border-border/70 px-4 py-4 sm:grid-cols-[auto_1fr] sm:items-center sm:px-5 sm:py-5">
+    <section className="folio folio-enter mb-6 overflow-hidden" aria-label="Decision">
+      {/* 1 · Stamp + ring + revenue — the memo masthead */}
+      <div
+        className="relative grid gap-5 border-b border-border/70 px-5 py-6 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:px-7 sm:py-7"
+        style={{
+          background: `linear-gradient(135deg, color-mix(in srgb, ${color} 10%, transparent), transparent 55%)`,
+        }}
+      >
         {variantCount > 1 && versionN != null && (
           <span
-            className="absolute right-3 top-3 z-10 rounded-lg border border-border bg-panel2 px-2.5 py-1 font-mono text-base font-bold tabular-nums text-fg shadow-sm sm:right-4 sm:top-4 sm:text-lg"
+            className="absolute right-4 top-4 z-10 rounded-full border border-border bg-panel/90 px-2.5 py-1 font-mono text-xs font-semibold tabular-nums text-fg sm:right-6 sm:top-5"
             title={`Variant ${versionN} of ${variantCount}`}
           >
             v{versionN}
           </span>
         )}
-        <ScoreRing
-          score={score}
-          sd={sd}
-          color={color}
-          bands={bands}
-          insufficient={insufficient}
-        />
-        <div className="min-w-0 text-center sm:pr-14 sm:text-left">
-          <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 sm:justify-start">
-            <span
-              className={`font-display font-bold leading-none tracking-tight ${
-                insufficient ? "text-2xl" : "text-3xl sm:text-4xl"
-              }`}
-              style={{ color }}
-            >
-              {d.verdict}
-            </span>
+        <div className="flex flex-col items-center gap-3 sm:items-start">
+          <span className="verdict-stamp text-lg sm:text-xl" style={{ color }}>
+            {insufficient ? "INSUFFICIENT" : d.verdict}
+          </span>
+          <ScoreRing
+            score={score}
+            sd={sd}
+            color={color}
+            bands={bands}
+            insufficient={insufficient}
+          />
+        </div>
+        <div className="min-w-0 text-center sm:pr-10 sm:text-left">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted">Committee read</p>
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
+            {dist && (
+              <span className="font-mono text-sm font-medium tabular-nums" style={{ color }}>
+                {dist}
+              </span>
+            )}
             {typeof d.confidence === "number" && (
               <span className="font-mono text-[11px] text-muted">{d.confidence}% conf.</span>
             )}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[11px] text-muted sm:justify-start">
-            {dist && <span style={{ color }}>{dist}</span>}
             {borderline && (
-              <span className="rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 text-warn">
-                borderline · ±{sd} of {borderline}
+              <span className="rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 font-mono text-[10px] text-warn">
+                borderline · ±{sd}
               </span>
             )}
           </div>
-          {revenue && (
-            <div className="mt-3">
-              <div className="font-mono text-xl font-bold leading-tight text-accent2 sm:text-2xl">
-                {revenue}
-              </div>
-              <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
-                obtainable / yr
-              </div>
-            </div>
+          {summary && (
+            <p
+              className={`mt-3 max-w-2xl text-[15px] leading-relaxed text-fg/90 ${
+                whyOpen || !summaryLong ? "whitespace-pre-wrap" : "line-clamp-2"
+              }`}
+            >
+              {summary}
+            </p>
           )}
         </div>
+        {revenue && (
+          <div className="text-center sm:text-right">
+            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Obtainable / yr</div>
+            <div className="mt-1 font-display text-2xl font-extrabold leading-none tracking-tight text-accent2 sm:text-3xl">
+              {revenue}
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="space-y-4 px-4 py-4 sm:px-5">
-        {/* 2 · Why this score — second thing the founder cares about, not a footnote */}
+      <div className="space-y-5 px-5 py-5 sm:px-7">
+        {/* 2 · Drags + rationale */}
         <div>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
               Why this score
             </div>
-            {dist && (
-              <div className="font-mono text-[11px] tabular-nums" style={{ color }}>
-                {dist}
-              </div>
-            )}
           </div>
           {(drags.length > 0 || vitamin || painkiller || pivotal) && (
             <div className="mb-2.5 flex flex-wrap gap-1.5">
@@ -230,17 +233,8 @@ export function DecisionCard({
               )}
             </div>
           )}
-          {summary && (
-            <p
-              className={`max-w-3xl text-[15px] leading-relaxed text-fg/90 ${
-                whyOpen || !summaryLong ? "whitespace-pre-wrap" : "line-clamp-3"
-              }`}
-            >
-              {summary}
-            </p>
-          )}
           {(whyOpen || !summaryLong) && goalNote && goalNote !== summary && (
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
+            <p className="max-w-3xl text-sm leading-relaxed text-muted">
               <span className="font-medium text-fg/70">Goal fit: </span>
               {goalNote}
             </p>
@@ -256,11 +250,11 @@ export function DecisionCard({
           )}
         </div>
 
-        {/* 3 · Next to prove + primary CTA */}
+        {/* 3 · Next to prove */}
         {(openQ || testStatus) && (
-          <div className="rounded-lg border border-border/80 bg-bg/40 px-3.5 py-3">
+          <div className="folio-inset px-4 py-3.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent2">
+              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent2">
                 Next to prove
               </div>
               <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide">
@@ -269,7 +263,7 @@ export function DecisionCard({
               </div>
             </div>
             {openQ && (
-              <p className="mt-1.5 text-sm font-medium leading-snug text-fg/90">{openQ}</p>
+              <p className="mt-2 text-sm font-medium leading-snug text-fg/90">{openQ}</p>
             )}
           </div>
         )}
@@ -280,11 +274,11 @@ export function DecisionCard({
               {...(primary.href
                 ? { href: primary.href }
                 : { type: "button" as const, onClick: primary.onClick, disabled: primaryDisabled })}
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-50"
               title={primaryHint ?? undefined}
             >
               {primaryBusy && (
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent" />
               )}
               {primary.label}
               {!primaryBusy && <span aria-hidden>→</span>}
@@ -292,12 +286,12 @@ export function DecisionCard({
             {secondary}
           </div>
           {primaryHint && (
-            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-muted">{primaryHint}</p>
+            <p className="mt-2 max-w-2xl text-xs leading-relaxed text-muted">{primaryHint}</p>
           )}
         </div>
 
         {/* Idea — collapsed by default */}
-        <div className="border-t border-border/60 pt-3">
+        <div className="border-t border-border/60 pt-4">
           <button
             type="button"
             onClick={() => setIdeaOpen((o) => !o)}
@@ -308,7 +302,7 @@ export function DecisionCard({
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-                <span>Idea · {versionLabel}</span>
+                <span>Exhibit · {versionLabel}</span>
                 <span className="normal-case tracking-normal text-fg/50">{goalLabel}</span>
               </div>
               {!ideaExpanded && (
@@ -318,11 +312,11 @@ export function DecisionCard({
           </button>
           {ideaExpanded && (
             <div className="mt-2 pl-5">
-              <h2 className="text-sm font-semibold text-fg">{title}</h2>
+              <h2 className="font-display text-sm font-bold text-fg">{title}</h2>
               <p className="mt-1 max-w-3xl whitespace-pre-wrap text-sm leading-relaxed text-muted">
                 {statement}
               </p>
-              {rationale && <p className="mt-1.5 text-xs text-accent">{rationale}</p>}
+              {rationale && <p className="mt-1.5 text-xs text-accent2">{rationale}</p>}
               {goalDetail && (
                 <p className="mt-1 text-xs text-muted">Goal detail: {goalDetail}</p>
               )}
