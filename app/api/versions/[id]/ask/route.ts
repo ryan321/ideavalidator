@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { answerQuestion } from "@/lib/generators/ask";
 import { getMessages } from "@/lib/db";
-import { campaignAccessForVersion } from "@/lib/billing";
+import { campaignAccessForVersion, campaignDenyBody } from "@/lib/billing";
 import { requireVersionOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -24,9 +24,9 @@ export async function POST(
   const { id } = await params;
   const owner = await requireVersionOwner(id);
   if ("response" in owner) return owner.response;
-  // campaign-pass gate — grounded Q&A spends OpenRouter money (inert without billing)
+  // Needs campaign unlocked; does NOT burn a scoring run (inert without billing)
   const access = campaignAccessForVersion(id);
-  if (!access.allowed) return NextResponse.json({ error: access.reason, billing: access }, { status: 402 });
+  if (!access.unlocked) return NextResponse.json(campaignDenyBody(access), { status: 402 });
   const { question } = await req.json();
   if (typeof question !== "string" || question.trim().length < 2) {
     return NextResponse.json({ error: "Ask a question." }, { status: 400 });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { campaignAccessForVersion } from "@/lib/billing";
+import { campaignAccessForVersion, campaignDenyBody } from "@/lib/billing";
 import { requireVersionOwner } from "@/lib/auth";
 import { proposeWedges } from "@/lib/generators/wedges";
 
@@ -16,9 +16,9 @@ export async function POST(
   const { id } = await params;
   const owner = await requireVersionOwner(id);
   if ("response" in owner) return owner.response;
-  // campaign-pass gate (inert while billing is disabled)
+  // Needs unlock only — proposing wedges is cheap; tournament validates count separately
   const access = campaignAccessForVersion(id);
-  if (!access.allowed) return NextResponse.json({ error: access.reason }, { status: 402 });
+  if (!access.unlocked) return NextResponse.json(campaignDenyBody(access), { status: 402 });
   try {
     const proposal = await proposeWedges(id);
     return NextResponse.json(proposal);

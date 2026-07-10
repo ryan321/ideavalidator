@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { GENERATORS, runGenerator } from "@/lib/generators";
 import { getJob, incrementCampaignRuns, getVersion, setJob, type ArtifactKind } from "@/lib/db";
-import { campaignAccessForVersion } from "@/lib/billing";
+import { campaignAccessForVersion, campaignDenyBody } from "@/lib/billing";
 import { requireVersionOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -40,12 +40,11 @@ export async function POST(
   const owner = await requireVersionOwner(versionId);
   if ("response" in owner) return owner.response;
 
-  // Campaign-pass gate: one payment unlocks this idea's whole campaign, up to the
-  // run cap. Inert while billing is disabled (no STRIPE_SECRET_KEY). The cap is counted
-  // AFTER a run succeeds (see countRun) so a failed run never burns a paid slot.
+  // Scoring-run gate: needs unlock + remaining cap. Only validations count toward
+  // the cap (see countRun). Inert while billing is disabled (no STRIPE_SECRET_KEY).
   const access = campaignAccessForVersion(versionId);
-  if (!access.allowed) {
-    return NextResponse.json({ error: access.reason, billing: access }, { status: 402 });
+  if (!access.canScore) {
+    return NextResponse.json(campaignDenyBody(access), { status: 402 });
   }
 
   // Duplicate-run guard: a double-click / second tab / on-mount resume racing a fresh

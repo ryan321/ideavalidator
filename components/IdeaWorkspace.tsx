@@ -389,16 +389,49 @@ export default function IdeaWorkspace({
   const [comparingVariants, setComparingVariants] = useState(false);
 
   // Campaign-pass billing state (null until loaded; enabled=false → no paywall ever).
-  const [billing, setBilling] = useState<{
+  type BillingState = {
     enabled: boolean;
     paid: boolean;
     runsUsed: number;
     runCap: number;
+    remaining?: number;
     priceCents: number;
     allowed: boolean;
+    unlocked?: boolean;
+    canScore?: boolean;
+    code?: string;
     reason?: string;
-  } | null>(null);
+  };
+  const [billing, setBilling] = useState<BillingState | null>(null);
   const locked = !!billing && billing.enabled && !billing.paid;
+  const remaining =
+    billing && billing.enabled && billing.paid
+      ? typeof billing.remaining === "number"
+        ? billing.remaining
+        : Math.max(0, billing.runCap - billing.runsUsed)
+      : null;
+  const exhausted =
+    !!billing &&
+    billing.enabled &&
+    billing.paid &&
+    (billing.canScore === false || (remaining !== null && remaining <= 0));
+  const low =
+    !!billing &&
+    billing.enabled &&
+    billing.paid &&
+    !exhausted &&
+    remaining !== null &&
+    remaining <= 2;
+  /** Block full analyses only — chat / kit / intel stay available when exhausted. */
+  const scoreBlocked = locked || exhausted;
+  const [scoreConfirm, setScoreConfirm] = useState<{
+    title: string;
+    body: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  } | null>(null);
+  /** Post-checkout value confirmation (not an error). */
+  const [campaignNotice, setCampaignNotice] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false); // reveal archived versions in the switcher
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -644,6 +677,60 @@ export default function IdeaWorkspace({
     setChatMessages([]);
   }
 
+  function ingestBilling(payload: { billing?: BillingState }) {
+    if (payload.billing) setBilling(payload.billing);
+  }
+
+  /** Gate full analyses: hard-stop when locked/exhausted; confirm when low on included depth. */
+  function requestScore(
+    action: () => void | Promise<void>,
+    opts?: { runsNeeded?: number }
+  ) {
+    if (locked) {
+      setError("Unlock this idea’s campaign to run a full analysis.");
+      return;
+    }
+    if (exhausted) {
+      setError(
+        billing?.reason ??
+          "You’ve finished the full analyses included in this campaign. Chat and your report stay open."
+      );
+      return;
+    }
+    const needed = opts?.runsNeeded ?? 1;
+    if (
+      billing?.enabled &&
+      billing.paid &&
+      remaining !== null &&
+      remaining <= 2
+    ) {
+      if (needed > remaining) {
+        setError(
+          `This needs ${needed} full analysis${needed === 1 ? "" : "es"}, and ${remaining} remain in this campaign. Try fewer angles, or start a new idea when you’re testing something different.`
+        );
+        return;
+      }
+      const after = remaining - needed;
+      setScoreConfirm({
+        title:
+          needed > 1
+            ? `Run ${needed} full analyses?`
+            : "Run a full analysis?",
+        body:
+          needed > 1
+            ? `This uses ${needed} of the ${remaining} full analyses remaining in your campaign (${after} after). Best after a real change to the idea or evidence — asking questions never uses one.`
+            : `You have ${remaining} full analysis${remaining === 1 ? "" : "es"} remaining in this campaign. Best used after a real change to the idea or evidence — chat stays unlimited.`,
+        confirmLabel: needed > 1 ? `Run ${needed} analyses →` : "Run analysis →",
+        onConfirm: () => {
+          setScoreConfirm(null);
+          void action();
+        },
+      });
+      return;
+    }
+    void action();
+  }
+
   async function generate(
     kind: ArtifactKind,
     versionId: string,
@@ -661,6 +748,7 @@ export default function IdeaWorkspace({
         body: JSON.stringify({ versionId, steer, deep: extra?.deep, audit: extra?.audit }),
       });
       const json = await res.json();
+      ingestBilling(json);
       if (!res.ok) throw new Error(json.error ?? "Generation failed");
       const art = json as Artifact;
       setArtifacts((prev) => ({ ...prev, [versionId]: { ...(prev[versionId] ?? {}), [kind]: art } }));
@@ -677,6 +765,27 @@ export default function IdeaWorkspace({
                 }
               : v
           )
+        );
+        // Optimistic run tally; refreshArtifacts will reconcile from the server.
+        setBilling((b) =>
+          b && b.enabled && b.paid
+            ? {
+                ...b,
+                runsUsed: b.runsUsed + 1,
+                remaining:
+                  typeof b.remaining === "number"
+                    ? Math.max(0, b.remaining - 1)
+                    : Math.max(0, b.runCap - b.runsUsed - 1),
+                canScore:
+                  (typeof b.remaining === "number"
+                    ? b.remaining - 1
+                    : b.runCap - b.runsUsed - 1) > 0,
+                allowed:
+                  (typeof b.remaining === "number"
+                    ? b.remaining - 1
+                    : b.runCap - b.runsUsed - 1) > 0,
+              }
+            : b
         );
       }
       return art;
@@ -808,11 +917,14 @@ export default function IdeaWorkspace({
             )
           : false;
         const paywalled = !!(j.billing?.enabled && !j.billing?.paid);
+        const outOfRuns =
+          !!(j.billing?.enabled && j.billing?.paid && j.billing?.canScore === false);
         if (
           !autoValidateStarted.current &&
           !hasStoredValidation &&
           !validationRunning &&
           !paywalled &&
+          !outOfRuns &&
           activeId
         ) {
           autoValidateStarted.current = true;
@@ -850,7 +962,16 @@ export default function IdeaWorkspace({
         .then(async (r) => {
           const j = await r.json().catch(() => ({}));
           if (j.paid) {
+            if (j.billing) setBilling(j.billing);
             await refreshArtifacts().catch(() => {});
+            const cap =
+              typeof j.billing?.runCap === "number"
+                ? j.billing.runCap
+                : 10;
+            setCampaignNotice(
+              `${cap} full scored reports included on this idea, plus unlimited questions and tools while you work it.`
+            );
+            setError(null);
             cleanUrl(); // unlocked — safe to drop the session id
           } else if (r.status >= 400 && r.status < 500) {
             // definitive client error (bad/foreign session) — surface it, stop retrying
@@ -858,12 +979,16 @@ export default function IdeaWorkspace({
             cleanUrl();
           } else {
             // not-yet-paid or a 5xx/transient — KEEP ?session_id= so a reload retries
-            setError("Payment received — finishing the unlock. Reload this page if it doesn't appear shortly.");
+            setCampaignNotice(
+              "Payment received — finishing unlock. Reload if this doesn’t clear in a moment."
+            );
           }
         })
         .catch(() => {
           // network failure: leave the session id in the URL so a reload retries confirm
-          setError("You paid, but confirmation didn't reach the server. Reload this page to finish unlocking.");
+          setError(
+            "Payment went through, but confirmation didn’t reach us. Reload this page to finish unlocking."
+          );
         });
     } else if (params.get("checkout") === "cancelled") {
       window.history.replaceState({}, "", window.location.pathname);
@@ -878,22 +1003,26 @@ export default function IdeaWorkspace({
   // One button → the single comprehensive analysis (verdict + market + money + plan),
   // run as a detached background job so navigating away can't interrupt it.
   async function runValidate(deep = false) {
-    setError(null);
-    const v = activeVersionId;
-    try {
-      const res = await fetch(`/api/generate/validation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Wave 3: deep mode (bull/bear/reconcile + CoVe + audit, ~3-4× cost) runs as the
-        // same detached background job as a standard run — the poller loads the result.
-        body: JSON.stringify({ versionId: v, background: true, deep }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Could not start the analysis");
-      pollJob(v, "validation");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not start the analysis");
-    }
+    requestScore(async () => {
+      setError(null);
+      const v = activeVersionId;
+      try {
+        const res = await fetch(`/api/generate/validation`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          // Wave 3: deep mode (bull/bear/reconcile + CoVe + audit, ~3-4× cost) runs as the
+          // same detached background job as a standard run — the poller loads the result.
+          body: JSON.stringify({ versionId: v, background: true, deep }),
+        });
+        const j = await res.json();
+        ingestBilling(j);
+        if (!res.ok) throw new Error(j.error ?? "Could not start the analysis");
+        // Cap increments server-side only after the job succeeds; poll → refreshArtifacts.
+        pollJob(v, "validation");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not start the analysis");
+      }
+    });
   }
 
   async function createVersionFrom(
@@ -919,61 +1048,69 @@ export default function IdeaWorkspace({
   async function respondToValidator() {
     const text = responseDraft.trim();
     if (text.length < 4) return;
-    setError(null);
-    try {
-      await persistGoalIfChanged();
-      const v = await createVersionFrom(
-        activeVersion.statement,
-        "context",
-        activeVersionId,
-        "Responded to validator",
-        text,
-        text
-      );
-      setResponseDraft("");
-      closeComposer();
-      switchVersion(v.id);
-      await generate("validation", v.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not re-validate");
-    }
+    requestScore(async () => {
+      setError(null);
+      try {
+        await persistGoalIfChanged();
+        const v = await createVersionFrom(
+          activeVersion.statement,
+          "context",
+          activeVersionId,
+          "Responded to validator",
+          text,
+          text
+        );
+        setResponseDraft("");
+        closeComposer();
+        switchVersion(v.id);
+        await generate("validation", v.id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not re-validate");
+      }
+    });
   }
 
   // --- re-validate positioned around a suggested alpha ------------------------
   async function revalidateWithAlpha(alpha: string, rationale: string) {
-    setError(null);
-    try {
-      // Merge the alpha INTO the statement so the new version's evidence queries target
-      // the pivot (evidence is generated from the statement, not the founder context).
-      const mergedStatement = `${activeVersion.statement}\n\nAngle: ${alpha} — ${rationale}`;
-      const v = await createVersionFrom(
-        mergedStatement,
-        "context",
-        activeVersionId,
-        `Alpha: ${alpha}`,
-        `Pursuing this alpha: ${alpha}`,
-        `The founder wants to pursue this specific alpha / differentiator: "${alpha}". ${rationale} Re-evaluate the idea positioned around this alpha — its effect on competition, demand, obtainable revenue, and the verdict.`
-      );
-      switchVersion(v.id);
-      await generate("validation", v.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not re-validate");
-    }
+    requestScore(async () => {
+      setError(null);
+      try {
+        // Merge the alpha INTO the statement so the new version's evidence queries target
+        // the pivot (evidence is generated from the statement, not the founder context).
+        const mergedStatement = `${activeVersion.statement}\n\nAngle: ${alpha} — ${rationale}`;
+        const v = await createVersionFrom(
+          mergedStatement,
+          "context",
+          activeVersionId,
+          `Alpha: ${alpha}`,
+          `Pursuing this alpha: ${alpha}`,
+          `The founder wants to pursue this specific alpha / differentiator: "${alpha}". ${rationale} Re-evaluate the idea positioned around this alpha — its effect on competition, demand, obtainable revenue, and the verdict.`
+        );
+        switchVersion(v.id);
+        await generate("validation", v.id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not re-validate");
+      }
+    });
   }
 
   // --- manual refine (New version · write) ------------------------------------
   async function saveManual(andValidate = true) {
     if (draft.trim().length < 8) return;
-    setError(null);
-    try {
-      await persistGoalIfChanged();
-      const v = await createVersionFrom(draft.trim(), "manual", activeVersionId);
-      closeComposer();
-      switchVersion(v.id);
-      if (andValidate) await generate("validation", v.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create version");
-    }
+    const go = async () => {
+      setError(null);
+      try {
+        await persistGoalIfChanged();
+        const v = await createVersionFrom(draft.trim(), "manual", activeVersionId);
+        closeComposer();
+        switchVersion(v.id);
+        if (andValidate) await generate("validation", v.id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not create version");
+      }
+    };
+    if (andValidate) requestScore(go);
+    else void go();
   }
 
   // --- AI suggest (New version · suggest) -------------------------------------
@@ -996,22 +1133,24 @@ export default function IdeaWorkspace({
   }
   async function acceptProposal() {
     if (!proposal) return;
-    setError(null);
-    try {
-      await persistGoalIfChanged();
-      const v = await createVersionFrom(
-        proposalDraft.trim() || proposal.statement,
-        "ai",
-        activeVersionId,
-        proposal.label,
-        proposal.rationale
-      );
-      closeComposer();
-      switchVersion(v.id);
-      await generate("validation", v.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not accept proposal");
-    }
+    requestScore(async () => {
+      setError(null);
+      try {
+        await persistGoalIfChanged();
+        const v = await createVersionFrom(
+          proposalDraft.trim() || proposal.statement,
+          "ai",
+          activeVersionId,
+          proposal.label,
+          proposal.rationale
+        );
+        closeComposer();
+        switchVersion(v.id);
+        await generate("validation", v.id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not accept proposal");
+      }
+    });
   }
 
   // --- kill-test execution kit ---------------------------------------------------
@@ -1083,28 +1222,30 @@ export default function IdeaWorkspace({
       | undefined;
     const nt = (activeArtifacts.validation?.data as { next_test?: { cheapest_test?: string; pass_threshold?: string; kill_threshold?: string } } | undefined)?.next_test;
     if (!tr?.outcome) return;
-    setError(null);
-    try {
-      const outcome = tr.outcome.toUpperCase();
-      const context =
-        `The founder RAN the pre-registered kill-test. Test: ${nt?.cheapest_test ?? ""}. ` +
-        `PASS bar: ${nt?.pass_threshold ?? ""}. KILL bar: ${nt?.kill_threshold ?? ""}. ` +
-        `Reported result: "${tr.report ?? ""}". System-judged outcome against the bars: ${outcome}` +
-        `${tr.reasoning ? ` (${tr.reasoning})` : ""}. ` +
-        `Weigh this real-world result heavily when re-scoring the criteria it bears on — it is behavioral evidence from the actual buyer, not opinion.`;
-      const v = await createVersionFrom(
-        activeVersion.statement,
-        "context",
-        activeVersionId,
-        `Test result: ${outcome}`,
-        `Kill-test ${outcome.toLowerCase()} recorded and re-scored`,
-        context
-      );
-      switchVersion(v.id);
-      await generate("validation", v.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not re-validate");
-    }
+    requestScore(async () => {
+      setError(null);
+      try {
+        const outcome = tr.outcome!.toUpperCase();
+        const context =
+          `The founder RAN the pre-registered kill-test. Test: ${nt?.cheapest_test ?? ""}. ` +
+          `PASS bar: ${nt?.pass_threshold ?? ""}. KILL bar: ${nt?.kill_threshold ?? ""}. ` +
+          `Reported result: "${tr.report ?? ""}". System-judged outcome against the bars: ${outcome}` +
+          `${tr.reasoning ? ` (${tr.reasoning})` : ""}. ` +
+          `Weigh this real-world result heavily when re-scoring the criteria it bears on — it is behavioral evidence from the actual buyer, not opinion.`;
+        const v = await createVersionFrom(
+          activeVersion.statement,
+          "context",
+          activeVersionId,
+          `Test result: ${outcome}`,
+          `Kill-test ${outcome.toLowerCase()} recorded and re-scored`,
+          context
+        );
+        switchVersion(v.id);
+        await generate("validation", v.id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not re-validate");
+      }
+    });
   }
 
   // --- wedge tournament ---------------------------------------------------------
@@ -1161,6 +1302,32 @@ export default function IdeaWorkspace({
     if (!wedgeSet) return;
     const entrants = wedgeSet.wedges.filter((_, i) => wedgeSelected.has(i));
     if (!entrants.length) return;
+    // Baseline + each entrant is a scoring run
+    const runsNeeded = entrants.length + 1;
+    if (scoreBlocked) {
+      setError(
+        exhausted
+          ? (billing?.reason ??
+              "This campaign’s full analyses are complete — chat and your report stay open.")
+          : "Unlock this idea’s campaign to compare angles head-to-head."
+      );
+      return;
+    }
+    if (remaining !== null && runsNeeded > remaining) {
+      setError(
+        `Comparing these angles needs about ${runsNeeded} full analyses (baseline + ${entrants.length}). ${remaining} remain in this campaign — select fewer angles, or start a new idea for a fresh campaign.`
+      );
+      return;
+    }
+    if (remaining !== null && remaining <= 2) {
+      requestScore(() => void executeWedgeTournament(entrants), { runsNeeded });
+      return;
+    }
+    await executeWedgeTournament(entrants);
+  }
+
+  async function executeWedgeTournament(entrants: WedgeProposal[]) {
+    if (!wedgeSet) return;
     setWedgeRunning(true);
     setError(null);
     const log = (m: string) => setWedgeLog((prev) => [...prev, m]);
@@ -1292,6 +1459,27 @@ export default function IdeaWorkspace({
 
   // --- auto-iterate -----------------------------------------------------------
   async function autoIterate() {
+    if (scoreBlocked) {
+      setError(
+        exhausted
+          ? (billing?.reason ??
+              "This campaign’s full analyses are complete. Chat and your report stay open.")
+          : "Unlock this idea’s campaign to auto-iterate."
+      );
+      return;
+    }
+    if (remaining !== null && remaining < 2) {
+      setError(
+        `${remaining === 1 ? "One full analysis remains" : "No full analyses remain"} in this campaign — use a single re-score (or start a new idea) instead of auto-iterate.`
+      );
+      return;
+    }
+    requestScore(async () => {
+      await executeAutoIterate();
+    }, { runsNeeded: Math.min(maxRounds + 1, remaining ?? maxRounds + 1) });
+  }
+
+  async function executeAutoIterate() {
     setIterating(true);
     setError(null);
     closeComposer();
@@ -1634,6 +1822,11 @@ export default function IdeaWorkspace({
     return sharpen();
   })();
 
+  // Primary needs a scoring run (not kit / plan / composer).
+  const scoringPrimary =
+    campaignNextMove.onClick === revalidateWithResult ||
+    /re-?score|re-?run the analysis|validate/i.test(campaignNextMove.label);
+
   // Alt path under the decision card (only when primary isn't already that action).
   const iterateHint = campaignNextMove.alt
     ? {
@@ -1836,13 +2029,26 @@ export default function IdeaWorkspace({
             goalDetail={goalDetail || null}
             testStatus={testStatus}
             primary={{
-              label: campaignNextMove.label,
-              href: campaignNextMove.href,
-              onClick: campaignNextMove.onClick,
+              label:
+                exhausted && scoringPrimary
+                  ? "Campaign analyses complete"
+                  : campaignNextMove.label,
+              href: exhausted && scoringPrimary ? undefined : campaignNextMove.href,
+              onClick:
+                exhausted && scoringPrimary ? undefined : campaignNextMove.onClick,
             }}
             primaryBusy={!!campaignNextMove.busy || busy.has(bk(activeVersionId, "validation"))}
-            primaryDisabled={anyBusy || locked || !!campaignNextMove.busy}
-            primaryHint={campaignNextMove.hint}
+            primaryDisabled={
+              anyBusy ||
+              locked ||
+              !!campaignNextMove.busy ||
+              (exhausted && scoringPrimary)
+            }
+            primaryHint={
+              exhausted && scoringPrimary
+                ? "Full analyses included in this campaign are done — chat and your report stay open."
+                : campaignNextMove.hint
+            }
             secondary={
               <>
                 <button
@@ -1863,7 +2069,7 @@ export default function IdeaWorkspace({
                 </button>
                 <button
                   type="button"
-                  disabled={anyBusy || locked}
+                  disabled={anyBusy || locked /* new versions ok when exhausted; validate gated later */}
                   onClick={() =>
                     composerMode ? closeComposer() : openComposer("write")
                   }
@@ -1921,14 +2127,18 @@ export default function IdeaWorkspace({
                       },
                       {
                         label: "◆ Deep validation",
-                        hint: "~3–4× cost.",
+                        hint: exhausted
+                          ? "Campaign analyses complete — chat still open."
+                          : "~3–4× cost · uses one full analysis.",
                         onClick: () => runValidate(true),
-                        disabled: anyBusy || locked,
+                        disabled: anyBusy || scoreBlocked,
                       },
                       {
-                        label: "⟳ Re-run analysis",
+                        label: exhausted
+                          ? "⟳ Analyses complete"
+                          : "⟳ Re-run analysis",
                         onClick: () => runValidate(),
-                        disabled: anyBusy || locked,
+                        disabled: anyBusy || scoreBlocked,
                       },
                       {
                         label: "✎ New version (edit statement)",
@@ -1980,10 +2190,14 @@ export default function IdeaWorkspace({
             ) : (
               <button
                 onClick={() => runValidate()}
-                disabled={anyBusy || locked}
+                disabled={anyBusy || scoreBlocked}
                 className="mt-3 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-on-accent disabled:opacity-50"
               >
-                {locked ? "Unlock to validate →" : "Validate this idea →"}
+                {locked
+                  ? "Unlock campaign to validate →"
+                  : exhausted
+                    ? "Campaign analyses complete"
+                    : "Validate this idea →"}
               </button>
             )}
           </div>
@@ -2476,10 +2690,12 @@ export default function IdeaWorkspace({
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     onClick={() => saveManual(true)}
-                    disabled={anyBusy || draft.trim().length < 8}
+                    disabled={anyBusy || scoreBlocked || draft.trim().length < 8}
                     className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-50"
                   >
-                    Create v{versions.length + 1} &amp; validate
+                    {exhausted
+                      ? "Analyses complete — create only"
+                      : `Create v${versions.length + 1} & validate`}
                   </button>
                   <button
                     onClick={() => saveManual(false)}
@@ -2536,10 +2752,12 @@ export default function IdeaWorkspace({
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         onClick={acceptProposal}
-                        disabled={anyBusy}
+                        disabled={anyBusy || scoreBlocked}
                         className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-50"
                       >
-                        Create v{versions.length + 1} &amp; validate
+                        {exhausted
+                          ? "Analyses complete"
+                          : `Create v${versions.length + 1} & validate`}
                       </button>
                       <button
                         onClick={() => void runSuggest()}
@@ -2646,12 +2864,17 @@ export default function IdeaWorkspace({
                   >
                     <div className="text-sm font-medium">Compare angles</div>
                     <p className="mt-1 text-xs text-muted">
-                      3–5 divergent wedges, scored head-to-head on the same evidence. ~1 run each.
+                      3–5 divergent wedges, scored head-to-head on the same evidence. ~1 full
+                      analysis each
+                      {remaining !== null
+                        ? ` · ${remaining} remaining in this campaign`
+                        : ""}
+                      .
                     </p>
                   </button>
                   <button
                     type="button"
-                    disabled={anyBusy || locked}
+                    disabled={anyBusy || scoreBlocked}
                     onClick={() => {
                       closeComposer();
                       void autoIterate();
@@ -2717,6 +2940,25 @@ export default function IdeaWorkspace({
           </div>
         )}
 
+        {campaignNotice && (
+          <div
+            role="status"
+            className="mb-4 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-accent/35 bg-accent/8 px-4 py-3 text-sm text-fg/90"
+          >
+            <p className="min-w-0 flex-1 leading-relaxed">
+              <span className="font-medium text-accent">You&apos;re in.</span>{" "}
+              {campaignNotice}
+            </p>
+            <button
+              type="button"
+              onClick={() => setCampaignNotice(null)}
+              className="shrink-0 font-mono text-[10px] uppercase tracking-wide text-muted hover:text-fg"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {error && (
           <div role="alert" aria-live="assertive" className="mb-4 rounded-lg border border-bad/30 bg-bad/10 px-4 py-2 text-sm text-bad">
             {error}
@@ -2731,15 +2973,23 @@ export default function IdeaWorkspace({
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-                      Campaign locked
+                      Full campaign
                     </div>
                     <div className="mt-1 text-base font-semibold">
-                      Unlock the full validation campaign — ${(billing!.priceCents / 100).toFixed(0)}
+                      Pressure-test this idea end-to-end — $
+                      {(billing!.priceCents / 100).toFixed(0)}
                     </div>
                     <p className="mt-1 text-sm leading-relaxed text-muted">
-                      One payment covers everything for this idea: the grounded validation, the wedge
-                      tournament (every variant), the kill-test run kit, cited competitor intel, and
-                      revalidations after your real-world test — up to {billing!.runCap} validation runs.
+                      One price for a full pass on this idea: a grounded score, room to re-score
+                      when the framing changes, compare angles, a practical buyer test, and
+                      competitor context.{" "}
+                      <span className="text-fg/80">
+                        {billing!.runCap} full scored reports included
+                      </span>
+                      , plus unlimited questions — so you never pay per chat.{" "}
+                      <a href="/pricing" className="text-accent hover:underline">
+                        Pricing details
+                      </a>
                     </p>
                   </div>
                   <button
@@ -2752,11 +3002,102 @@ export default function IdeaWorkspace({
               </div>
             )}
 
+            {/* included analyses finished — report & chat stay live */}
+            {exhausted && (
+              <div className="mb-6 rounded-xl border border-accent2/35 bg-accent2/5 p-5">
+                <div className="flex flex-wrap items-start gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent2">
+                      Reports complete
+                    </div>
+                    <div className="mt-1 text-base font-semibold">
+                      You&apos;ve used the {billing!.runCap} full scored reports on this idea
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-muted">
+                      That&apos;s the deep scoring included in your pass — most people need fewer.
+                      Keep reading the report and asking questions. Ready for a different idea?
+                      Start a new one.
+                    </p>
+                  </div>
+                  <a
+                    href="/studio"
+                    className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:opacity-90"
+                  >
+                    Validate a new idea →
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* soft nudge when nearly through included analyses */}
+            {low && !exhausted && (
+              <div className="mb-4 rounded-lg border border-accent/25 bg-accent/5 px-3.5 py-2.5 text-sm text-fg/90">
+                <span className="font-medium text-accent">
+                  {remaining} full report{remaining === 1 ? "" : "s"} remaining
+                </span>
+                <span className="text-muted">
+                  {" "}
+                  on this idea — best after a real change to the framing or evidence. Asking
+                  questions never uses one.
+                </span>
+              </div>
+            )}
+
             {/* Zone 2–3 body lives inside ValidationView (test + evidence chapters).
                 Rigor controls sit in the decision ⋯ menu so they don't compete with the CTA. */}
-            {hasValidate && billing?.enabled && billing.paid && (
-              <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-                Campaign runs {billing.runsUsed}/{billing.runCap}
+            {billing?.enabled && billing.paid && (
+              <div
+                className="mb-3 flex flex-wrap items-center gap-2"
+                title={`${billing.runCap} full scored reports included on this idea. Questions and tools are unlimited.`}
+              >
+                <span
+                  className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] ${
+                    exhausted
+                      ? "border-accent2/40 bg-accent2/10 text-accent2"
+                      : low
+                        ? "border-accent/40 bg-accent/10 text-accent"
+                        : "border-border bg-panel/60 text-muted"
+                  }`}
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{
+                      background: exhausted
+                        ? "var(--color-accent2)"
+                        : low
+                          ? "var(--color-accent)"
+                          : "var(--color-good, var(--color-accent))",
+                    }}
+                  />
+                  <span className="font-medium text-fg/85">
+                    {billing.runCap} full reports included
+                  </span>
+                  {remaining !== null && !exhausted ? (
+                    <span className="text-fg/65">· {remaining} remaining</span>
+                  ) : null}
+                  {exhausted ? (
+                    <span className="text-fg/65">· complete</span>
+                  ) : null}
+                </span>
+                {/* progress through included analyses */}
+                <div className="flex h-1.5 max-w-[7rem] flex-1 gap-0.5 overflow-hidden rounded-full">
+                  {Array.from({ length: billing.runCap }, (_, i) => (
+                    <div
+                      key={i}
+                      className="min-w-0 flex-1 rounded-sm"
+                      style={{
+                        background:
+                          i < billing.runsUsed
+                            ? exhausted
+                              ? "var(--color-accent2)"
+                              : low
+                                ? "var(--color-accent)"
+                                : "var(--color-accent)"
+                            : "var(--color-border)",
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             )}
 
@@ -2769,7 +3110,7 @@ export default function IdeaWorkspace({
                   key={`${activeVersionId}:validation`}
                   kind="validation"
                   data={activeArtifacts.validation.data}
-                  onRegenerate={() => generate("validation", activeVersionId)}
+                  onRegenerate={() => runValidate()}
                   extra={{
                     goal: goalBucket,
                     provenance: idea.provenance,
@@ -2855,10 +3196,12 @@ export default function IdeaWorkspace({
                       <p className="mt-1 flex-1 text-xs leading-relaxed text-muted">{a.rationale}</p>
                       <button
                         onClick={() => revalidateWithAlpha(a.alpha, a.rationale)}
-                        disabled={anyBusy}
+                        disabled={anyBusy || scoreBlocked}
                         className="mt-2 self-start rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-on-accent disabled:opacity-50"
                       >
-                        Re-validate with this alpha →
+                        {exhausted
+                          ? "Analyses complete"
+                          : "Re-validate with this alpha →"}
                       </button>
                     </div>
                   ))}
@@ -2868,6 +3211,52 @@ export default function IdeaWorkspace({
           </div>
         )}
       </div>
+
+      {/* Confirm before using remaining included full analyses */}
+      {scoreConfirm &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-bg/70 p-4 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="score-confirm-title"
+            onClick={() => setScoreConfirm(null)}
+          >
+            <div
+              className="w-full max-w-md rounded-xl border border-border bg-panel p-5 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
+                Full analysis
+              </div>
+              <div
+                id="score-confirm-title"
+                className="mt-1 font-display text-base font-bold tracking-tight"
+              >
+                {scoreConfirm.title}
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{scoreConfirm.body}</p>
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setScoreConfirm(null)}
+                  className="rounded-lg border border-border px-3.5 py-2 text-sm hover:bg-panel2"
+                >
+                  Not now
+                </button>
+                <button
+                  type="button"
+                  onClick={scoreConfirm.onConfirm}
+                  className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-on-accent"
+                >
+                  {scoreConfirm.confirmLabel}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* print-only: active version's full report. Always in the DOM so native Cmd+P
           captures it (gating on beforeprint risks React not flushing in time), but

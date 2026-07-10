@@ -33,6 +33,12 @@ export default async function MarketingLayout({ children }: { children: React.Re
           </Link>
 
           <nav className="ml-auto flex items-center gap-2">
+            <Link
+              href="/pricing"
+              className="rounded-pill-pack border border-transparent px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
+            >
+              Pricing
+            </Link>
             {user ? (
               <Link
                 href="/studio"
@@ -69,6 +75,9 @@ export default async function MarketingLayout({ children }: { children: React.Re
             Validorian · business validation studio
           </div>
           <div className="flex flex-wrap gap-4 font-mono text-[11px] text-muted">
+            <Link href="/pricing" className="hover:text-fg">
+              Pricing
+            </Link>
             <Link href="/login" className="hover:text-fg">
               Sign in
             </Link>

@@ -1,13 +1,33 @@
 import Link from "next/link";
+import { CampaignPriceCard } from "@/components/CampaignPriceCard";
 import { getSessionUser } from "@/lib/auth";
+import { priceCents } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
+
+/** Concrete deliverables in a validation pass — checklist, not prose cards. */
+const WHAT_YOU_GET = [
+  "GO / MAYBE / NO-GO scored against your goal",
+  "Demand analysis (how badly people want this)",
+  "Willingness-to-pay read",
+  "Competition review",
+  "Obtainable revenue estimate",
+  "Risk map (what can kill it)",
+  "Buyer profile — who to sell to and where",
+  "Real-world test plan (who to talk to, pass/fail)",
+  "Social media search (Reddit, forums, and live web signals)",
+  "Evidence-backed claims with sources",
+  "Iterate: rewrite the pitch and re-score",
+  "Variations: try different angles side by side",
+  "Multiple full reports as the idea evolves",
+  "Chat with the review — dig into scores, risks, and next steps",
+];
 
 const STEPS = [
   {
     n: "01",
     title: "Describe the idea",
-    body: "What you're offering, who it's for, and why now — plus your goal, so GO means the right thing.",
+    body: "What you're offering, who it's for, and why now — plus your goal, so GO means the right thing for you.",
   },
   {
     n: "02",
@@ -16,23 +36,23 @@ const STEPS = [
   },
   {
     n: "03",
-    title: "Iterate in the studio",
-    body: "Rewrite, add context, compare angles head-to-head, re-score — until the answer is clear.",
+    title: "Keep working it",
+    body: "Rewrite the pitch, try a different angle, ask questions, re-score — until the answer is clear.",
   },
 ];
 
 const PILLARS = [
   {
-    title: "Goal-relative",
-    body: "Side hustle and venture-scale aren't judged the same. Verdict bands match what you're actually going for.",
+    title: "Scored for your goal",
+    body: "A side hustle and a venture raise aren't judged the same. The bar matches what you're actually going for.",
   },
   {
     title: "Evidence, not vibes",
-    body: "Live web grounding and fetched demand signals — so claims have sources, not just confidence theater.",
+    body: "Claims are checked against real sources and demand signals — not confidence theater.",
   },
   {
     title: "Built to iterate",
-    body: "Versions, wedges, and re-validation are first-class. One report is the start, not the product.",
+    body: "One report is the start, not the product. Rewrite the angle, re-score, and keep going until it's clear.",
   },
 ];
 
@@ -43,38 +63,86 @@ export default async function LandingPage() {
 
   return (
     <div className="folio-enter">
-      {/* Hero */}
-      <section className="mx-auto max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pb-24 sm:pt-20">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
-          Business validation studio
-        </p>
-        <h1 className="mt-4 max-w-3xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-6xl">
-          Put the idea on the table.
-          <span className="mt-2 block text-muted">Validate it before you begin.</span>
-        </h1>
-        <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-          Premier GO / MAYBE / NO-GO reads against <em className="text-fg/80 not-italic">your</em> goal —
-          grounded in evidence, designed so you can iterate until the answer is obvious.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Link
-            href={ctaHref}
-            className="rounded-pill-pack bg-accent px-6 py-3 font-display text-base font-bold text-on-accent transition hover:bg-accent2"
-          >
-            {ctaLabel}
-          </Link>
-          {!user && (
-            <Link
-              href="/login"
-              className="rounded-pill-pack border border-border px-5 py-3 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-fg"
-            >
-              Sign in
-            </Link>
-          )}
+      {/* Hero + price card */}
+      <section className="mx-auto max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16">
+        <div className="grid items-start gap-10 lg:grid-cols-[1fr_minmax(0,22rem)] lg:gap-12 xl:grid-cols-[1fr_minmax(0,24rem)]">
+          <div className="min-w-0">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
+              Business validation studio
+            </p>
+            <h1 className="mt-4 max-w-3xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-6xl">
+              Put your business idea on the table.
+              <span className="mt-2 block text-muted">Validate it before you begin.</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
+              Premier GO / MAYBE / NO-GO reads against{" "}
+              <em className="text-fg/80 not-italic">your</em> goal — grounded in evidence,
+              designed so you can iterate until the answer is obvious.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link
+                href={ctaHref}
+                className="rounded-pill-pack bg-accent px-6 py-3 font-display text-base font-bold text-on-accent transition hover:bg-accent2"
+              >
+                {ctaLabel}
+              </Link>
+              <Link
+                href="/pricing"
+                className="rounded-pill-pack border border-border px-5 py-3 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-fg"
+              >
+                Pricing details
+              </Link>
+              {!user && (
+                <Link
+                  href="/login"
+                  className="rounded-pill-pack border border-border px-5 py-3 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-fg"
+                >
+                  Sign in
+                </Link>
+              )}
+            </div>
+            <p className="mt-4 font-mono text-[11px] text-muted">
+              Private by default · scored for your goal · a real next test
+            </p>
+          </div>
+
+          <div className="w-full max-w-md justify-self-center lg:max-w-none lg:justify-self-end">
+            <CampaignPriceCard
+              ctaHref={ctaHref}
+              ctaLabel={ctaLabel}
+              detailsHref="/pricing"
+            />
+          </div>
         </div>
-        <p className="mt-4 font-mono text-[11px] text-muted">
-          Private by default · goal-relative scoring · real kill-tests
-        </p>
+      </section>
+
+      {/* What this service does — deliverable checklist */}
+      <section className="border-t border-border bg-panel/30 py-16 sm:py-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
+            What you get
+          </p>
+          <h2 className="mt-3 max-w-2xl font-display text-2xl font-bold tracking-tight sm:text-3xl">
+            Everything in a full validation
+          </h2>
+          <p className="mt-2 max-w-xl text-muted">
+            One pass covers the decision surface — not a single vague score. From $
+            {(priceCents() / 100).toFixed(0)} per idea.
+          </p>
+          <ul className="mt-10 grid gap-x-10 gap-y-3 sm:grid-cols-2">
+            {WHAT_YOU_GET.map((item) => (
+              <li key={item} className="flex items-start gap-3 text-sm leading-snug text-fg/90 sm:text-[15px]">
+                <span
+                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 font-semibold text-accent"
+                  aria-hidden
+                >
+                  ✓
+                </span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
 
       {/* How it works */}
@@ -123,8 +191,8 @@ export default async function LandingPage() {
                 A decision you can stand behind
               </h2>
               <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted">
-                Scored criteria, obtainable revenue, competitive landscape, risks, and a pre-registered
-                kill-test — then tools to rewrite the angle and re-score.
+                Demand, revenue potential, competition, and risks — plus a simple test you can run
+                with real people before you build. Then rewrite the angle and re-score if you need to.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -142,7 +210,8 @@ export default async function LandingPage() {
           Ready for a hard read?
         </h2>
         <p className="mx-auto mt-3 max-w-md text-muted">
-          Open the studio, describe the idea, and get a grounded first pass — then keep working it.
+          Open the studio, describe the idea, and get a hard first read — then keep working it.
+          One clear price per idea: depth on full reports, not a charge for every question.
         </p>
         <Link
           href={ctaHref}

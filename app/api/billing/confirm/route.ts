@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getIdeaForUser, markIdeaPaid } from "@/lib/db";
-import { billingEnabled, stripe } from "@/lib/billing";
+import { billingEnabled, campaignAccess, stripe } from "@/lib/billing";
 import { requireUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -29,7 +29,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ paid: false });
     }
     markIdeaPaid(ideaId, session.id);
-    return NextResponse.json({ paid: true, ideaId });
+    const idea = getIdeaForUser(ideaId, auth.user.id);
+    return NextResponse.json({
+      paid: true,
+      ideaId,
+      billing: campaignAccess(idea),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not confirm payment";
     return NextResponse.json({ error: message }, { status: 500 });

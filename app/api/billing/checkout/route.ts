@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { billingEnabled, priceCents, stripe } from "@/lib/billing";
+import { billingEnabled, CAMPAIGN_RUN_CAP, priceCents, stripe } from "@/lib/billing";
 import { requireIdeaOwner } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
             unit_amount: priceCents(),
             product_data: {
               name: "Validorian — full validation campaign",
-              description: `“${idea.title}” — grounded validation, wedge tournament, kill-test kit, competitor intel & revalidations.`,
+              description: `“${idea.title}” — full pass on this idea: scored GO/MAYBE/NO-GO, re-scores, compare angles, buyer test plan, competitor notes (${CAMPAIGN_RUN_CAP} full reports included) + unlimited questions.`,
             },
           },
         },
