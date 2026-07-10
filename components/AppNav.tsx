@@ -1,145 +1,176 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { verdictBands } from "@/lib/scoring";
 
-type IdeaLite = { id: string; title: string };
+type IdeaLite = {
+  id: string;
+  title: string;
+  best_score?: number | null;
+  goal?: string | null;
+};
 
 const cleanTitle = (t: string) =>
   t.replace(/^#+\s*/, "").replace(/^Business Idea:\s*/i, "");
+
+/** Score color against the idea's own goal GO/MAYBE lines (same as home case cards). */
+function scoreTone(score: number, goal: string | null | undefined): string {
+  const b = verdictBands(goal);
+  if (score >= b.go) return "var(--color-good)";
+  if (score >= b.maybe) return "var(--color-warn)";
+  return "var(--color-bad)";
+}
 
 export default function AppNav() {
   const pathname = usePathname();
   const activeId = pathname?.match(/^\/idea\/([^/?]+)/)?.[1] ?? null;
   const [ideas, setIdeas] = useState<IdeaLite[]>([]);
-  const [open, setOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     fetch("/api/ideas")
       .then((r) => r.json())
-      .then((d) => Array.isArray(d) && setIdeas(d.map((i: IdeaLite) => ({ id: i.id, title: i.title }))))
+      .then(
+        (d) =>
+          Array.isArray(d) &&
+          setIdeas(
+            d.map((i: IdeaLite) => ({
+              id: i.id,
+              title: i.title,
+              best_score: typeof i.best_score === "number" ? i.best_score : null,
+              goal: typeof i.goal === "string" ? i.goal : null,
+            }))
+          )
+      )
       .catch(() => {});
   }, [pathname]);
 
-  // Close drawer on navigation
   useEffect(() => {
-    setOpen(false);
+    setDrawerOpen(false);
   }, [pathname]);
 
-  return (
-    <div className="flex items-center justify-end gap-2 sm:justify-between">
-      {/* Desktop idea strip */}
-      <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex">
-        <Link
-          href="/"
-          className={`shrink-0 rounded-pill-pack px-3 py-1.5 font-mono text-[11px] uppercase transition [letter-spacing:var(--tracking-eyebrow)] ${
-            !activeId && pathname === "/"
-              ? "bg-accent/20 text-accent2"
-              : "text-muted hover:bg-panel2 hover:text-fg"
-          }`}
-        >
-          Desk
-        </Link>
-        {ideas.slice(0, 6).map((i) => (
-          <Link
-            key={i.id}
-            href={`/idea/${i.id}`}
-            title={cleanTitle(i.title)}
-            className={`max-w-[10rem] shrink-0 truncate rounded-pill-pack px-3 py-1.5 text-sm transition ${
-              i.id === activeId
-                ? "bg-panel2 font-medium text-fg ring-1 ring-accent/35"
-                : "text-muted hover:bg-panel2/80 hover:text-fg"
-            }`}
-          >
-            {cleanTitle(i.title)}
-          </Link>
-        ))}
-        {ideas.length > 6 && (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="shrink-0 rounded-pill-pack px-2 py-1.5 font-mono text-[11px] text-muted hover:text-fg"
-          >
-            +{ideas.length - 6}
-          </button>
-        )}
-      </nav>
-
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="rounded-pill-pack border border-border bg-panel px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)] md:hidden"
-          aria-expanded={open}
-        >
-          Ideas · {ideas.length}
-        </button>
-        <Link
-          href="/account"
-          className={`rounded-pill-pack border px-3 py-1.5 font-mono text-[11px] uppercase transition [letter-spacing:var(--tracking-eyebrow)] ${
-            pathname === "/account"
-              ? "border-accent/40 bg-accent/15 text-accent2"
-              : "border-border text-muted hover:border-accent/30 hover:text-fg"
-          }`}
-        >
-          Account
-        </Link>
+  const list = (
+    <>
+      <Link
+        href="/"
+        className={`mb-1 flex items-center justify-between rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium transition ${
+          !activeId && (pathname === "/" || pathname === "")
+            ? "bg-accent/15 text-accent2"
+            : "text-muted hover:bg-panel2 hover:text-fg"
+        }`}
+      >
+        <span>+ New idea</span>
+      </Link>
+      <div className="mb-1.5 mt-3 px-3 font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
+        Your ideas
+        <span className="ml-1.5 tabular-nums text-fg/50">({ideas.length})</span>
       </div>
+      <ul className="space-y-0.5">
+        {ideas.map((i) => {
+          const score = typeof i.best_score === "number" ? i.best_score : null;
+          const tone = score != null ? scoreTone(score, i.goal) : null;
+          return (
+            <li key={i.id}>
+              <Link
+                href={`/idea/${i.id}`}
+                title={cleanTitle(i.title)}
+                className={`flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm transition ${
+                  i.id === activeId
+                    ? "bg-panel2 font-medium text-fg ring-1 ring-accent/30"
+                    : "text-muted hover:bg-panel2/70 hover:text-fg"
+                }`}
+              >
+                <span className="min-w-0 flex-1 leading-snug line-clamp-2">{cleanTitle(i.title)}</span>
+                {score != null && tone && (
+                  <span
+                    className="shrink-0 rounded-md px-1.5 py-0.5 font-mono text-xs font-bold tabular-nums leading-none"
+                    style={{
+                      color: tone,
+                      background: `color-mix(in srgb, ${tone} 14%, transparent)`,
+                      boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tone} 28%, transparent)`,
+                    }}
+                    title={`Best score ${score} (goal bands)`}
+                  >
+                    {score}
+                  </span>
+                )}
+              </Link>
+            </li>
+          );
+        })}
+        {ideas.length === 0 && (
+          <li className="px-3 py-4 text-xs leading-relaxed text-muted">
+            No ideas yet — create one from the desk.
+          </li>
+        )}
+      </ul>
+    </>
+  );
 
-      {/* Slide-over all ideas */}
-      {open && (
+  const mobileHeaderControls =
+    mounted &&
+    typeof document !== "undefined" &&
+    document.getElementById("mobile-nav-slot") &&
+    createPortal(
+      <button
+        type="button"
+        onClick={() => setDrawerOpen(true)}
+        className="rounded-pill-pack border border-border bg-panel px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
+        aria-expanded={drawerOpen}
+      >
+        Ideas · {ideas.length}
+      </button>,
+      document.getElementById("mobile-nav-slot")!
+    );
+
+  return (
+    <>
+      {mobileHeaderControls}
+
+      {/* Desktop idea rail — always visible full list */}
+      <aside className="no-print hidden w-56 shrink-0 flex-col border-r border-border bg-panel/50 sm:flex lg:w-64">
+        <div className="sticky top-[3.25rem] flex max-h-[calc(100vh-3.25rem)] flex-col overflow-y-auto px-2 py-3">
+          {list}
+        </div>
+      </aside>
+
+      {/* Mobile full-list drawer */}
+      {drawerOpen && (
         <>
           <button
             type="button"
-            className="fixed inset-0 z-50 bg-[#1a1612]/35 backdrop-blur-[2px]"
+            className="fixed inset-0 z-50 bg-[color-mix(in_srgb,var(--color-fg)_35%,transparent)] backdrop-blur-[2px] sm:hidden"
             aria-label="Close ideas"
-            onClick={() => setOpen(false)}
+            onClick={() => setDrawerOpen(false)}
           />
-          <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l border-border bg-panel shadow-2xl shadow-[#1a1612]/15">
+          <div className="fixed left-0 top-0 z-50 flex h-full w-full max-w-xs flex-col border-r border-border bg-panel shadow-2xl sm:hidden">
             <div className="flex items-center justify-between border-b border-border px-4 py-4">
               <div>
                 <div className="font-display text-lg font-bold">Your ideas</div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+                <div className="font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
                   {ideas.length} on the desk
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:text-fg"
+                onClick={() => setDrawerOpen(false)}
+                className="rounded-[var(--radius-control)] border border-border px-2.5 py-1 text-xs text-muted hover:text-fg"
               >
                 Close
               </button>
             </div>
-            <ul className="flex-1 overflow-y-auto p-2">
-              <li>
-                <Link
-                  href="/"
-                  className="mb-1 block rounded-xl px-3 py-2.5 text-sm font-medium text-accent2 hover:bg-panel2"
-                >
-                  + New assay
-                </Link>
-              </li>
-              {ideas.map((i) => (
-                <li key={i.id}>
-                  <Link
-                    href={`/idea/${i.id}`}
-                    className={`block truncate rounded-xl px-3 py-2.5 text-sm transition ${
-                      i.id === activeId ? "bg-panel2 font-medium text-fg" : "text-muted hover:bg-panel2/60 hover:text-fg"
-                    }`}
-                  >
-                    {cleanTitle(i.title)}
-                  </Link>
-                </li>
-              ))}
-              {ideas.length === 0 && (
-                <li className="px-3 py-6 text-center text-sm text-muted">No ideas yet — file one from the desk.</li>
-              )}
-            </ul>
+            <div className="flex-1 overflow-y-auto px-2 py-3">{list}</div>
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }

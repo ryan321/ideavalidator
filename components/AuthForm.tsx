@@ -38,15 +38,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     <div className="folio-enter mx-auto flex min-h-[70vh] max-w-md flex-col justify-center">
       <div className="folio p-6 sm:p-8">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent2">
-          {isSignup ? "Join the desk" : "Return to desk"}
+          {isSignup ? "Get started" : "Welcome back"}
         </p>
         <h1 className="mt-2 font-display text-3xl font-extrabold tracking-tight">
           {isSignup ? "Create account" : "Sign in"}
         </h1>
         <p className="mt-2 text-sm text-muted">
           {isSignup
-            ? "Grounded GO / NO-GO memos — private to you."
-            : "Your case files are waiting."}
+            ? "Grounded GO / NO-GO reports — private to you."
+            : "Your ideas are waiting."}
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-3">

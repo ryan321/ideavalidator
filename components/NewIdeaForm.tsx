@@ -54,7 +54,7 @@ export default function NewIdeaForm() {
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder="The idea in one or two sentences — what you sell, to whom, why now…"
+        placeholder="e.g. A weekly meal kit for shift workers that delivers pre-portioned dinners to hospitals and warehouses — cheaper than DoorDash, ready in 10 minutes."
         rows={4}
         className="w-full resize-none rounded-xl border border-border bg-bg/40 px-4 py-3.5 text-base leading-relaxed outline-none placeholder:text-muted/70 focus:border-accent"
       />
@@ -168,7 +168,7 @@ export default function NewIdeaForm() {
           disabled={busy || prompt.trim().length < 8}
           className="rounded-pill-pack bg-accent px-6 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-45"
         >
-          {busy ? "Opening case…" : "Open the case →"}
+          {busy ? "Starting…" : "Validate idea →"}
         </button>
       </div>
     </form>

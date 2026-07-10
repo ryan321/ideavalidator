@@ -17,52 +17,49 @@ export default async function Home() {
       {/* Hero thesis */}
       <header className="relative overflow-hidden">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
-          Committee desk · private · grounded
+          Private · grounded · goal-relative
         </p>
         <h1 className="mt-3 max-w-2xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-5xl">
           Put the idea on the table.
-          <span className="mt-2 block text-muted">We&apos;ll try to kill it.</span>
+          <span className="mt-2 block text-muted">Get a hard read before you begin.</span>
         </h1>
         <p className="mt-4 max-w-xl text-base leading-relaxed text-muted">
-          A scored GO / MAYBE / NO-GO memo against <em className="text-fg/80 not-italic">your</em> goal —
-          live evidence, real pass/kill tests, no pitch-deck theater.
+          A scored GO / MAYBE / NO-GO report against <em className="text-fg/80 not-italic">your</em> goal —
+          live evidence, real kill-tests, no pitch-deck theater.
         </p>
         <div className="rule-brass mt-8 max-w-md" />
       </header>
 
       {/* Compose surface */}
-      <section className="folio p-5 sm:p-7" aria-labelledby="file-idea">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 id="file-idea" className="font-display text-xl font-bold tracking-tight">
-              File an assay
-            </h2>
-            <p className="mt-1 text-sm text-muted">One sentence is enough to open the case.</p>
-          </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
-            form · 01
-          </span>
+      <section className="folio p-5 sm:p-7" aria-labelledby="new-idea">
+        <div className="mb-5">
+          <h2 id="new-idea" className="font-display text-xl font-bold tracking-tight">
+            New idea
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            What you&apos;re offering, who it&apos;s for, and why now — the clearer that is, the better the read.
+          </p>
         </div>
         <NewIdeaForm />
       </section>
 
-      {/* Case file list */}
-      <section aria-labelledby="case-files">
+      {/* Idea list */}
+      <section aria-labelledby="your-ideas">
         <div className="mb-4 flex items-baseline justify-between gap-3">
-          <h2 id="case-files" className="font-display text-xl font-bold tracking-tight">
-            Case files
+          <h2 id="your-ideas" className="font-display text-xl font-bold tracking-tight">
+            Your ideas
             <span className="ml-2 font-mono text-sm font-medium text-muted">({ideas.length})</span>
           </h2>
         </div>
 
         {ideas.length === 0 ? (
           <div className="folio-inset border-dashed py-14 text-center">
-            <p className="font-display text-lg font-semibold text-fg/80">No cases open</p>
-            <p className="mt-1 text-sm text-muted">Describe an idea above — the first version starts validating immediately.</p>
+            <p className="font-display text-lg font-semibold text-fg/80">No ideas yet</p>
+            <p className="mt-1 text-sm text-muted">Describe one above — validation starts right away.</p>
           </div>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
-            {ideas.map((idea, idx) => {
+            {ideas.map((idea) => {
               const bands = verdictBands(idea.goal);
               const score = idea.best_score;
               const tone =
@@ -81,7 +78,7 @@ export default async function Home() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
-                        Case {String(ideas.length - idx).padStart(2, "0")}
+                        {idea.goal?.replace("_", " ") ?? "idea"}
                       </span>
                       {score != null && (
                         <span

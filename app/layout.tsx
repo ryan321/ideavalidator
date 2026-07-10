@@ -19,7 +19,6 @@ import { StylePicker } from "@/components/StylePicker";
 import { STYLE_STORAGE_KEY, STYLE_TOKENS } from "@/lib/styles";
 import "./globals.css";
 
-// Faces available to style packs (switched via CSS vars — not one global pair).
 const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"] });
 const newsreader = Newsreader({ variable: "--font-newsreader", subsets: ["latin"] });
 const sourceSerif = Source_Serif_4({ variable: "--font-source-serif", subsets: ["latin"] });
@@ -62,7 +61,6 @@ export const metadata: Metadata = {
     "A grounded GO / MAYBE / NO-GO memo for founders — scored against your goal, not hype.",
 };
 
-/** Before paint: tokens (color + type + form) as inline CSS vars on <html>. */
 const styleBootScript = `
 (function(){
   try {
@@ -111,7 +109,7 @@ export default function RootLayout({
         <StyleProvider>
           <div className="flex min-h-screen flex-col">
             <header className="no-print sticky top-0 z-40 border-b border-border bg-[var(--color-header)] backdrop-blur-md">
-              <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
+              <div className="flex w-full items-center gap-3 px-4 py-3 sm:px-5">
                 <Link href="/" className="group flex shrink-0 items-center gap-2.5">
                   <span
                     className="inline-grid h-8 w-8 place-items-center rounded-[var(--radius-control)] bg-accent font-display text-[11px] font-extrabold tracking-tight text-on-accent"
@@ -119,25 +117,32 @@ export default function RootLayout({
                   >
                     RT
                   </span>
-                  <span className="hidden font-display text-base font-bold tracking-tight text-fg sm:block">
+                  <span className="font-display text-base font-bold tracking-tight text-fg">
                     IdeaValidator
-                    <span className="mt-0.5 block font-mono text-[10px] font-medium uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
+                    <span className="mt-0.5 hidden font-mono text-[10px] font-medium uppercase text-muted [letter-spacing:var(--tracking-eyebrow)] sm:block">
                       red team desk
                     </span>
                   </span>
                 </Link>
 
-                <div className="min-w-0 flex-1">
-                  <AppNav />
+                <div className="ml-auto flex items-center gap-2">
+                  {/* Mobile ideas toggle is portaled here by AppNav */}
+                  <div id="mobile-nav-slot" className="contents sm:hidden" />
+                  <Link
+                    href="/account"
+                    className="rounded-pill-pack border border-border px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
+                  >
+                    Account
+                  </Link>
+                  <StylePicker />
                 </div>
-
-                <StylePicker />
               </div>
             </header>
 
-            <main className="min-w-0 flex-1">
-              <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">{children}</div>
-            </main>
+            <div className="flex min-h-0 flex-1">
+              <AppNav />
+              <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 sm:py-10">{children}</main>
+            </div>
 
             <footer className="no-print border-t border-border/70 py-4 text-center font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
               Grounded scores · real evidence · your machine
