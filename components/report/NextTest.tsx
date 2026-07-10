@@ -1,6 +1,7 @@
 "use client";
 
 import type { Validation } from "@/lib/generators/validation";
+import { criterionLabel } from "@/lib/i18n/t";
 import { useT } from "../LocaleProvider";
 
 // "The one thing to test next" — the report's LEAD. The deliverable is a decision
@@ -29,7 +30,7 @@ export function NextTest({
     <section className="folio border-accent2/35 p-5 sm:p-6">
       <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-accent2">
         <span aria-hidden>◎</span>
-        The one thing to test next
+        {t("report.nextToProve")}
       </div>
 
       {/* the riskiest assumption — the belief the corpus does NOT already settle */}
@@ -62,13 +63,17 @@ export function NextTest({
           {next.would_flip?.to_go && (
             <div className="flex gap-2 leading-snug">
               <span className="mt-px shrink-0 font-mono font-bold text-good" aria-hidden>↑</span>
-              <span className="text-fg/85"><span className="text-good">Flips up</span> if {next.would_flip.to_go}</span>
+              <span className="text-fg/85">
+                <span className="text-good">{t("report.flipsUp")}</span> {next.would_flip.to_go}
+              </span>
             </div>
           )}
           {next.would_flip?.to_no_go && (
             <div className="flex gap-2 leading-snug">
               <span className="mt-px shrink-0 font-mono font-bold text-bad" aria-hidden>↓</span>
-              <span className="text-fg/85"><span className="text-bad">Flips down</span> if {next.would_flip.to_no_go}</span>
+              <span className="text-fg/85">
+                <span className="text-bad">{t("report.flipsDown")}</span> {next.would_flip.to_no_go}
+              </span>
             </div>
           )}
         </div>
@@ -77,9 +82,13 @@ export function NextTest({
       {/* borderline MAYBE only: the ONE criterion whose resolution exits the band */}
       {showPivotal && (
         <div className="mt-4 rounded-r-lg border-l-2 border-warn/50 bg-warn/5 px-3.5 py-2.5 text-sm">
-          <span className="font-mono text-[11px] uppercase tracking-wide text-warn">Pivotal · </span>
+          <span className="font-mono text-[11px] uppercase tracking-wide text-warn">
+            {t("report.pivotal")}{" "}
+          </span>
           <span className="text-fg/90">
-            This sits on the MAYBE line — resolving <b className="text-fg">{pivotal}</b> is what moves it off.
+            {t("report.pivotalBlurb", {
+              criterion: criterionLabel(pivotal, t),
+            })}
           </span>
         </div>
       )}

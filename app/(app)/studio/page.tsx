@@ -98,11 +98,6 @@ export default async function StudioPage() {
                       {idea.version_count > 1 && (
                         <span>· {t("studio.versions", { n: idea.version_count })}</span>
                       )}
-                      {idea.cost && idea.cost > 0 && (
-                        <span>
-                          · ${idea.cost < 1 ? idea.cost.toFixed(3) : idea.cost.toFixed(2)}
-                        </span>
-                      )}
                     </div>
                   </Link>
                 </li>

@@ -1,6 +1,10 @@
+"use client";
+
 import type { Audit, CoveClaim, Validation } from "@/lib/generators/validation";
+import { criterionLabel } from "@/lib/i18n/t";
 import { criterionTone } from "@/lib/scoring";
 import { MarkdownText } from "../MarkdownText";
+import { useT } from "../LocaleProvider";
 
 // Wave 3 deep-mode + audit report surfaces. These render ONLY when the artifact was
 // produced by the deep pipeline (d.mode === "deep") or carries an audit block —
@@ -165,33 +169,31 @@ export function CoveLedger({ cove, print = false }: { cove?: CoveClaim[]; print?
  * different model family over the SAME prompt + corpus, per-criterion delta vs our
  * score, |delta|>15 flagged. It is SURFACED, never averaged into the score. */
 export function AuditPanel({ audit, print = false }: { audit?: Audit; print?: boolean }) {
+  const t = useT();
   if (!audit?.criteria?.length) return null;
   const flagged = new Set(audit.flagged ?? []);
   return (
     <details className="group rounded-xl border border-border bg-panel/40" open={print}>
       <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
         <span className="transition group-open:rotate-90">▸</span>
-        Cross-check · second model family
+        {t("report.crossCheck")}
         {flagged.size > 0 && (
           <span className="rounded-full border border-warn/40 bg-warn/10 px-1.5 py-px font-mono text-[9px] tracking-wide text-warn">
-            {flagged.size} diverge
+            {t("report.divergeCount", { n: flagged.size })}
           </span>
         )}
       </summary>
       <div className="border-t border-border p-5">
         <p className="mb-3 max-w-3xl text-xs leading-relaxed text-muted">
-          A genuinely different model family (<b className="text-fg/80">{audit.model}</b>) scored the
-          same claims brief + corpus as a Goodhart check. This is{" "}
-          <b className="text-fg/80">surfaced, not averaged</b> — it never changes the score or verdict;
-          it only shows where an independent judge disagrees. A gap of more than 15 points is flagged.
+          {t("report.crossCheckBlurb", { model: audit.model })}
         </p>
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-[26rem] text-xs">
             <thead>
               <tr className="border-b border-border text-left font-mono text-[10px] uppercase tracking-wide text-muted">
-                <th className="px-3 py-1.5 font-medium">Criterion</th>
-                <th className="px-3 py-1.5 text-right font-medium">Ours</th>
-                <th className="px-3 py-1.5 text-right font-medium">Audit</th>
+                <th className="px-3 py-1.5 font-medium">{t("report.criterion")}</th>
+                <th className="px-3 py-1.5 text-right font-medium">{t("report.ours")}</th>
+                <th className="px-3 py-1.5 text-right font-medium">{t("report.audit")}</th>
                 <th className="px-3 py-1.5 text-right font-medium">Δ</th>
               </tr>
             </thead>
@@ -205,9 +207,11 @@ export function AuditPanel({ audit, print = false }: { audit?: Audit; print?: bo
                     className={`border-b border-border/60 last:border-0 ${isFlagged ? "bg-warn/5" : ""}`}
                   >
                     <td className="px-3 py-1.5">
-                      {c.name}
+                      {criterionLabel(c.name, t)}
                       {isFlagged && (
-                        <span className="ml-1.5 font-mono text-[9px] uppercase tracking-wide text-warn">◂ diverges</span>
+                        <span className="ml-1.5 font-mono text-[9px] uppercase tracking-wide text-warn">
+                          {t("report.diverges")}
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-1.5 text-right font-mono" style={{ color: criterionTone(c.our_score) }}>

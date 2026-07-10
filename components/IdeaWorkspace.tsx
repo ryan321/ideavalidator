@@ -18,6 +18,7 @@ import { MarkdownText } from "./MarkdownText";
 import { CriteriaDeltaTable, type DeltaVersion } from "./report/CriteriaDeltaTable";
 import type { ZodType } from "zod";
 import { ValidationSchema, type Validation } from "@/lib/generators/validation";
+import { verdictLabel } from "@/lib/i18n/t";
 import { useT } from "./LocaleProvider";
 
 // Validate persisted artifacts against the current schema so results saved under an
@@ -117,8 +118,6 @@ function SafeArtifact({
 const scoreColor = (n: number, b: { go: number; maybe: number }) =>
   n >= b.go ? "var(--color-good)" : n >= b.maybe ? "var(--color-warn)" : "var(--color-bad)";
 
-const fmtCost = (n: number) => "$" + (n < 1 ? n.toFixed(n < 0.1 ? 4 : 3) : n.toFixed(2));
-
 const GOAL_OPTIONS = [
   { key: "lifestyle", label: "Lifestyle / replace my job" },
   { key: "side_hustle", label: "Side hustle" },
@@ -191,12 +190,8 @@ type WedgeResult = {
 type StageKey = "validate";
 const STAGES: {
   key: StageKey;
-  label: string;
-  blurb: string;
   kinds: ArtifactKind[];
-}[] = [
-  { key: "validate", label: "Validate", blurb: "Is there real, paying demand?", kinds: ["validation"] },
-];
+}[] = [{ key: "validate", kinds: ["validation"] }];
 type ArtMap = Record<string, Record<string, Artifact>>;
 const bk = (vid: string, kind: string) => `${vid}:${kind}`;
 
@@ -344,7 +339,6 @@ export default function IdeaWorkspace({
   artifactsByVersion,
   evidenceByVersion,
   meta,
-  initialCost,
   initialStage,
   initialScoreDistribution,
   scoringSamples,
@@ -354,7 +348,6 @@ export default function IdeaWorkspace({
   artifactsByVersion: Record<string, Artifact[]>;
   evidenceByVersion: Record<string, EvidenceCorpus>;
   meta: GeneratorMeta[];
-  initialCost: number;
   initialStage: string;
   /** All non-archived version scores across every idea — the active version's score is
    * ranked against this for a percentile (rendered in ValidationView). */
@@ -365,7 +358,6 @@ export default function IdeaWorkspace({
 }) {
   const router = useRouter();
   const t = useT();
-  const [cost, setCost] = useState(initialCost);
   const [evidence, setEvidence] = useState<Record<string, EvidenceCorpus>>(evidenceByVersion);
   const [refreshingEvidence, setRefreshingEvidence] = useState(false);
 
@@ -547,7 +539,6 @@ export default function IdeaWorkspace({
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "Could not answer");
       setChatMessages((p) => [...p, { role: "assistant", text: j.answer }]);
-      setCost((c) => c + (j.cost ?? 0));
     } catch (e) {
       setChatMessages((p) => [
         ...p,
@@ -754,7 +745,6 @@ export default function IdeaWorkspace({
       if (!res.ok) throw new Error(json.error ?? "Generation failed");
       const art = json as Artifact;
       setArtifacts((prev) => ({ ...prev, [versionId]: { ...(prev[versionId] ?? {}), [kind]: art } }));
-      setCost((c) => c + (art.cost ?? 0));
       if (kind === "validation") {
         const dv = art.data as { score?: number; demand?: { obtainable_revenue?: string } };
         setVersions((prev) =>
@@ -800,7 +790,7 @@ export default function IdeaWorkspace({
   const mountedRef = useRef(true);
   const pollingRef = useRef<Set<string>>(new Set());
 
-  // Pull the latest artifacts/versions/cost from the server (after a job finishes).
+  // Pull the latest artifacts/versions from the server (after a job finishes).
   // throws on failure so the caller (pollJob) can surface it instead of leaving a blank.
   async function refreshArtifacts() {
     const j = await (await fetch(`/api/ideas/${idea.id}`)).json();
@@ -813,7 +803,6 @@ export default function IdeaWorkspace({
     }
     if (Array.isArray(j.versions)) setVersions(j.versions);
     if (j.evidenceByVersion) setEvidence(j.evidenceByVersion);
-    if (typeof j.cost === "number") setCost(j.cost);
     if (Array.isArray(j.scoreDistribution)) setScoreDistribution(j.scoreDistribution);
     if (j.billing) setBilling(j.billing);
   }
@@ -1122,7 +1111,6 @@ export default function IdeaWorkspace({
       const res = await fetch(`/api/versions/${activeVersionId}/refine`, { method: "POST" });
       const p = await res.json();
       if (!res.ok) throw new Error(p.error ?? "Refinement failed");
-      setCost((c) => c + (p._cost ?? 0));
       setProposal(p as Refinement);
       setProposalDraft((p as Refinement).statement);
     } catch (e) {
@@ -1164,7 +1152,6 @@ export default function IdeaWorkspace({
       if (!res.ok) throw new Error(j.error ?? "Kit generation failed");
       const art = j as Artifact;
       setArtifacts((prev) => ({ ...prev, [activeVersionId]: { ...(prev[activeVersionId] ?? {}), kit: art } }));
-      setCost((c) => c + (art.cost ?? 0));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Kit generation failed");
     } finally {
@@ -1183,7 +1170,6 @@ export default function IdeaWorkspace({
       if (!res.ok) throw new Error(j.error ?? "Intel generation failed");
       const art = j as Artifact;
       setArtifacts((prev) => ({ ...prev, [activeVersionId]: { ...(prev[activeVersionId] ?? {}), intel: art } }));
-      setCost((c) => c + (art.cost ?? 0));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Intel generation failed");
     } finally {
@@ -1206,7 +1192,6 @@ export default function IdeaWorkspace({
       if (!res.ok) throw new Error(j.error ?? "Could not record the result");
       const art = j as Artifact;
       setArtifacts((prev) => ({ ...prev, [activeVersionId]: { ...(prev[activeVersionId] ?? {}), test_result: art } }));
-      setCost((c) => c + (art.cost ?? 0));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not record the result");
     } finally {
@@ -1267,7 +1252,6 @@ export default function IdeaWorkspace({
       const res = await fetch(`/api/versions/${activeVersionId}/wedges`, { method: "POST" });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "Wedge proposal failed");
-      setCost((c) => c + (j._cost ?? 0));
       const set = j as WedgeSet;
       setWedgeSet(set);
       setWedgeSelected(new Set(set.wedges.map((_, i) => i)));
@@ -1518,7 +1502,6 @@ export default function IdeaWorkspace({
         const pRes = await fetch(`/api/versions/${bestId}/refine`, { method: "POST" });
         const prop = await pRes.json();
         if (!pRes.ok) throw new Error(prop.error ?? "Refinement failed");
-        setCost((c) => c + (prop._cost ?? 0));
         const v = await createVersionFrom(prop.statement, "ai", bestId, prop.label, prop.rationale);
         setActiveVersionId(v.id);
         // Every 3rd round runs the cheap second-family audit judge alongside the
@@ -1720,6 +1703,8 @@ export default function IdeaWorkspace({
     href?: string;
     onClick?: () => void;
     busy?: boolean;
+    /** True when this action burns a full scoring run. */
+    costsScore?: boolean;
     /** Alternate path shown under the CTA when primary is iterate vs test. */
     alt?: { label: string; detail: string; onClick: () => void };
   };
@@ -1735,12 +1720,14 @@ export default function IdeaWorkspace({
   const kitMove = (ready: boolean): NextMove =>
     ready
       ? {
-          label: "Open the interview kit",
+          label: t("workspaceExtra.openInterviewKit"),
           hint: "Script, outreach copy, and pass/kill tally for the kill-test above — run it this week, then record the result.",
           href: "#next-test",
         }
       : {
-          label: generatingKit ? "Writing interview kit…" : "Prep this week's interviews",
+          label: generatingKit
+            ? t("workspaceExtra.writingKit")
+            : t("workspaceExtra.prepInterviews"),
           hint: "Turns the kill-test above into questions, outreach, and green/red signals — so you can talk to buyers, not just re-score the pitch.",
           onClick: generateKit,
           busy: generatingKit,
@@ -1752,24 +1739,26 @@ export default function IdeaWorkspace({
     // Pipeline steps that override shaping/testing once you're in them.
     if (activeOutcome) {
       return {
-        label: "Rescore with the test result",
+        label: t("workspaceExtra.rescoreWithTest"),
         hint: "Feed the real-world kill-test outcome back into a new validation pass.",
         onClick: revalidateWithResult,
+        costsScore: true,
       };
     }
     if (activeArtifacts.kit) return kitMove(true);
     if (verdict === "GO") {
       return {
-        label: "See the build plan",
+        label: t("workspaceExtra.seeBuildPlan"),
         hint: "GO unlocked the plan section — milestones and next build steps.",
         href: "#plan",
       };
     }
     if (verdict === "INSUFFICIENT EVIDENCE") {
       return {
-        label: "Re-run the analysis",
+        label: t("workspaceExtra.reRunAnalysisCta"),
         hint: "Confidence was too low to grade. A fresh grounded pass may pick up more signal.",
         onClick: () => runValidate(),
+        costsScore: true,
       };
     }
 
@@ -1780,19 +1769,21 @@ export default function IdeaWorkspace({
     const weak = verdict === "NO-GO" || score < decisionBands.maybe + 10;
 
     const sharpen = (): NextMove => ({
-      label: "Sharpen this version",
+      label: t("workspaceExtra.sharpenVersion"),
       hint: topDragName
-        ? `Biggest drag: “${topDragName}”. AI proposes a sharper statement targeting weak criteria, then re-scores.`
-        : "AI proposes a sharper statement targeting weak criteria, then re-scores.",
+        ? t("workspaceExtra.biggestDrag", { name: topDragName })
+        : t("workspaceExtra.sharpenHintDefault"),
       onClick: () => openComposer("suggest"),
       alt: {
-        label: "Or prep interviews instead",
-        detail: "Skip more rewriting — test the riskiest assumption with buyers this week.",
+        label: t("workspaceExtra.orPrepInterviews"),
+        detail: t("workspaceExtra.orPrepInterviews"),
         onClick: generateKit,
       },
     });
     const rewrite = (): NextMove => ({
-      label: activeAlphas.length ? "Compare different edges" : "Rewrite the idea",
+      label: activeAlphas.length
+        ? t("workspaceExtra.compareEdges")
+        : t("workspaceExtra.rewriteIdea"),
       hint: topDragName
         ? `Weak on “${topDragName}”. ${activeAlphas.length ? "Run angles head-to-head on the same evidence." : "Change the framing, then re-score."}`
         : activeAlphas.length
@@ -1800,7 +1791,7 @@ export default function IdeaWorkspace({
           : "This framing is weak. Rewrite the statement, then re-score.",
       onClick: () => (activeAlphas.length ? exploreWedges() : openComposer("write")),
       alt: {
-        label: "Or prep interviews instead",
+        label: t("workspaceExtra.orPrepInterviews"),
         detail: "If you believe the assumption is the real issue, test it with buyers.",
         onClick: generateKit,
       },
@@ -1812,7 +1803,7 @@ export default function IdeaWorkspace({
       return {
         ...kitMove(false),
         alt: {
-          label: "Or add context first",
+          label: t("workspaceExtra.orAddContext"),
           detail: "If the report missed founder facts, rescore before interviewing.",
           onClick: () => openComposer("context"),
         },
@@ -1824,8 +1815,7 @@ export default function IdeaWorkspace({
 
   // Primary needs a scoring run (not kit / plan / composer).
   const scoringPrimary =
-    campaignNextMove.onClick === revalidateWithResult ||
-    /re-?score|re-?run the analysis|validate/i.test(campaignNextMove.label);
+    !!campaignNextMove.costsScore || campaignNextMove.onClick === revalidateWithResult;
 
   // Alt path under the decision card (only when primary isn't already that action).
   const iterateHint = campaignNextMove.alt
@@ -1842,12 +1832,18 @@ export default function IdeaWorkspace({
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-accent2">
-              Idea
+              {t("workspace.ideaEyebrow")}
             </p>
             <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
-              {stage.label}
+              {stage.key === "validate"
+                ? t("workspace.stageValidate")
+                : stage.key}
             </h1>
-            <p className="mt-1 max-w-xl text-sm text-muted">{stage.blurb}</p>
+            <p className="mt-1 max-w-xl text-sm text-muted">
+              {stage.key === "validate"
+                ? t("workspace.stageValidateBlurb")
+                : null}
+            </p>
           </div>
         </div>
 
@@ -1934,7 +1930,11 @@ export default function IdeaWorkspace({
                           ) : (
                             <span className="text-muted">—</span>
                           )}
-                          {val?.verdict && <div className="text-[11px] text-muted">{val.verdict}</div>}
+                          {val?.verdict && (
+                            <div className="text-[11px] text-muted">
+                              {verdictLabel(val.verdict, t)}
+                            </div>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-top font-mono text-xs text-accent2">
                           {v.revenue ?? "—"}
@@ -2017,7 +2017,7 @@ export default function IdeaWorkspace({
             goal={activeValidation.goal_scored ?? goalBucket}
             title={idea.title}
             statement={activeVersion.statement}
-            versionLabel={`v${activeVersion.n} · spent ${fmtCost(cost)}`}
+            versionLabel={`v${activeVersion.n}`}
             versionN={activeVersion.n}
             variantCount={visibleVersions.length}
             rationale={
@@ -2025,7 +2025,17 @@ export default function IdeaWorkspace({
                 ? `${activeVersion.label ? `${activeVersion.label}: ` : ""}${activeVersion.rationale}`
                 : null
             }
-            goalLabel={goalLabel(goalBucket)}
+            goalLabel={
+              goalBucket === "lifestyle"
+                ? t("studio.goalLifestyle")
+                : goalBucket === "side_hustle"
+                  ? t("studio.goalSideHustle")
+                  : goalBucket === "venture"
+                    ? t("studio.goalVenture")
+                    : goalBucket === "unsure"
+                      ? t("studio.goalUnsure")
+                      : goalLabel(goalBucket)
+            }
             goalDetail={goalDetail || null}
             testStatus={testStatus}
             primary={{
@@ -2062,9 +2072,9 @@ export default function IdeaWorkspace({
                   }`}
                   title="Conversational Q&A about this report — does not create a version or re-score"
                 >
-                  Ask
+                  {t("workspaceExtra.ask")}
                   <span className="hidden font-mono text-[10px] uppercase tracking-wide text-muted sm:inline">
-                    · no rescore
+                    {t("workspaceExtra.noRescoreHint")}
                   </span>
                 </button>
                 <button
@@ -2084,17 +2094,17 @@ export default function IdeaWorkspace({
                     <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
                   )}
                   {wedgeFetching
-                    ? "Drafting angles…"
+                    ? t("workspaceExtra.draftingAngles")
                     : wedgeRunning
-                      ? "Tournament…"
+                      ? t("workspaceExtra.tournamentShort")
                       : iterating
-                        ? "Climbing…"
+                        ? t("workspaceExtra.climbing")
                         : suggesting
-                          ? "Drafting…"
-                          : "New version"}
+                          ? t("workspaceExtra.draftingShort")
+                          : t("workspace.newVersion")}
                   {!wedgeFetching && !wedgeRunning && !iterating && !suggesting && (
                     <span className="hidden font-mono text-[10px] uppercase tracking-wide text-muted sm:inline">
-                      · ~1 run
+                      {t("workspaceExtra.runOnce")}
                     </span>
                   )}
                 </button>
@@ -2105,7 +2115,10 @@ export default function IdeaWorkspace({
                     className="text-xs text-muted hover:text-fg"
                     title={bestOther.label ?? bestOther.statement}
                   >
-                    best v{bestOther.n} ({bestOther.score}) ★
+                    {t("workspaceExtra.bestVersion", {
+                      n: bestOther.n,
+                      score: bestOther.score ?? "—",
+                    })}
                   </button>
                 )}
                 <div className="ml-auto">
@@ -2129,7 +2142,7 @@ export default function IdeaWorkspace({
                         label: `◆ ${t("workspaceExtra.deepValidation")}`,
                         hint: exhausted
                           ? "Campaign analyses complete — chat still open."
-                          : "~3–4× cost · uses one full analysis.",
+                          : "Slower deep pass · uses one full analysis.",
                         onClick: () => runValidate(true),
                         disabled: anyBusy || scoreBlocked,
                       },
@@ -2443,7 +2456,7 @@ export default function IdeaWorkspace({
                                 {delta != null && (
                                   <span className="font-mono"> ({delta >= 0 ? "+" : ""}{delta})</span>
                                 )}
-                                {r.verdict ? ` · ${r.verdict}` : ""}
+                                {r.verdict ? ` · ${verdictLabel(r.verdict, t)}` : ""}
                                 {r.revenue ? ` · ${r.revenue}` : ""}
                               </>
                             )}
@@ -2491,7 +2504,7 @@ export default function IdeaWorkspace({
         {hasValidate && iterateHint && !composerMode && !chatting && (
           <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border/80 bg-panel/40 px-3.5 py-2.5 text-sm">
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-              Also
+              {t("workspaceExtra.also")}
             </span>
             <button
               type="button"
@@ -2514,22 +2527,21 @@ export default function IdeaWorkspace({
                   {t("workspace.askTitle")}
                 </div>
                 <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent2">
-                  no rescore
+                  {t("workspaceExtra.askNoRescore")}
                 </span>
               </div>
               <button onClick={() => setChatting(false)} className="text-xs text-muted hover:text-fg">
-                close
+                {t("common.close")}
               </button>
             </div>
             <p className="mb-2 text-xs text-muted">
-              Talk through v{activeVersion.n} — scores, competitors, risks. Does not create a version.
-              When you have new facts or a pivot,{" "}
+              {t("workspaceExtra.askBlurb", { n: activeVersion.n })}{" "}
               <button
                 type="button"
                 onClick={() => promoteChatToVersion()}
                 className="font-medium text-accent2 underline-offset-2 hover:underline"
               >
-                turn it into a new version
+                {t("workspaceExtra.turnIntoVersion")}
               </button>
               .
             </p>
@@ -2537,9 +2549,9 @@ export default function IdeaWorkspace({
               {chatMessages.length === 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    "Why this score?",
-                    "What would move us to GO?",
-                    "Is the competitive set fair?",
+                    t("workspaceExtra.chatWhyScore"),
+                    t("workspaceExtra.chatMoveToGo"),
+                    t("workspaceExtra.chatCompetitiveFair"),
                   ].map((q) => (
                     <button
                       key={q}
@@ -2577,13 +2589,15 @@ export default function IdeaWorkspace({
                         onClick={() => promoteChatToVersion(m.text)}
                         className="text-[11px] text-muted hover:text-accent2"
                       >
-                        Use as new version context →
+                        {t("workspaceExtra.useAsVersionContext")}
                       </button>
                     </div>
                   )}
                 </div>
               ))}
-              {chatLoading && <div className="animate-pulse text-xs text-muted">thinking…</div>}
+              {chatLoading && (
+                <div className="animate-pulse text-xs text-muted">{t("workspaceExtra.thinking")}</div>
+              )}
               <div ref={chatEndRef} />
             </div>
             <div className="mt-2 flex items-end gap-2">
@@ -2603,7 +2617,7 @@ export default function IdeaWorkspace({
                     sendQuestion();
                   }
                 }}
-                placeholder="Message… (Shift+Enter for newline)"
+                placeholder={t("workspaceExtra.messagePlaceholder")}
                 className="max-h-32 min-h-[2.5rem] flex-1 resize-none overflow-y-auto rounded-lg border border-border bg-panel2 px-3 py-2 text-sm outline-none focus:border-accent2"
               />
               <button
@@ -2611,7 +2625,7 @@ export default function IdeaWorkspace({
                 disabled={chatLoading || !chatInput.trim()}
                 className="shrink-0 rounded-lg bg-accent2 px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-50"
               >
-                Send
+                {t("workspaceExtra.send")}
               </button>
             </div>
           </div>
@@ -3142,12 +3156,6 @@ export default function IdeaWorkspace({
                   }}
                 />
                 <SourcesList sources={activeArtifacts.validation.sources} />
-                <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
-                  <span>
-                    Model: {activeArtifacts.validation.model ?? "—"}
-                    {activeArtifacts.validation.cost != null ? ` · ${fmtCost(activeArtifacts.validation.cost)}` : ""}
-                  </span>
-                </div>
               </div>
             ) : null}
 
@@ -3155,39 +3163,39 @@ export default function IdeaWorkspace({
             {activeArtifacts.validation && activeAlphas.length > 0 && (
               <div className="folio mt-10 border-accent/30 p-5">
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                  <div className="font-display text-base font-bold text-accent2">Possible alpha — test a different edge</div>
+                  <div className="font-display text-base font-bold text-accent2">
+                    {t("workspaceExtra.possibleAlpha")}
+                  </div>
                   <button
                     onClick={exploreWedges}
                     disabled={anyBusy}
-                    title="Feeds these alphas (plus competitor complaint themes and the moat targets) into 3–5 divergent variants and validates them head-to-head on the same evidence."
+                    title={t("workspaceExtra.alphasBlurb")}
                     className="inline-flex items-center gap-1.5 rounded-md border border-accent/40 px-2.5 py-1 text-xs font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
                   >
                     {(wedgeFetching || wedgeRunning) && (
                       <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
                     )}
                     {wedgeFetching
-                      ? "Drafting angles…"
+                      ? t("workspaceExtra.draftingAngles")
                       : wedgeRunning
-                        ? "Tournament running…"
-                        : "Compare angles head-to-head →"}
+                        ? t("workspaceExtra.tournamentRunning")
+                        : t("workspaceExtra.compareAnglesCta")}
                   </button>
                 </div>
-                <p className="mb-3 text-xs text-muted">
-                  Differentiators this idea could pursue. Re-validate around one, or open{" "}
-                  <b className="font-medium text-fg/70">New version → Advanced</b> / Compare angles for a
-                  full tournament on the same evidence.
-                </p>
+                <p className="mb-3 text-xs text-muted">{t("workspaceExtra.alphasBlurb")}</p>
                 {(wedgeFetching || wedgeRunning) && (
                   <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2.5 text-sm text-fg/90">
                     <span className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
                     <div>
                       <div className="font-medium text-accent">
-                        {wedgeFetching ? "Drafting tournament angles…" : "Validating wedges head-to-head…"}
+                        {wedgeFetching
+                          ? t("workspaceExtra.draftingTournament")
+                          : t("workspaceExtra.validatingWedges")}
                       </div>
                       <p className="mt-0.5 text-xs text-muted">
                         {wedgeFetching
-                          ? "Usually 15–40s. Progress also appears in the Wedge tournament panel above the report."
-                          : "Running selected angles in parallel on the same evidence corpus."}
+                          ? t("workspaceExtra.draftingHint")
+                          : t("workspaceExtra.validatingHint")}
                       </p>
                     </div>
                   </div>
@@ -3203,8 +3211,8 @@ export default function IdeaWorkspace({
                         className="mt-2 self-start rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-on-accent disabled:opacity-50"
                       >
                         {exhausted
-                          ? "Analyses complete"
-                          : "Re-validate with this alpha →"}
+                          ? t("workspace.analysesComplete")
+                          : t("workspaceExtra.revalidateAlpha")}
                       </button>
                     </div>
                   ))}

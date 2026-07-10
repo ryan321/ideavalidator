@@ -1,5 +1,8 @@
 "use client";
 
+import { verdictLabel } from "@/lib/i18n/t";
+import { useT } from "./LocaleProvider";
+
 // The masthead instrument: verdict + score in a box beside the idea, above the fold.
 // This is the ONE place the number leads on screen — the readout below renders its
 // hero compact (compactHero) so the score is stated prominently exactly once.
@@ -208,6 +211,7 @@ export function VerdictBox({
   borderline,
   insufficient,
 }: {
+  /** Machine code (GO / MAYBE / NO-GO / INSUFFICIENT EVIDENCE) — display is localized. */
   verdict: string;
   score: number;
   sd: number;
@@ -220,6 +224,8 @@ export function VerdictBox({
   borderline?: string | null;
   insufficient?: boolean;
 }) {
+  const t = useT();
+  const label = verdictLabel(verdict, t);
   return (
     <a
       href="#verdict"
@@ -228,7 +234,7 @@ export function VerdictBox({
       style={{ borderColor: `color-mix(in srgb, ${color} 30%, var(--color-border))` }}
     >
       <div className="flex items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-        <span>Verdict</span>
+        <span>{t("report.verdict")}</span>
         {typeof confidence === "number" && (
           <span className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
@@ -243,12 +249,15 @@ export function VerdictBox({
           className={`mt-2.5 text-center font-display font-bold leading-none tracking-tight ${insufficient ? "text-lg" : "text-3xl"}`}
           style={{ color }}
         >
-          {verdict}
+          {label}
         </div>
         {borderline && !insufficient && (
           <div className="mt-2 text-center">
             <span className="inline-block rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-warn">
-              borderline · ±{sd} of the {borderline} line
+              {t("verdict.borderlineOf", {
+                sd,
+                line: verdictLabel(borderline, t),
+              })}
             </span>
           </div>
         )}

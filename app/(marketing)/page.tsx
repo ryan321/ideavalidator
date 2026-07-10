@@ -187,9 +187,9 @@ export default async function LandingPage() {
               {t("landing.theCall")}
             </p>
             <div className="flex flex-wrap gap-2">
-              <span className="verdict-stamp text-sm text-good">GO</span>
-              <span className="verdict-stamp text-sm text-warn">MAYBE</span>
-              <span className="verdict-stamp text-sm text-bad">NO-GO</span>
+              <span className="verdict-stamp text-sm text-good">{t("verdict.go")}</span>
+              <span className="verdict-stamp text-sm text-warn">{t("verdict.maybe")}</span>
+              <span className="verdict-stamp text-sm text-bad">{t("verdict.noGo")}</span>
             </div>
             <p className="max-w-xs text-left text-xs leading-relaxed text-muted sm:text-right">
               {t("landing.theCallBody")}

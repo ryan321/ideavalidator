@@ -105,8 +105,9 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getRequestLocale();
+  const dir = locale === "ar" ? "rtl" : "ltr";
   return (
-    <html lang={locale} className={`${fontVars} h-full antialiased`} suppressHydrationWarning>
+    <html lang={locale} dir={dir} className={`${fontVars} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: styleBootScript }} />
       </head>

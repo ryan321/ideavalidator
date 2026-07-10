@@ -1,5 +1,9 @@
+"use client";
+
 import { Card, Section, Badge } from "@/components/ui";
+import { criterionLabel } from "@/lib/i18n/t";
 import { criterionTone as scoreColor } from "@/lib/scoring";
+import { useT } from "../LocaleProvider";
 import { LeverChip } from "./chips";
 import { SpreadMarker } from "./SpreadMarker";
 
@@ -67,9 +71,11 @@ function PillarCard({ title, pillar }: { title: string; pillar?: Pillar }) {
 }
 
 function CriterionCard({ criterion }: { criterion: Criterion }) {
+  const t = useT();
   const score = clampScore(criterion?.score ?? 0);
   const color = scoreColor(score);
   const tone = criterion?.group === "demand" ? "accent" : undefined;
+  const label = criterionLabel(criterion?.name, t) || t("report.untitledCriterion");
   return (
     <div className="rounded-xl border border-border bg-panel2 p-3">
       <div className="flex items-start justify-between gap-2">
@@ -78,7 +84,7 @@ function CriterionCard({ criterion }: { criterion: Criterion }) {
             className="truncate text-sm font-bold text-fg"
             title={CRITERIA_HELP[criterion?.name] ?? undefined}
           >
-            {criterion?.name || "Untitled criterion"}
+            {label}
             {CRITERIA_HELP[criterion?.name] && <span className="ml-1 cursor-help text-xs text-muted">ⓘ</span>}
           </div>
           {(criterion?.category || criterion?.lever || criterion?.spread) ? (
@@ -149,20 +155,21 @@ export function ValidationScorecard({
   };
   criteria: Criterion[];
 }) {
+  const t = useT();
   const v = validations ?? ({} as typeof validations);
   const list = Array.isArray(criteria) ? criteria : [];
 
   return (
-    <Section title="Validation Scorecard">
+    <Section title={t("report.validationScorecard")}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <PillarCard title="Problem Validation" pillar={v?.problem} />
-        <PillarCard title="Solution Validation" pillar={v?.solution} />
-        <PillarCard title="Market Validation" pillar={v?.market} />
+        <PillarCard title={t("report.problemValidation")} pillar={v?.problem} />
+        <PillarCard title={t("report.solutionValidation")} pillar={v?.solution} />
+        <PillarCard title={t("report.marketValidation")} pillar={v?.market} />
       </div>
 
       <div className="mt-5">
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-          Detailed score explanations
+          {t("report.detailedScores")}
         </h4>
         {list.length > 0 ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

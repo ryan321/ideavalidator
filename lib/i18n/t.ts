@@ -1,15 +1,18 @@
 import type { Locale } from "./config";
 import { DEFAULT_LOCALE } from "./config";
+import { en } from "./messages/en";
 import { getMessages, type MessageTree } from "./messages";
 
-type Leaves<T, P extends string = ""> = T extends object
-  ? {
-      [K in keyof T & string]: Leaves<T[K], P extends "" ? K : `${P}.${K}`>;
-    }[keyof T & string]
-  : P;
+type Leaves<T, P extends string = ""> = T extends string
+  ? P
+  : T extends object
+    ? {
+        [K in keyof T & string]: Leaves<T[K], P extends "" ? K : `${P}.${K}`>;
+      }[keyof T & string]
+    : P;
 
-/** Dot-path keys into the English message tree (type-safe). */
-export type MessageKey = Leaves<MessageTree>;
+/** Dot-path keys into the English message tree (type-safe structure). */
+export type MessageKey = Leaves<typeof en>;
 
 export type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
@@ -57,4 +60,54 @@ export function checklistItems(t: TranslateFn): string[] {
     t("checklist.item13"),
     t("checklist.item14"),
   ];
+}
+
+/**
+ * Localized stamp/label for a stored machine verdict code.
+ * Codes stay English in JSON/API; only the UI string is translated.
+ */
+export function verdictLabel(
+  verdict: string | null | undefined,
+  t: TranslateFn
+): string {
+  switch (verdict) {
+    case "GO":
+      return t("verdict.go");
+    case "MAYBE":
+      return t("verdict.maybe");
+    case "NO-GO":
+      return t("verdict.noGo");
+    case "INSUFFICIENT EVIDENCE":
+      return t("verdict.insufficient");
+    default:
+      return (verdict ?? "").trim() || t("verdict.maybe");
+  }
+}
+
+/** Map stored English criterion names → localized UI labels. */
+const CRITERION_KEYS: Record<string, MessageKey> = {
+  "Demand Strength": "criteria.demandStrength",
+  "Willingness to Pay": "criteria.willingnessToPay",
+  "Problem-Solution Fit": "criteria.problemSolutionFit",
+  "Retention & Recurrence": "criteria.retentionRecurrence",
+  "Market Timing": "criteria.marketTiming",
+  "Competitive Position": "criteria.competitivePosition",
+  "Differentiation / Moat": "criteria.differentiationMoat",
+  "Acquisition Ease": "criteria.acquisitionEase",
+  "Founder Fit": "criteria.founderFit",
+  "Goal Fit": "criteria.goalFit",
+};
+
+/**
+ * Localized display label for a criterion machine name.
+ * Unknown names pass through unchanged.
+ */
+export function criterionLabel(
+  name: string | null | undefined,
+  t: TranslateFn
+): string {
+  const n = (name ?? "").trim();
+  if (!n) return "";
+  const key = CRITERION_KEYS[n];
+  return key ? t(key) : n;
 }

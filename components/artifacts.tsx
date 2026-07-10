@@ -37,6 +37,7 @@ import {
 } from "./report/DeepReport";
 import { WhyThisScore } from "./report/WhyThisScore";
 import { ReportChapter } from "./report/ReportChapter";
+import { criterionLabel, verdictLabel } from "@/lib/i18n/t";
 import { useT } from "./LocaleProvider";
 
 // Light structural guard for a stored kit artifact (KitSchema lives server-side with
@@ -208,9 +209,9 @@ export function SourcesList({
           <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
         </span>
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-fg/85">
-          Sources ({sources.length})
+          {t("report.sourcesCount", { n: sources.length })}
         </span>
-        <span className="hidden text-xs text-muted sm:inline">cited links · optional</span>
+        <span className="hidden text-xs text-muted sm:inline">{t("report.citedOptional")}</span>
         <span className="ml-auto shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
           <span className="group-open:hidden">{t("common.expand")}</span>
           <span className="hidden group-open:inline">{t("common.collapse")}</span>
@@ -344,7 +345,7 @@ function VerdictMeter({
       <div className="relative mt-1.5 h-3 font-mono text-[10px] uppercase tracking-wider">
         <span className="absolute -translate-x-1/2 text-bad/70" style={{ left: `${bands.maybe / 2}%` }}>{t("report.noGo")}</span>
         <span className="absolute -translate-x-1/2 text-warn/80" style={{ left: `${(bands.maybe + bands.go) / 2}%` }}>{t("report.maybe")}</span>
-        <span className="absolute -translate-x-1/2 text-good/80" style={{ left: `${(bands.go + 100) / 2}%` }}>Go · {bands.go}+</span>
+        <span className="absolute -translate-x-1/2 text-good/80" style={{ left: `${(bands.go + 100) / 2}%` }}>{t("report.goLine", { go: bands.go })}</span>
       </div>
       <div className="mt-2.5 font-mono text-xs" style={{ color }}>
         {insufficient
@@ -361,6 +362,7 @@ function VerdictMeter({
 // click away, so the report doesn't open as a wall of text. `print` disables the
 // clamp entirely (a printed "+ More" button is dead weight).
 function ClampText({ text, className = "", print = false }: { text: string; className?: string; print?: boolean }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const long = !print && text.length > 170;
   return (
@@ -371,7 +373,7 @@ function ClampText({ text, className = "", print = false }: { text: string; clas
           onClick={() => setOpen((o) => !o)}
           className="mt-1 font-mono text-[11px] uppercase tracking-wide text-accent2 hover:underline"
         >
-          {open ? "− Less" : "+ More"}
+          {open ? t("report.lessClamp") : t("report.more")}
         </button>
       )}
     </div>
@@ -381,11 +383,33 @@ function ClampText({ text, className = "", print = false }: { text: string; clas
 // Subtle provenance tag: this figure is the model's synthesis of its web search,
 // not a measured feed — the opposite of a fake "VERIFIED / LIVE DATA" badge.
 function ModelEstimateTag() {
+  const t = useT();
   return (
-    <span className="font-mono text-[10px] uppercase tracking-wide text-muted/70" title="An estimate synthesized by the model from web-search results — check the cited sources before relying on it.">
-      model estimate — see sources
+    <span
+      className="font-mono text-[10px] uppercase tracking-wide text-muted/70"
+      title={t("report.modelEstimate")}
+    >
+      {t("report.modelEstimate")}
     </span>
   );
+}
+
+function effortLabel(level: string | undefined, t: ReturnType<typeof useT>): string {
+  const map: Record<string, string> = {
+    Low: t("report.levelLow"),
+    Medium: t("report.levelMedium"),
+    High: t("report.levelHigh"),
+  };
+  return map[level ?? ""] ?? level ?? "";
+}
+
+function difficultyLabel(level: string | undefined, t: ReturnType<typeof useT>): string {
+  const map: Record<string, string> = {
+    Easy: t("report.levelEasy"),
+    Moderate: t("report.levelModerate"),
+    Hard: t("report.levelHard"),
+  };
+  return map[level ?? ""] ?? level ?? "";
 }
 
 // What evidence is missing, in plain words — derived from the corpus stats and the
@@ -538,7 +562,9 @@ export function ValidationView({
     const hasAny = best && best.grade !== "none";
     dims.push({
       label: t("report.moatToday"),
-      value: hasAny ? `${best.grade[0].toUpperCase()}${best.grade.slice(1)} · ${best.type.replace(/_/g, " ")}` : "None yet",
+      value: hasAny
+        ? `${best.grade[0].toUpperCase()}${best.grade.slice(1)} · ${best.type.replace(/_/g, " ")}`
+        : t("report.noneYet"),
       color: best?.grade === "strong" ? "var(--color-good)" : hasAny ? "var(--color-warn)" : "var(--color-bad)",
       hint: "Strongest defensibility path graded today — details in Market.",
     });
@@ -553,12 +579,12 @@ export function ValidationView({
 
   const narrativeRows: [string, string, string][] = d.narrative
     ? [
-        ["Who feels it", d.narrative.who, ""],
-        ["The pain", d.narrative.pain, ""],
-        ["Today they", d.narrative.status_quo, "text-muted"],
-        ["Cost of nothing", d.narrative.cost_of_inaction, "text-bad"],
-        ["Your solution", d.narrative.solution, "text-accent"],
-        ["After", d.narrative.after, "text-good"],
+        [t("report.whoFeelsIt"), d.narrative.who, ""],
+        [t("report.thePain"), d.narrative.pain, ""],
+        [t("report.todayThey"), d.narrative.status_quo, "text-muted"],
+        [t("report.costOfNothing"), d.narrative.cost_of_inaction, "text-bad"],
+        [t("report.yourSolution"), d.narrative.solution, "text-accent"],
+        [t("report.after"), d.narrative.after, "text-good"],
       ]
     : [];
 
@@ -579,10 +605,10 @@ export function ValidationView({
   const risksPreview = d.pre_mortem?.[0] || d.risk_matrix?.[0]?.title || null;
   const planPreview =
     d.verdict === "GO"
-      ? d.plan?.milestones?.[0]?.title || "Path to first revenue"
-      : "Gated on the kill-test";
+      ? d.plan?.milestones?.[0]?.title || t("report.pathToRevenue")
+      : t("report.gatedOnKillTest");
   const evidencePreview = evidence
-    ? `${evidence.items?.length ?? 0} fetched items`
+    ? t("report.fetchedItems", { n: evidence.items?.length ?? 0 })
     : null;
 
   return (
@@ -595,9 +621,9 @@ export function ValidationView({
               href="#verdict"
               className="mr-2 flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-xs font-bold tracking-tight"
               style={{ color, borderColor: `color-mix(in srgb, ${color} 35%, transparent)` }}
-              title={`${d.verdict} · ${Math.round(d.score)} ± ${sd} at ${d.confidence}% confidence`}
+              title={`${verdictLabel(d.verdict, t)} · ${Math.round(d.score)} ± ${sd} at ${d.confidence}% confidence`}
             >
-              {insufficient ? "INSUFFICIENT" : d.verdict}
+              {verdictLabel(d.verdict, t)}
               <span className="tabular-nums">{Math.round(d.score)}</span>
             </a>
           )}
@@ -642,7 +668,7 @@ export function ValidationView({
                       }`}
                       style={{ color }}
                     >
-                      {d.verdict}
+                      {verdictLabel(d.verdict, t)}
                     </span>
                     <span className="font-mono text-2xl font-bold tabular-nums" style={{ color }}>
                       {Math.round(d.score)}
@@ -654,7 +680,10 @@ export function ValidationView({
                         className="rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-warn"
                         title={`The score sits within the ±${sd}-point run-to-run scoring noise of this goal's ${nearLine} threshold (${nearLine === "GO" ? bands.go : bands.maybe}) — a re-run could land on the other side.`}
                       >
-                        borderline · ±{sd} of the {nearLine} line
+                        {t("verdict.borderlineOf", {
+                          sd,
+                          line: verdictLabel(nearLine, t),
+                        })}
                       </span>
                     )}
                   </div>
@@ -699,7 +728,11 @@ export function ValidationView({
                   <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent2">Next ·</span>
                   <span className="min-w-0">
                     {d.next_test.pivotal_criterion && d.verdict === "MAYBE" ? (
-                      <>resolving <b className="text-fg">{d.next_test.pivotal_criterion}</b> moves this off the line — </>
+                      <>
+                        {t("report.resolvingMoves", {
+                          criterion: criterionLabel(d.next_test.pivotal_criterion, t),
+                        })}{" "}
+                      </>
                     ) : null}
                     a ≤1-week test is ready below <span className="text-accent2">↓</span>
                   </span>
@@ -755,7 +788,7 @@ export function ValidationView({
                 <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
               </span>
               <span className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.14em] text-fg/85">
-                Scoring notes &amp; guards
+                {t("report.scoringNotes")}
               </span>
               <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
                 <span className="group-open:hidden">{t("common.expand")}</span>
@@ -815,7 +848,16 @@ export function ValidationView({
         <div className="pt-2">
           <p className="text-sm font-medium text-fg/85">{t("report.digDeeper")}</p>
           <p className="mt-0.5 text-xs text-muted">
-            Click any section below to expand it — Brief, Market, Money, Risks, Plan, Evidence.
+            {t("report.digDeeperHint", {
+              sections: [
+                t("report.brief"),
+                t("report.market"),
+                t("report.money"),
+                t("report.risks"),
+                t("report.plan"),
+                t("report.evidence"),
+              ].join(", "),
+            })}
           </p>
         </div>
       )}
@@ -824,8 +866,8 @@ export function ValidationView({
       <ReportChapter
         id="brief"
         n="01"
-        title="The brief"
-        hint="what you need to know"
+        title={t("report.theBrief")}
+        hint={t("report.briefHint")}
         preview={briefPreview}
         print={print}
         defaultOpen={!chapters}
@@ -835,7 +877,12 @@ export function ValidationView({
           {d.narrative?.why && (
             <p className="max-w-3xl text-sm leading-relaxed text-fg/90">
               <b style={{ color: d.narrative.verdict === "Painkiller" ? "var(--color-good)" : "var(--color-warn)" }}>
-                {d.narrative.verdict}:
+                {d.narrative.verdict === "Painkiller"
+                  ? t("report.painkiller")
+                  : d.narrative.verdict === "Vitamin"
+                    ? t("report.vitamin")
+                    : d.narrative.verdict}
+                :
               </b>{" "}
               {d.narrative.why}
             </p>
@@ -847,31 +894,37 @@ export function ValidationView({
           {/* the actionable core, scannable — leads the brief */}
           {(strengths.length > 0 || risks.length > 0) && (
             <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
-              <div className="sm:pr-6"><MiniSignals tone="good" label="What's working" items={strengths} /></div>
-              <div className="sm:pl-6"><MiniSignals tone="warn" label="What to watch" items={risks} /></div>
+              <div className="sm:pr-6">
+                <MiniSignals tone="good" label={t("report.whatsWorking")} items={strengths} />
+              </div>
+              <div className="sm:pl-6">
+                <MiniSignals tone="warn" label={t("report.whatToWatch")} items={risks} />
+              </div>
             </div>
           )}
 
           {d.demand && (
             <div>
-              <div className="mb-3 font-mono text-sm uppercase tracking-[0.1em] text-muted">The number</div>
+              <div className="mb-3 font-mono text-sm uppercase tracking-[0.1em] text-muted">
+                {t("report.theNumber")}
+              </div>
               {d.demand.math && (
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted">
-                  <span className="text-fg/80" title="customers you can realistically reach">{d.demand.math.reachable}</span>
-                  <span>reach ×</span>
-                  <span className="text-fg/80" title="share/conversion you'd win">{d.demand.math.capture}</span>
-                  <span>win ×</span>
-                  <span className="text-fg/80" title="annual revenue per customer">{d.demand.math.price}</span>
-                  <span>each ≈</span>
+                  <span className="text-fg/80">{d.demand.math.reachable}</span>
+                  <span>{t("report.reach")}</span>
+                  <span className="text-fg/80">{d.demand.math.capture}</span>
+                  <span>{t("report.win")}</span>
+                  <span className="text-fg/80">{d.demand.math.price}</span>
+                  <span>{t("report.each")}</span>
                   <span className="font-bold text-accent2">{d.demand.obtainable_revenue}</span>
-                  <span>/yr</span>
+                  <span>{t("report.perYear")}</span>
                 </div>
               )}
               {hasSens && (
                 <div className="mt-3 grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border">
-                  <Metric label="Conservative" value={sens!.conservative || "—"} hint="If it goes worse than expected" />
-                  <Metric label="Base" value={sens!.base || d.demand.obtainable_revenue || "—"} color="var(--color-accent2)" hint="The headline estimate" />
-                  <Metric label="Optimistic" value={sens!.optimistic || "—"} hint="If it goes well" />
+                  <Metric label={t("report.conservative")} value={sens!.conservative || "—"} hint={t("report.conservativeHint")} />
+                  <Metric label={t("report.base")} value={sens!.base || d.demand.obtainable_revenue || "—"} color="var(--color-accent2)" hint={t("report.baseHint")} />
+                  <Metric label={t("report.optimistic")} value={sens!.optimistic || "—"} hint={t("report.optimisticHint")} />
                 </div>
               )}
               {d.demand.reasoning && <ClampText text={d.demand.reasoning} print={print} className="mt-3 max-w-2xl text-sm text-muted" />}
@@ -883,7 +936,7 @@ export function ValidationView({
             <details className="group" open={print}>
               <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
                 <span className="transition group-open:rotate-90">▸</span>
-                Why they&apos;ll buy — full pain → solution breakdown
+                {t("report.whyTheyBuy")}
               </summary>
               <div className="mt-4 grid max-w-3xl gap-x-6 gap-y-2.5 text-sm sm:grid-cols-[130px_minmax(0,1fr)]">
                 {narrativeRows.map(([label, text, cls]) => (
@@ -898,15 +951,15 @@ export function ValidationView({
 
           {d.goal_fit_note && (
             <div className="rounded-r-lg border-l-2 border-warn/50 bg-warn/5 px-4 py-3 text-sm">
-              <span className="font-mono text-[13px] uppercase tracking-wide text-warn">Goal fit · </span>
+              <span className="font-mono text-[13px] uppercase tracking-wide text-warn">{t("report.goalFitLabel")} </span>
               <span className="text-fg/90">{d.goal_fit_note}</span>
             </div>
           )}
 
           {d.clarifying_questions && d.clarifying_questions.length > 0 && (
             <div className="rounded-r-lg border-l-2 border-accent2/50 bg-accent2/5 px-4 py-3">
-              <div className="mb-1.5 font-mono text-[13px] uppercase tracking-wide text-accent2">Open questions</div>
-              <p className="mb-2 text-xs text-muted">Answer these via “New version → Add context” to sharpen the next pass.</p>
+              <div className="mb-1.5 font-mono text-[13px] uppercase tracking-wide text-accent2">{t("report.openQuestions")}</div>
+              <p className="mb-2 text-xs text-muted">{t("report.openQuestionsHint")}</p>
               <ul className="space-y-1.5">
                 {d.clarifying_questions.map((q, i) => (
                   <li key={i} className="flex gap-2 text-sm leading-snug text-fg/90">
@@ -922,18 +975,22 @@ export function ValidationView({
             <details className="group" open={print}>
               <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
                 <span className="transition group-open:rotate-90">▸</span>
-                How it runs &amp; how you sell
+                {t("report.howItRuns")}
               </summary>
               <div className="mt-3 space-y-3 border-l border-border pl-4 text-sm leading-relaxed text-fg/90">
                 {d.operating && (
                   <p>
-                    <span className="font-mono text-[11px] uppercase tracking-wide text-muted">{d.operating.effort_level} effort · </span>
+                    <span className="font-mono text-[11px] uppercase tracking-wide text-muted">
+                      {t("report.effortLine", { level: effortLabel(d.operating.effort_level, t) })}{" "}
+                    </span>
                     {d.operating.description}
                   </p>
                 )}
                 {d.acquisition && (
                   <p>
-                    <span className="font-mono text-[11px] uppercase tracking-wide text-muted">{d.acquisition.difficulty} to sell · </span>
+                    <span className="font-mono text-[11px] uppercase tracking-wide text-muted">
+                      {t("report.hardToSellLine", { level: difficultyLabel(d.acquisition.difficulty, t) })}{" "}
+                    </span>
                     {d.acquisition.reasoning}
                   </p>
                 )}
@@ -948,8 +1005,8 @@ export function ValidationView({
         <ReportChapter
           id="market"
           n="02"
-          title="Market & competition"
-          hint="proof the pain is real"
+          title={t("report.marketCompetition")}
+          hint={t("report.marketHint")}
           preview={marketPreview}
           print={print}
         >
@@ -962,7 +1019,7 @@ export function ValidationView({
               <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
                 {d.market.search_trend && d.market.search_trend.note && (
                   <div className="bg-panel p-4">
-                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Search interest · direction per web search</div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("report.searchInterest")}</div>
                     <div
                       className="mt-1 text-sm font-medium"
                       style={{
@@ -983,7 +1040,7 @@ export function ValidationView({
                 )}
                 {d.market.momentum && (
                   <div className="bg-panel p-4">
-                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Recent momentum</div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("report.recentMomentum")}</div>
                     <p className="mt-1 text-sm text-fg/90">{d.market.momentum}</p>
                     <div className="mt-1.5"><ModelEstimateTag /></div>
                   </div>
@@ -997,14 +1054,14 @@ export function ValidationView({
             {(d.market.competitors ?? []).length > 0 && (
               <div>
                 <div className="mb-2.5 flex items-baseline justify-between gap-2 font-mono text-sm uppercase tracking-[0.1em] text-muted">
-                  Competitors
+                  {t("report.competitors")}
                   <ModelEstimateTag />
                 </div>
                 {/* competitor pricing range, from CITED pages only — the anchor for pricing */}
                 {intel?.pricing_anchor && (
                   <p className="mb-2.5 rounded-lg border border-accent2/30 bg-accent2/[0.05] px-3.5 py-2 text-sm text-fg/90">
                     <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent2">
-                      Pricing anchor ·{" "}
+                      {t("report.pricingAnchor")}{" "}
                     </span>
                     {intel.pricing_anchor}
                   </p>
@@ -1021,13 +1078,13 @@ export function ValidationView({
                         {c.note && <p className="mt-1 text-sm text-muted">{c.note}</p>}
                         {c.complaint_theme && (
                           <p className="mt-1.5 text-xs">
-                            <span className="font-semibold text-warn">Customers complain: </span>
+                            <span className="font-semibold text-warn">{t("report.customersComplain")} </span>
                             <span className="text-fg/85">{c.complaint_theme}</span>
                           </p>
                         )}
                         {c.your_edge && (
                           <p className="mt-1 text-xs">
-                            <span className="font-semibold text-accent">Your edge: </span>
+                            <span className="font-semibold text-accent">{t("report.yourEdge")} </span>
                             <span className="text-fg/85">{c.your_edge}</span>
                           </p>
                         )}
@@ -1035,28 +1092,28 @@ export function ValidationView({
                           <div className="mt-2 space-y-1 border-t border-border/60 pt-2 text-xs">
                             {info.positioning && (
                               <p>
-                                <span className="font-semibold text-fg/70">They say: </span>
+                                <span className="font-semibold text-fg/70">{t("report.theySay")} </span>
                                 <span className="text-fg/85">{info.positioning}</span>
                               </p>
                             )}
                             {info.pricing && (
                               <p>
-                                <span className="font-semibold text-fg/70">Pricing: </span>
+                                <span className="font-semibold text-fg/70">{t("report.pricingLabel")} </span>
                                 <span className="text-fg/85">{info.pricing}</span>{" "}
                                 {info.pricing_url && (
                                   <a href={info.pricing_url} target="_blank" rel="noopener noreferrer" className="text-accent2 hover:underline">
-                                    source ↗
+                                    {t("report.sourceArrow")}
                                   </a>
                                 )}
                               </p>
                             )}
                             {info.funding && (
                               <p>
-                                <span className="font-semibold text-fg/70">Funding: </span>
+                                <span className="font-semibold text-fg/70">{t("report.fundingLabel")} </span>
                                 <span className="text-fg/85">{info.funding}</span>{" "}
                                 {info.funding_url && (
                                   <a href={info.funding_url} target="_blank" rel="noopener noreferrer" className="text-accent2 hover:underline">
-                                    source ↗
+                                    {t("report.sourceArrow")}
                                   </a>
                                 )}
                               </p>
@@ -1070,16 +1127,13 @@ export function ValidationView({
                 {/* enrichment affordance — cited web facts, never estimated ones */}
                 {!intel && onGenerateIntel && !print && (
                   <div className="no-print mt-2.5 flex items-center gap-3 rounded-lg border border-dashed border-border px-3.5 py-2.5">
-                    <span className="text-xs text-muted">
-                      Pull each competitor’s real pricing &amp; funding from the web — cited, linked, and never
-                      estimated (no invented “market share”).
-                    </span>
+                    <span className="text-xs text-muted">{t("report.enrichIntel")}</span>
                     <button
                       onClick={onGenerateIntel}
                       disabled={generatingIntel}
                       className="ml-auto shrink-0 rounded-md border border-accent2/40 px-2.5 py-1 text-xs font-medium text-accent2 transition hover:bg-accent2/10 disabled:opacity-50"
                     >
-                      {generatingIntel ? "Searching…" : "🔎 Enrich with cited facts"}
+                      {generatingIntel ? t("report.searchingIntel") : t("report.enrichCta")}
                     </button>
                   </div>
                 )}
@@ -1136,8 +1190,8 @@ export function ValidationView({
         <ReportChapter
           id="money"
           n="03"
-          title="Money"
-          hint="the unit economics"
+          title={t("report.money")}
+          hint={t("report.moneyHint")}
           preview={moneyPreview}
           print={print}
         >
@@ -1145,26 +1199,26 @@ export function ValidationView({
             <ModelEstimateTag />
           </div>
           <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
-            <Metric label="Startup cost" value={d.financials.startup_cost || "—"} />
-            <Metric label="CAC" value={d.financials.unit_economics?.cac || "—"} hint="Cost to acquire a customer" />
-            <Metric label="LTV" value={d.financials.unit_economics?.ltv || "—"} hint="Lifetime value of a customer" />
-            <Metric label="Payback" value={d.financials.unit_economics?.payback || "—"} hint="Time to recoup acquisition cost" />
+            <Metric label={t("report.startupCost")} value={d.financials.startup_cost || "—"} />
+            <Metric label={t("report.cac")} value={d.financials.unit_economics?.cac || "—"} hint={t("report.cacHint")} />
+            <Metric label={t("report.ltv")} value={d.financials.unit_economics?.ltv || "—"} hint={t("report.ltvHint")} />
+            <Metric label={t("report.payback")} value={d.financials.unit_economics?.payback || "—"} hint={t("report.paybackHint")} />
           </div>
           {d.financials.revenue_model && <p className="mt-3 text-sm text-muted">{d.financials.revenue_model}</p>}
           {(d.financials.projections ?? []).length > 0 && (
             <div className="mt-4">
               <div className="mb-2 flex items-baseline justify-between gap-2 font-mono text-sm uppercase tracking-[0.1em] text-muted">
-                Projections
+                {t("report.projections")}
                 <ModelEstimateTag />
               </div>
               <div className="overflow-x-auto rounded-lg border border-border">
                 <table className="w-full min-w-[28rem] text-sm">
                   <thead>
                     <tr className="border-b border-border text-left font-mono text-[11px] uppercase tracking-wide text-muted">
-                      <th className="px-3 py-2 font-medium">Year</th>
-                      <th className="px-3 py-2 font-medium">Revenue</th>
-                      <th className="px-3 py-2 font-medium">Customers</th>
-                      <th className="px-3 py-2 font-medium">Note</th>
+                      <th className="px-3 py-2 font-medium">{t("report.year")}</th>
+                      <th className="px-3 py-2 font-medium">{t("report.revenue")}</th>
+                      <th className="px-3 py-2 font-medium">{t("report.customers")}</th>
+                      <th className="px-3 py-2 font-medium">{t("report.note")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1189,18 +1243,15 @@ export function ValidationView({
         <ReportChapter
           id="risks"
           n="04"
-          title="Risks"
-          hint="pre-mortem + probability × impact"
+          title={t("report.risks")}
+          hint={t("report.risksHint")}
           preview={risksPreview}
           print={print}
         >
           {d.pre_mortem?.length ? (
             <div className="mb-5 rounded-xl border border-bad/25 bg-bad/5 p-4">
-              <div className="mb-1 font-mono text-[13px] uppercase tracking-[0.12em] text-bad">Pre-mortem</div>
-              <p className="mb-2.5 text-xs text-muted">
-                Written before any criterion was scored: it&apos;s 18 months later and this business
-                is dead — here&apos;s why.
-              </p>
+              <div className="mb-1 font-mono text-[13px] uppercase tracking-[0.12em] text-bad">{t("report.preMortem")}</div>
+              <p className="mb-2.5 text-xs text-muted">{t("report.preMortemBlurb")}</p>
               <ul className="space-y-1.5">
                 {d.pre_mortem.map((p, i) => (
                   <li key={i} className="flex gap-2.5 text-sm leading-snug text-fg/90">
@@ -1216,9 +1267,9 @@ export function ValidationView({
           {d.risk_matrix?.length ? <RiskMatrix risks={d.risk_matrix} /> : null}
           {d.downside && (
             <div className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
-              <Metric label="Capital at risk" value={d.downside.capital_at_risk} />
-              <Metric label="Liability" value={d.downside.liability} />
-              <Metric label="If it fails" value={d.downside.if_it_fails} />
+              <Metric label={t("report.capitalAtRisk")} value={d.downside.capital_at_risk} />
+              <Metric label={t("report.liability")} value={d.downside.liability} />
+              <Metric label={t("report.ifItFails")} value={d.downside.if_it_fails} />
             </div>
           )}
         </ReportChapter>
@@ -1229,8 +1280,8 @@ export function ValidationView({
         <ReportChapter
           id="plan"
           n="05"
-          title="Plan"
-          hint={d.verdict === "GO" ? "path to first revenue" : "the test comes first"}
+          title={t("report.plan")}
+          hint={d.verdict === "GO" ? t("report.planHintGo") : t("report.planHintTest")}
           preview={planPreview}
           print={print}
         >
@@ -1238,15 +1289,16 @@ export function ValidationView({
             <div className="mb-3 flex gap-3 rounded-lg border border-accent2/40 bg-accent2/[0.06] p-3">
               <span className="mt-0.5 font-mono text-xs text-accent2">00</span>
               <div>
-                <div className="text-sm font-semibold">Run the kill-test — it gates everything below</div>
+                <div className="text-sm font-semibold">{t("verdict.killTestGates")}</div>
                 <div className="mt-0.5 text-xs text-muted">
-                  This verdict is {d.verdict || "not a GO"}: the evidence doesn&apos;t yet justify a build
-                  timeline. Run{" "}
+                  {t("verdict.thisVerdictIs", {
+                    label: d.verdict
+                      ? verdictLabel(d.verdict, t)
+                      : t("verdict.notAGo"),
+                  })}{" "}
                   <a href="#next-test" className="text-accent2 hover:underline">
-                    the one thing to test next
-                  </a>{" "}
-                  against its pre-registered thresholds, then revalidate — a pass unlocks this plan with a
-                  verdict behind it.
+                    →
+                  </a>
                 </div>
               </div>
             </div>
@@ -1261,8 +1313,8 @@ export function ValidationView({
           <ReportChapter
             id="evidence"
             n="06"
-            title="Evidence"
-            hint="the fetched corpus behind the demand read"
+            title={t("report.evidence")}
+            hint={t("report.evidenceHint")}
             preview={evidencePreview}
             print={print}
           >
@@ -1278,7 +1330,7 @@ export function ValidationView({
       >
         <summary
           className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3.5 select-none transition hover:bg-panel2/55 sm:px-4"
-          title="Click to expand or collapse the full scorecard"
+          title={t("report.fullScorecard")}
         >
           <span
             className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border bg-panel2 font-mono text-sm text-accent2 transition group-open:border-accent/40 group-open:bg-accent/10"
@@ -1287,7 +1339,7 @@ export function ValidationView({
             <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
           </span>
           <span className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.12em] text-fg/85">
-            Full scorecard &amp; signals
+            {t("report.fullScorecard")}
           </span>
           <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
             <span className="group-open:hidden">{t("common.expand")}</span>
@@ -1295,7 +1347,7 @@ export function ValidationView({
           </span>
         </summary>
         <div className="space-y-6 border-t border-border p-5">
-          <Section title="Visual Overview">
+          <Section title={t("report.visualOverview")}>
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
               <Card>
                 <CriteriaRadar criteria={d.criteria} />

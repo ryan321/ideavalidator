@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import type { Version } from "@/lib/db";
+import { useT } from "./LocaleProvider";
 
 /**
  * Compact history control — one chip that opens the angle list.
@@ -33,6 +34,7 @@ export function AnglesPicker({
   showArchived?: boolean;
   onToggleArchived?: () => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const active = versions.find((v) => v.id === activeId) ?? versions[0];
@@ -57,7 +59,7 @@ export function AnglesPicker({
         title="Switch angle / version"
       >
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
-          Exhibit
+          {t("report.exhibit")}
         </span>
         <span className="font-mono font-semibold">v{active.n}</span>
         {active.score != null && (
@@ -80,10 +82,12 @@ export function AnglesPicker({
               ? "bg-accent2 text-on-accent hover:opacity-90"
               : "bg-accent text-on-accent hover:opacity-90"
           }`}
-          title="Score axis, statements, and per-criterion deltas across angles"
+          title={t("workspace.compareVariants")}
           aria-pressed={comparingVariants}
         >
-          {comparingVariants ? "Hide comparison" : "Compare variants"}
+          {comparingVariants
+            ? t("workspace.hideComparison")
+            : t("workspace.compareVariants")}
         </button>
       )}
       {!!archivedCount && archivedCount > 0 && onToggleArchived && (
@@ -92,7 +96,9 @@ export function AnglesPicker({
           onClick={onToggleArchived}
           className="rounded-md border border-border/50 px-2 py-1 text-[11px] text-muted hover:text-fg"
         >
-          {showArchived ? "hide archived" : `archived (${archivedCount})`}
+          {showArchived
+            ? t("workspace.hideArchived")
+            : t("workspace.archivedCount", { n: archivedCount })}
         </button>
       )}
 

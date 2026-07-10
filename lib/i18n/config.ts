@@ -1,6 +1,6 @@
-/** Supported UI + report locales. English is complete; others fall back to en until filled. */
+/** Supported UI + report locales (top markets for founder tools). */
 
-export const LOCALES = ["en", "es", "fr", "de", "pt", "ja"] as const;
+export const LOCALES = ["en", "es", "pt", "fr", "de", "ja", "ko", "zh", "hi", "ar"] as const;
 export type Locale = (typeof LOCALES)[number];
 
 export const DEFAULT_LOCALE: Locale = "en";
@@ -11,20 +11,28 @@ export const LOCALE_COOKIE = "iv_locale";
 export const LOCALE_LABELS: Record<Locale, string> = {
   en: "English",
   es: "Español",
+  pt: "Português",
   fr: "Français",
   de: "Deutsch",
-  pt: "Português",
   ja: "日本語",
+  ko: "한국어",
+  zh: "中文",
+  hi: "हिन्दी",
+  ar: "العربية",
 };
 
 /** Native name for AI prompt instructions. */
 export const LOCALE_NATIVE_NAMES: Record<Locale, string> = {
   en: "English",
   es: "Spanish",
+  pt: "Portuguese",
   fr: "French",
   de: "German",
-  pt: "Portuguese",
   ja: "Japanese",
+  ko: "Korean",
+  zh: "Simplified Chinese",
+  hi: "Hindi",
+  ar: "Arabic",
 };
 
 export function isLocale(v: string | null | undefined): v is Locale {
@@ -42,9 +50,9 @@ export function parseAcceptLanguage(header: string | null): Locale {
   parts.sort((a, b) => b.quality - a.quality);
   for (const { tag } of parts) {
     const primary = tag.split("-")[0];
+    // zh-CN / zh-Hans / zh-TW → zh (simplified catalog; TW can refine later)
+    if (primary === "zh") return "zh";
     if (isLocale(primary)) return primary;
-    // e.g. pt-BR → pt
-    if (primary === "pt" && isLocale("pt")) return "pt";
   }
   return DEFAULT_LOCALE;
 }

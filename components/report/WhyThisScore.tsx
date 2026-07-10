@@ -2,11 +2,13 @@
 
 import React, { useState } from "react";
 import type { Validation } from "@/lib/generators/validation";
+import { criterionLabel } from "@/lib/i18n/t";
 import {
   criterionWeight,
   normalizeGoal,
   type CriterionName,
 } from "@/lib/scoring";
+import { useT } from "../LocaleProvider";
 
 type Bands = { go: number; maybe: number };
 
@@ -61,6 +63,7 @@ export function WhyThisScore({
   /** Collapse long prose so the decision zone stays scannable. */
   compact?: boolean;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(!compact);
   const goalKey = d.goal_scored ?? normalizeGoal(goal);
   const insufficient = d.verdict === "INSUFFICIENT EVIDENCE";
@@ -82,11 +85,11 @@ export function WhyThisScore({
     <section
       className="rounded-xl border bg-gradient-to-b from-panel2 to-panel p-4 sm:p-5"
       style={{ borderColor: `color-mix(in srgb, ${color} 28%, var(--color-border))` }}
-      aria-label="Why this score"
+      aria-label={t("decision.whyThisScore")}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-          Why this score
+          {t("decision.whyThisScore")}
         </div>
         {distance && (
           <div className="font-mono text-[11px] tabular-nums" style={{ color }}>
@@ -100,17 +103,17 @@ export function WhyThisScore({
           {vitamin && (
             <span
               className="rounded-full border border-warn/40 bg-warn/10 px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-warn"
-              title={d.narrative?.why || "Nice-to-have — harder to sell because no one is forced to act."}
+              title={d.narrative?.why || undefined}
             >
-              Vitamin
+              {t("report.vitamin")}
             </span>
           )}
           {painkiller && (
             <span
               className="rounded-full border border-good/40 bg-good/10 px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-good"
-              title={d.narrative?.why || "Acute pain buyers must solve."}
+              title={d.narrative?.why || undefined}
             >
-              Painkiller
+              {t("report.painkiller")}
             </span>
           )}
           {drags.map((c) => (
@@ -119,16 +122,16 @@ export function WhyThisScore({
               className="inline-flex items-center gap-1.5 rounded-full border border-border bg-panel2/80 px-2.5 py-0.5 font-mono text-[10px] text-muted"
               title={`Weighted drag on the score · band ${c.band}`}
             >
-              <span className="text-fg/80">{c.name}</span>
+              <span className="text-fg/80">{criterionLabel(c.name, t)}</span>
               <span className="tabular-nums text-bad/90">{Math.round(c.score)}</span>
             </span>
           ))}
           {pivotal && (
             <span
               className="rounded-full border border-accent2/35 bg-accent2/10 px-2.5 py-0.5 font-mono text-[10px] text-accent2"
-              title="The criterion whose resolution most likely exits this verdict band"
+              title={t("report.pivotal")}
             >
-              Lever · {pivotal}
+              {t("report.lever", { name: criterionLabel(pivotal, t) })}
             </span>
           )}
         </div>
@@ -146,7 +149,7 @@ export function WhyThisScore({
 
       {showFull && goalNote && goalNote !== summary && (
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
-          <span className="font-medium text-fg/70">Goal fit: </span>
+          <span className="font-medium text-fg/70">{t("decision.goalFit")} </span>
           {goalNote}
         </p>
       )}
@@ -154,9 +157,11 @@ export function WhyThisScore({
       {showFull && pivotal && d.next_test?.riskiest_assumption && (
         <p className="mt-2.5 max-w-3xl text-sm leading-relaxed text-muted">
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent2">
-            Next ·{" "}
+            {t("report.next")}{" "}
           </span>
-          Resolving <b className="text-fg/85">{pivotal}</b> moves this off the line —{" "}
+          {t("report.resolvingMoves", {
+            criterion: criterionLabel(pivotal, t),
+          })}{" "}
           {d.next_test.riskiest_assumption}
         </p>
       )}
@@ -167,7 +172,7 @@ export function WhyThisScore({
           onClick={() => setOpen((o) => !o)}
           className="mt-2 font-mono text-[11px] uppercase tracking-wide text-accent2 hover:underline"
         >
-          {open ? "− Less" : "+ Full rationale"}
+          {open ? t("report.less") : t("report.fullRationale")}
         </button>
       )}
     </section>

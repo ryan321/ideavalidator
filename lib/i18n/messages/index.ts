@@ -1,26 +1,33 @@
 import type { Locale } from "../config";
 import { en, type MessageTree } from "./en";
+import { es } from "./es";
+import { pt } from "./pt";
+import { fr } from "./fr";
+import { de } from "./de";
+import { ja } from "./ja";
+import { ko } from "./ko";
+import { zh } from "./zh";
+import { hi } from "./hi";
+import { ar } from "./ar";
 
 /**
- * Locale catalogs. Start empty `{}` and fill keys over time — missing keys
- * fall back to English via `t()`.
+ * Locale catalogs. Missing keys fall back to English via deepMerge in getMessages.
  */
-const catalogs: Record<Locale, DeepPartial<MessageTree>> = {
+const catalogs: Record<Locale, MessageTree | Partial<MessageTree>> = {
   en,
-  es: {},
-  fr: {},
-  de: {},
-  pt: {},
-  ja: {},
-};
-
-type DeepPartial<T> = {
-  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
+  es,
+  pt,
+  fr,
+  de,
+  ja,
+  ko,
+  zh,
+  hi,
+  ar,
 };
 
 export function getMessages(locale: Locale): MessageTree {
   if (locale === "en") return en;
-  // Merge: English base, overlay partial translations when present.
   return deepMerge(en, catalogs[locale] ?? {}) as MessageTree;
 }
 

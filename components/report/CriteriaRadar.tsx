@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from "recharts";
 import { Card, Section, Badge } from "@/components/ui";
+import { criterionLabel } from "@/lib/i18n/t";
 import { useT } from "../LocaleProvider";
 
 type Criterion = {
@@ -28,26 +29,28 @@ export function CriteriaRadar({ criteria }: { criteria: Criterion[] }) {
     return (
       <Section title={t("report.criteriaRadar")}>
         <Card>
-          <p className="text-sm text-muted">No criteria available yet.</p>
+          <p className="text-sm text-muted">{t("report.noCriteriaYet")}</p>
         </Card>
       </Section>
     );
   }
 
   const data = items.map((c) => ({
-    name: c.name,
+    name: criterionLabel(c.name, t),
     score: Math.max(0, Math.min(100, Number(c.score) || 0)),
   }));
 
   return (
     <Section
       title={t("report.criteriaRadar")}
-      right={<Badge tone="accent">{items.length} criteria</Badge>}
+      right={
+        <Badge tone="accent">
+          {t("report.criteriaCount", { n: items.length })}
+        </Badge>
+      }
     >
       <Card>
-        <p className="mb-3 text-xs text-muted">
-          Visual overview of all criteria scored 0&ndash;100.
-        </p>
+        <p className="mb-3 text-xs text-muted">{t("report.criteriaRadarHint")}</p>
         {/* on-screen: responsive (measures its container) */}
         <div className="no-print h-[360px] w-full">
           <ResponsiveContainer width="100%" height="100%">

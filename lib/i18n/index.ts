@@ -8,7 +8,14 @@ export {
   parseAcceptLanguage,
   type Locale,
 } from "./config";
-export { createTranslator, checklistItems, type MessageKey, type TranslateFn } from "./t";
+export {
+  createTranslator,
+  checklistItems,
+  verdictLabel,
+  criterionLabel,
+  type MessageKey,
+  type TranslateFn,
+} from "./t";
 export { getRequestLocale, getTranslator, resolveLocale } from "./server";
 export { languageInstruction, withOutputLocale } from "./ai";
 export { getMessages, type MessageTree } from "./messages";

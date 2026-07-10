@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import IdeaWorkspace from "@/components/IdeaWorkspace";
-import { getArtifactsByVersion, getEvidenceByVersion, getIdeaForUser, getIdeaCost, listVersions, scoreDistribution } from "@/lib/db";
+import { getArtifactsByVersion, getEvidenceByVersion, getIdeaForUser, listVersions, scoreDistribution } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { generatorMeta } from "@/lib/generators";
 import { scoringSamples } from "@/lib/scoring";
@@ -28,7 +28,6 @@ export default async function IdeaPage({
       artifactsByVersion={getArtifactsByVersion(id)}
       evidenceByVersion={getEvidenceByVersion(id)}
       meta={generatorMeta()}
-      initialCost={getIdeaCost(id)}
       initialStage={stage ?? idea.stage ?? "validate"}
       initialScoreDistribution={scoreDistribution()}
       scoringSamples={scoringSamples()}

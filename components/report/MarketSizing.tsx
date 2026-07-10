@@ -85,19 +85,16 @@ export function MarketSizing({
     <Section title={t("report.marketSizing")}>
       <Card>
         <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="text-xs text-muted">
-            How much of the headline market you can realistically reach — TAM is the ceiling, SOM is the
-            slice you&apos;d actually win.
-          </p>
+          <p className="text-xs text-muted">{t("report.marketSizingHint")}</p>
           <Badge tone="accent">
             <span className="font-mono">CAGR {cagr}%</span>
           </Badge>
         </div>
         <p
           className="-mt-3 mb-4 font-mono text-[10px] uppercase tracking-wide text-muted/70"
-          title="These figures are the model's synthesis of its web-search results — check the cited sources before relying on them."
+          title={t("report.modelEstimate")}
         >
-          model estimate — see sources
+          {t("report.modelEstimate")}
         </p>
 
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-7">
@@ -137,7 +134,9 @@ export function MarketSizing({
                     </span>
                     <span className="flex items-baseline gap-2">
                       {r.share && r.key !== "TAM" && (
-                        <span className="font-mono text-[11px] text-muted">{r.share} of TAM</span>
+                        <span className="font-mono text-[11px] text-muted">
+                          {t("report.ofTam", { share: r.share })}
+                        </span>
                       )}
                       <span className="font-mono text-sm font-bold text-fg">{r.tier.value}</span>
                     </span>
@@ -152,12 +151,12 @@ export function MarketSizing({
         {methodology ? (
           <div className="mt-5 rounded-lg border border-border bg-panel2 px-3 py-2">
             <p className="text-xs text-muted">
-              <span className="font-medium text-fg">Methodology:</span> {methodology}
+              <span className="font-medium text-fg">{t("report.methodology")}</span> {methodology}
             </p>
           </div>
         ) : null}
         {!proportional && (
-          <p className="mt-2 text-[11px] text-muted/70">Circles are indicative — exact figures couldn&apos;t be parsed for scale.</p>
+          <p className="mt-2 text-[11px] text-muted/70">{t("report.circlesIndicative")}</p>
         )}
       </Card>
     </Section>

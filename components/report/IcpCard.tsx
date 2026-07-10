@@ -74,7 +74,7 @@ export function IcpCard({
       {channels.length > 0 && (
         <div className="mt-3">
           <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-            Channels, ranked by fit — no invented CAC numbers
+            {t("report.channelsRanked")}
           </div>
           <div className="space-y-1.5">
             {channels.map((c, i) => {
@@ -86,9 +86,9 @@ export function IcpCard({
                   {proven && (
                     <span
                       className="rounded-full border border-good/40 bg-good/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-good"
-                      title="This channel is in the fetched evidence corpus — real posts about this problem were found here."
+                      title={t("report.evidenceFoundHere")}
                     >
-                      evidence found here
+                      {t("report.evidenceFoundHere")}
                     </span>
                   )}
                   {c.why && <span className="min-w-0 flex-1 text-xs leading-relaxed text-muted">{c.why}</span>}

@@ -1,5 +1,9 @@
+"use client";
+
 import { Card } from "@/components/ui";
+import { criterionLabel } from "@/lib/i18n/t";
 import { criterionTone as scoreColor } from "@/lib/scoring";
+import { useT } from "../LocaleProvider";
 import { LeverChip } from "./chips";
 import { SpreadMarker } from "./SpreadMarker";
 
@@ -24,6 +28,7 @@ function FactorColumn({
   title: string;
   items: Criterion[];
 }) {
+  const t = useT();
   return (
     <Card>
       <div className="text-xs font-medium uppercase tracking-wide text-muted">
@@ -32,7 +37,7 @@ function FactorColumn({
       <h3 className="mt-0.5 text-base font-bold text-fg">{title}</h3>
 
       {items.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">No factors available.</p>
+        <p className="mt-4 text-sm text-muted">{t("report.noFactors")}</p>
       ) : (
         <div className="mt-4 space-y-5">
           {items.map((c, i) => {
@@ -43,7 +48,7 @@ function FactorColumn({
               <div key={`${c.name}-${i}`}>
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="flex flex-wrap items-center gap-1.5 text-sm text-fg/90">
-                    {c.name}
+                    {criterionLabel(c.name, t)}
                     <LeverChip lever={c.lever} />
                     <SpreadMarker spread={c.spread} />
                   </span>
@@ -82,14 +87,23 @@ function FactorColumn({
 }
 
 export function FactorBars({ criteria }: { criteria: Criterion[] }) {
+  const t = useT();
   const list = Array.isArray(criteria) ? criteria : [];
   const demand = list.filter((c) => c?.group === "demand");
   const build = list.filter((c) => c?.group === "build");
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <FactorColumn label="Demand & Market" title="Will people buy?" items={demand} />
-      <FactorColumn label="Execution & Fit" title="Can you win & keep it?" items={build} />
+      <FactorColumn
+        label={t("report.demandAndMarket")}
+        title={t("report.willPeopleBuy")}
+        items={demand}
+      />
+      <FactorColumn
+        label={t("report.executionAndFit")}
+        title={t("report.canYouWin")}
+        items={build}
+      />
     </div>
   );
 }

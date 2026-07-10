@@ -1,4 +1,8 @@
+"use client";
+
+import { criterionLabel } from "@/lib/i18n/t";
 import { CRITERIA } from "@/lib/scoring";
+import { useT } from "../LocaleProvider";
 
 // The per-criterion delta view for the version-compare table: for each of the 10
 // criteria, the baseline version's score and every other version's movement vs it
@@ -29,6 +33,7 @@ function DeltaCell({ base, score }: { base: number | undefined; score: number | 
 }
 
 export function CriteriaDeltaTable({ versions }: { versions: DeltaVersion[] }) {
+  const t = useT();
   // Need a baseline plus at least one other scored version to show deltas.
   if (versions.length < 2) return null;
   // Baseline = earliest version (smallest n) — the origin every later try refined from.
@@ -39,13 +44,13 @@ export function CriteriaDeltaTable({ versions }: { versions: DeltaVersion[] }) {
   return (
     <div className="border-t border-border">
       <div className="px-3 pt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
-        Per-criterion Δ vs v{baseline.n}
+        {t("report.perCriterionDelta", { n: baseline.n })}
       </div>
       <div className="overflow-x-auto p-3">
         <table className="w-full min-w-[520px] text-xs">
           <thead>
             <tr className="border-b border-border text-left font-mono text-[10px] uppercase tracking-wide text-muted">
-              <th className="px-2 py-1.5 font-medium">Criterion</th>
+              <th className="px-2 py-1.5 font-medium">{t("report.criterion")}</th>
               <th className="px-2 py-1.5 text-right font-medium">v{baseline.n}</th>
               {rest.map((v) => (
                 <th key={v.id} className="px-2 py-1.5 text-right font-medium">v{v.n}</th>
@@ -57,7 +62,7 @@ export function CriteriaDeltaTable({ versions }: { versions: DeltaVersion[] }) {
               const base = baseline.criteria[name];
               return (
                 <tr key={name} className="border-b border-border/50 last:border-0">
-                  <td className="px-2 py-1.5 text-fg/80">{name}</td>
+                  <td className="px-2 py-1.5 text-fg/80">{criterionLabel(name, t)}</td>
                   <td className="px-2 py-1.5 text-right">
                     <DeltaCell base={undefined} score={base} />
                   </td>

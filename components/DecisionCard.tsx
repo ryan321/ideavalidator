@@ -9,6 +9,7 @@ import {
   type CriterionName,
 } from "@/lib/scoring";
 import type { TranslateFn } from "@/lib/i18n/t";
+import { criterionLabel, verdictLabel } from "@/lib/i18n/t";
 import { ScoreRing } from "./VerdictBox";
 import { useT } from "./LocaleProvider";
 
@@ -39,11 +40,20 @@ function distanceLine(
   if (s >= bands.go) {
     const over = s - bands.go;
     return over === 0
-      ? t("decision.onGo", { go: bands.go })
-      : t("decision.aboveGo", { n: over, go: bands.go });
+      ? t("decision.onGo", { go: bands.go, line: t("verdict.go") })
+      : t("decision.aboveGo", { n: over, go: bands.go, line: t("verdict.go") });
   }
-  if (s >= bands.maybe) return t("decision.underGo", { n: bands.go - s, go: bands.go });
-  return t("decision.underMaybe", { n: bands.maybe - s, maybe: bands.maybe });
+  if (s >= bands.maybe)
+    return t("decision.underGo", {
+      n: bands.go - s,
+      go: bands.go,
+      line: t("verdict.go"),
+    });
+  return t("decision.underMaybe", {
+    n: bands.maybe - s,
+    maybe: bands.maybe,
+    line: t("verdict.maybe"),
+  });
 }
 
 /**
@@ -153,7 +163,7 @@ export function DecisionCard({
         )}
         <div className="flex flex-col items-center gap-3 sm:items-start">
           <span className="verdict-stamp text-lg sm:text-xl" style={{ color }}>
-            {insufficient ? "INSUFFICIENT" : d.verdict}
+            {verdictLabel(d.verdict, t)}
           </span>
           <ScoreRing
             score={score}
@@ -219,7 +229,7 @@ export function DecisionCard({
                   className="rounded-full border border-warn/40 bg-warn/10 px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-warn"
                   title={d.narrative?.why || "Nice-to-have — harder to sell."}
                 >
-                  Vitamin
+                  {t("report.vitamin")}
                 </span>
               )}
               {painkiller && (
@@ -227,7 +237,7 @@ export function DecisionCard({
                   className="rounded-full border border-good/40 bg-good/10 px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-good"
                   title={d.narrative?.why || "Acute pain buyers must solve."}
                 >
-                  Painkiller
+                  {t("report.painkiller")}
                 </span>
               )}
               {drags.map((c) => (
@@ -236,13 +246,13 @@ export function DecisionCard({
                   className="inline-flex items-center gap-1.5 rounded-full border border-border bg-panel2/80 px-2.5 py-0.5 font-mono text-[10px] text-muted"
                   title={`Weighted drag · band ${c.band}`}
                 >
-                  <span className="text-fg/80">{c.name}</span>
+                  <span className="text-fg/80">{criterionLabel(c.name, t)}</span>
                   <span className="tabular-nums text-bad/90">{Math.round(c.score)}</span>
                 </span>
               ))}
               {pivotal && (
                 <span className="rounded-full border border-accent2/35 bg-accent2/10 px-2.5 py-0.5 font-mono text-[10px] text-accent2">
-                  Lever · {pivotal}
+                  {t("report.lever", { name: criterionLabel(pivotal, t) })}
                 </span>
               )}
             </div>
@@ -259,7 +269,7 @@ export function DecisionCard({
               onClick={() => setWhyOpen((o) => !o)}
               className="mt-1.5 font-mono text-[11px] uppercase tracking-wide text-accent2 hover:underline"
             >
-              {whyOpen ? "− Less" : "+ Full rationale"}
+              {whyOpen ? t("report.less") : t("report.fullRationale")}
             </button>
           )}
         </div>
@@ -269,7 +279,7 @@ export function DecisionCard({
           <div className="folio-inset px-4 py-3.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent2">
-                Next to prove
+                {t("report.nextToProve")}
               </div>
               <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: statusColor }} />
@@ -318,7 +328,9 @@ export function DecisionCard({
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-                <span>Exhibit · {versionLabel}</span>
+                <span>
+                  {t("report.exhibit")} · {versionLabel}
+                </span>
                 <span className="normal-case tracking-normal text-fg/50">{goalLabel}</span>
               </div>
               {!ideaExpanded && (
@@ -334,7 +346,9 @@ export function DecisionCard({
               </p>
               {rationale && <p className="mt-1.5 text-xs text-accent2">{rationale}</p>}
               {goalDetail && (
-                <p className="mt-1 text-xs text-muted">Goal detail: {goalDetail}</p>
+                <p className="mt-1 text-xs text-muted">
+                  {t("report.goalDetail")} {goalDetail}
+                </p>
               )}
               {ideaExtras}
             </div>
