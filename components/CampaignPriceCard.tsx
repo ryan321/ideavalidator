@@ -55,7 +55,7 @@ export function CampaignPriceCard({
           <span className="text-accent" aria-hidden>
             ✓
           </span>
-          Chat with the review — not metered like credits
+          Chat with the review, not metered like credits
         </li>
       </ul>
       <Link
