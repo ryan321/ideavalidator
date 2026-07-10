@@ -4,77 +4,195 @@
 // This is the ONE place the number leads on screen — the readout below renders its
 // hero compact (compactHero) so the score is stated prominently exactly once.
 //
-// The ring is an honest gauge, not decoration: the arc is colored by the GOAL's
-// verdict bands, tick marks sit at the real MAYBE/GO thresholds, and the ±SD
-// run-to-run noise renders as a translucent halo around the score's position —
-// the gauge itself admits the measurement's uncertainty.
+// The ring is an honest gauge, not decoration: outer faded NO-GO/MAYBE/GO zones
+// from the goal's verdict bands, solid score arc on the inner ring, ticks at the
+// real MAYBE/GO thresholds.
 
-/** Exported so DecisionCard can reuse the same honest gauge (ticks + ±SD halo). */
+/**
+ * Calibrated score ring (same model as the linear VerdictMeter):
+ *   outer ring — wide faded NO-GO / MAYBE / GO zones (the map)
+ *   inner ring — solid score arc 0→N + tip (where you landed)
+ *   center     — score number
+ *   footer     — tiny color key (not on-arc chips)
+ */
 export function ScoreRing({
   score,
-  sd,
   color,
   bands,
   insufficient,
 }: {
   score: number;
-  sd: number;
+  /** @deprecated unused on this dial; kept optional so callers need not change. */
+  sd?: number;
   color: string;
   bands: { go: number; maybe: number };
   insufficient?: boolean;
 }) {
-  const R = 52;
-  const C = 2 * Math.PI * R;
+  // Concentric radii (viewBox 0–120, center 60,60)
+  const R_ZONE = 48; // outer: zone map
+  const R_SCORE = 36; // inner: solid score
+  const ZONE_W = 11;
+  const SCORE_W = 8.5; // score arc reads louder than the zone map
   const clamp = (v: number) => Math.max(0, Math.min(100, v));
-  const arcLen = (v: number) => (C * clamp(v)) / 100;
-  // a radial tick at value v (0-100 mapped to a full turn from 12 o'clock)
-  const tick = (v: number, inner: number, outer: number) => {
-    const a = (clamp(v) / 100) * 2 * Math.PI - Math.PI / 2;
-    return {
-      x1: 60 + inner * Math.cos(a),
-      y1: 60 + inner * Math.sin(a),
-      x2: 60 + outer * Math.cos(a),
-      y2: 60 + outer * Math.sin(a),
-    };
+  // Circumference at a given radius
+  const circ = (r: number) => 2 * Math.PI * r;
+  const arcLen = (r: number, v: number) => (circ(r) * clamp(v)) / 100;
+  // 0–100 → angle from 12 o'clock, clockwise (screen coords, y-down).
+  const ang = (v: number) => (clamp(v) / 100) * 2 * Math.PI - Math.PI / 2;
+  const pt = (v: number, r: number) => {
+    const a = ang(v);
+    return { x: 60 + r * Math.cos(a), y: 60 + r * Math.sin(a) };
   };
-  const noiseStart = clamp(score - sd);
-  const noiseLen = arcLen(clamp(score + sd) - noiseStart);
+  const tick = (v: number, inner: number, outer: number) => {
+    const a = pt(v, inner);
+    const b = pt(v, outer);
+    return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+  };
+  // Circle strokes: dash origin is 3 o'clock; rotate -90 around center → 12 o'clock.
+  const ringSpin = "rotate(-90 60 60)";
+
+  const bandSeg = (
+    r: number,
+    from: number,
+    to: number,
+    stroke: string,
+    width: number,
+    opacity: number,
+    key: string
+  ) => {
+    const f = clamp(from);
+    const t = clamp(to);
+    if (t <= f) return null;
+    const c = circ(r);
+    const len = arcLen(r, t) - arcLen(r, f);
+    return (
+      <circle
+        key={key}
+        cx="60"
+        cy="60"
+        r={r}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={width}
+        opacity={opacity}
+        strokeDasharray={`${len} ${c - len}`}
+        strokeDashoffset={-arcLen(r, f)}
+        transform={ringSpin}
+      />
+    );
+  };
+
+  const s = clamp(score);
+  const tip = pt(s, R_SCORE);
+
+  // Zones stay as context — very faded so the solid score arc owns the dial
+  const zoneNoGo = "color-mix(in srgb, var(--color-bad) 18%, transparent)";
+  const zoneMaybe = "color-mix(in srgb, var(--color-warn) 20%, transparent)";
+  const zoneGo = "color-mix(in srgb, var(--color-good) 18%, transparent)";
 
   return (
-    <div className="relative mx-auto h-[124px] w-[124px]">
-      <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-        {/* track */}
-        <circle cx="60" cy="60" r={R} fill="none" stroke="var(--color-border)" strokeWidth="5" opacity="0.6" />
-        {/* ±SD noise halo around the score's position — uncertainty made visible */}
-        {!insufficient && (
+    <div className="mx-auto flex w-[148px] flex-col items-center">
+      <div className="relative h-[132px] w-[132px]">
+        <svg viewBox="0 0 120 120" className="h-full w-full overflow-visible">
+          {/* ── outer: zone map ─────────────────────────────────────────── */}
           <circle
-            cx="60" cy="60" r={R} fill="none" stroke={color} strokeWidth="11" opacity="0.18"
-            strokeDasharray={`${noiseLen} ${C}`} strokeDashoffset={-arcLen(noiseStart)}
+            cx="60"
+            cy="60"
+            r={R_ZONE}
+            fill="none"
+            stroke="var(--color-border)"
+            strokeWidth={ZONE_W}
+            opacity="0.22"
+            transform={ringSpin}
           />
-        )}
-        {/* the score arc */}
-        <circle
-          cx="60" cy="60" r={R} fill="none" stroke={color} strokeWidth="5" strokeLinecap="round"
-          strokeDasharray={`${arcLen(score)} ${C}`} opacity={insufficient ? 0.4 : 1}
-        />
-        {/* threshold ticks at the goal's real lines */}
-        {[bands.maybe, bands.go].map((t, i) => {
-          const l = tick(t, R - 6, R + 6);
-          return (
-            <line
-              key={i} {...l}
-              stroke={i === 1 ? "var(--color-good)" : "var(--color-warn)"}
-              strokeWidth="2" opacity="0.8"
-            />
-          );
-        })}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="font-mono text-3xl font-bold leading-none tabular-nums" style={{ color }}>
-          {Math.round(score)}
+          {!insufficient && (
+            <>
+              {bandSeg(R_ZONE, 0, bands.maybe, zoneNoGo, ZONE_W, 1, "nogo")}
+              {bandSeg(R_ZONE, bands.maybe, bands.go, zoneMaybe, ZONE_W, 1, "maybe")}
+              {bandSeg(R_ZONE, bands.go, 100, zoneGo, ZONE_W, 1, "go")}
+            </>
+          )}
+
+          {/* ── inner: solid score 0 → N ────────────────────────────────── */}
+          <circle
+            cx="60"
+            cy="60"
+            r={R_SCORE}
+            fill="none"
+            stroke="var(--color-border)"
+            strokeWidth={SCORE_W}
+            opacity="0.4"
+            transform={ringSpin}
+          />
+          <circle
+            cx="60"
+            cy="60"
+            r={R_SCORE}
+            fill="none"
+            stroke={insufficient ? "var(--color-muted)" : color}
+            strokeWidth={SCORE_W}
+            strokeLinecap="round"
+            strokeDasharray={`${arcLen(R_SCORE, s)} ${circ(R_SCORE)}`}
+            opacity={insufficient ? 0.45 : 1}
+            transform={ringSpin}
+          />
+
+          {/* threshold ticks spanning outer → inner */}
+          <line
+            {...tick(bands.maybe, R_SCORE - SCORE_W / 2, R_ZONE + ZONE_W / 2)}
+            stroke="var(--color-warn)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
+          <line
+            {...tick(bands.go, R_SCORE - SCORE_W / 2, R_ZONE + ZONE_W / 2)}
+            stroke="var(--color-good)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
+
+          {/* score tip — unmistakable end of the solid arc */}
+          <circle
+            cx={tip.x}
+            cy={tip.y}
+            r="5.5"
+            fill={insufficient ? "var(--color-muted)" : color}
+            stroke="var(--color-panel)"
+            strokeWidth="2.5"
+          />
+        </svg>
+
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div
+            className="font-mono text-3xl font-bold leading-none tabular-nums"
+            style={{ color }}
+          >
+            {Math.round(score)}
+          </div>
         </div>
-        <div className="mt-0.5 font-mono text-[10px] text-muted">± {sd} /100</div>
       </div>
+
+      {/* legend — color key under the dial, not chips on the arc */}
+      {!insufficient && (
+        <div
+          className="mt-1.5 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide"
+          title={`NO-GO < ${bands.maybe} · MAYBE ${bands.maybe}–${bands.go - 1} · GO ≥ ${bands.go}`}
+        >
+          <span className="inline-flex items-center gap-1 text-good">
+            <span className="h-1.5 w-1.5 rounded-full bg-good/80" aria-hidden />
+            Go
+          </span>
+          <span className="inline-flex items-center gap-1 text-warn">
+            <span className="h-1.5 w-1.5 rounded-full bg-warn/80" aria-hidden />
+            Maybe
+          </span>
+          <span className="inline-flex items-center gap-1 text-bad">
+            <span className="h-1.5 w-1.5 rounded-full bg-bad/80" aria-hidden />
+            No-go
+          </span>
+        </div>
+      )}
     </div>
   );
 }

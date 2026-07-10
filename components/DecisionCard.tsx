@@ -58,6 +58,9 @@ export function DecisionCard({
   primaryDisabled,
   secondary,
   ideaExtras,
+  /** Current version number — badge shown top-right when variantCount > 1. */
+  versionN,
+  variantCount = 1,
 }: {
   d: Validation;
   bands: Bands;
@@ -75,6 +78,8 @@ export function DecisionCard({
   primaryDisabled?: boolean;
   secondary: React.ReactNode;
   ideaExtras?: React.ReactNode;
+  versionN?: number;
+  variantCount?: number;
 }) {
   const [whyOpen, setWhyOpen] = useState(false);
   const [ideaOpen, setIdeaOpen] = useState(false);
@@ -123,7 +128,15 @@ export function DecisionCard({
       aria-label="Decision"
     >
       {/* 1 · Score — ring leads; verdict + revenue sit beside it */}
-      <div className="grid gap-4 border-b border-border/70 px-4 py-4 sm:grid-cols-[auto_1fr] sm:items-center sm:px-5 sm:py-5">
+      <div className="relative grid gap-4 border-b border-border/70 px-4 py-4 sm:grid-cols-[auto_1fr] sm:items-center sm:px-5 sm:py-5">
+        {variantCount > 1 && versionN != null && (
+          <span
+            className="absolute right-3 top-3 z-10 rounded-lg border border-border bg-panel2 px-2.5 py-1 font-mono text-base font-bold tabular-nums text-fg shadow-sm sm:right-4 sm:top-4 sm:text-lg"
+            title={`Variant ${versionN} of ${variantCount}`}
+          >
+            v{versionN}
+          </span>
+        )}
         <ScoreRing
           score={score}
           sd={sd}
@@ -131,7 +144,7 @@ export function DecisionCard({
           bands={bands}
           insufficient={insufficient}
         />
-        <div className="min-w-0 text-center sm:text-left">
+        <div className="min-w-0 text-center sm:pr-14 sm:text-left">
           <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 sm:justify-start">
             <span
               className={`font-display font-bold leading-none tracking-tight ${

@@ -75,7 +75,7 @@ export function ArenaBoard({
     <div className="mb-4 rounded-xl border border-accent2/30 bg-panel/40 p-4">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
         <div className="font-mono text-[12px] uppercase tracking-[0.14em] text-accent2">
-          ▦ Arena — every angle on one axis
+          Score axis — every angle on one line
         </div>
         {ref != null && (
           <div className="text-[11px] text-muted">

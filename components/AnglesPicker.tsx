@@ -14,10 +14,8 @@ export function AnglesPicker({
   scoreColor,
   busyIds,
   onSelect,
-  onArena,
-  onCompare,
-  arenaOpen,
-  comparing,
+  onCompareVariants,
+  comparingVariants,
   archivedCount,
   showArchived,
   onToggleArchived,
@@ -28,10 +26,9 @@ export function AnglesPicker({
   scoreColor: (n: number) => string;
   busyIds: Set<string>;
   onSelect: (id: string) => void;
-  onArena?: () => void;
-  onCompare?: () => void;
-  arenaOpen?: boolean;
-  comparing?: boolean;
+  /** Opens the unified axis + criterion compare panel. */
+  onCompareVariants?: () => void;
+  comparingVariants?: boolean;
   archivedCount?: number;
   showArchived?: boolean;
   onToggleArchived?: () => void;
@@ -74,26 +71,19 @@ export function AnglesPicker({
         <span className={`text-[10px] text-muted transition ${open ? "rotate-180" : ""}`}>▾</span>
       </button>
 
-      {versions.length > 1 && onArena && (
+      {versions.length > 1 && onCompareVariants && (
         <button
           type="button"
-          onClick={onArena}
-          className={`rounded-md border px-2 py-1 text-xs transition ${
-            arenaOpen ? "border-accent2 bg-accent2/10 text-accent2" : "border-border/70 text-muted hover:text-fg"
+          onClick={onCompareVariants}
+          className={`rounded-lg px-3.5 py-1.5 text-sm font-semibold transition ${
+            comparingVariants
+              ? "bg-accent2 text-bg hover:opacity-90"
+              : "bg-accent text-white hover:opacity-90"
           }`}
+          title="Score axis, statements, and per-criterion deltas across angles"
+          aria-pressed={comparingVariants}
         >
-          Arena
-        </button>
-      )}
-      {versions.length > 1 && onCompare && (
-        <button
-          type="button"
-          onClick={onCompare}
-          className={`rounded-md border px-2 py-1 text-xs transition ${
-            comparing ? "border-accent2 bg-accent2/10 text-accent2" : "border-border/70 text-muted hover:text-fg"
-          }`}
-        >
-          Compare
+          {comparingVariants ? "Hide comparison" : "Compare variants"}
         </button>
       )}
       {!!archivedCount && archivedCount > 0 && onToggleArchived && (

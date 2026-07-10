@@ -278,8 +278,8 @@ export default function IdeaWorkspace({
     STAGES.some((s) => s.key === initialStage) ? (initialStage as StageKey) : "validate"
   );
 
-  const [comparing, setComparing] = useState(false); // side-by-side version compare
-  const [arenaOpen, setArenaOpen] = useState(false); // the every-variant scoreboard
+  // Unified compare: score axis (ArenaBoard) + statements + per-criterion Δ
+  const [comparingVariants, setComparingVariants] = useState(false);
 
   // Campaign-pass billing state (null until loaded; enabled=false → no paywall ever).
   const [billing, setBilling] = useState<{
@@ -1309,35 +1309,118 @@ export default function IdeaWorkspace({
             scoreColor={(n) => scoreColor(n, goalBands)}
             busyIds={busy}
             onSelect={switchVersion}
-            onArena={versions.length > 1 ? () => setArenaOpen((a) => !a) : undefined}
-            onCompare={visibleVersions.length > 1 ? () => setComparing((c) => !c) : undefined}
-            arenaOpen={arenaOpen}
-            comparing={comparing}
+            onCompareVariants={
+              visibleVersions.length > 1 ? () => setComparingVariants((c) => !c) : undefined
+            }
+            comparingVariants={comparingVariants}
             archivedCount={archivedVersions.length}
             showArchived={showArchived}
             onToggleArchived={() => setShowArchived((s) => !s)}
           />
         </div>
 
-        {/* the arena — every variant (archived included) on one score axis */}
-        {arenaOpen && (
-          <ArenaBoard
-            versions={versions}
-            artifacts={artifacts}
-            activeId={activeVersionId}
-            margin={acceptanceMargin()}
-            scoreColor={(n) => scoreColor(n, goalBands)}
-            onView={(id) => switchVersion(id)}
-            onArchive={async (id) => {
-              const res = await fetch(`/api/versions/${id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ archived: true }),
-              }).catch(() => null);
-              if (res?.ok) setVersions((prev) => prev.map((v) => (v.id === id ? { ...v, archived: 1 } : v)));
-            }}
-            onRestore={unarchiveVersion}
-          />
+        {/* Compare variants: score axis first, then statements + per-criterion Δ */}
+        {comparingVariants && visibleVersions.length > 1 && (
+          <div className="mb-5 space-y-3">
+            <ArenaBoard
+              versions={versions}
+              artifacts={artifacts}
+              activeId={activeVersionId}
+              margin={acceptanceMargin()}
+              scoreColor={(n) => scoreColor(n, goalBands)}
+              onView={(id) => switchVersion(id)}
+              onArchive={async (id) => {
+                const res = await fetch(`/api/versions/${id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ archived: true }),
+                }).catch(() => null);
+                if (res?.ok) setVersions((prev) => prev.map((v) => (v.id === id ? { ...v, archived: 1 } : v)));
+              }}
+              onRestore={unarchiveVersion}
+            />
+
+            <div className="overflow-x-auto rounded-xl border border-border bg-panel">
+              <div className="border-b border-border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+                Statements
+              </div>
+              <table className="w-full min-w-[640px] text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
+                    <th className="px-3 py-2 font-medium">Version</th>
+                    <th className="px-3 py-2 font-medium">Score</th>
+                    <th className="px-3 py-2 font-medium">Revenue/yr</th>
+                    <th className="px-3 py-2 font-medium">Statement</th>
+                    <th className="px-3 py-2 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleVersions.map((v) => {
+                    const val = artifacts[v.id]?.validation?.data as { verdict?: string } | undefined;
+                    return (
+                      <tr
+                        key={v.id}
+                        className={`border-b border-border/60 last:border-0 ${
+                          v.id === activeVersionId ? "bg-panel2/50" : ""
+                        }`}
+                      >
+                        <td className="px-3 py-2 align-top">
+                          <span className="font-mono font-semibold">v{v.n}</span>
+                          {v.score != null && v.score === bestScore && (
+                            <span className="ml-1" title="best">
+                              ★
+                            </span>
+                          )}
+                          <div className="text-[11px] text-muted">{v.label ?? v.origin}</div>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          {v.score != null ? (
+                            <span
+                              className="font-mono font-bold"
+                              style={{ color: scoreColor(v.score, goalBands) }}
+                            >
+                              {v.score}
+                            </span>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                          {val?.verdict && <div className="text-[11px] text-muted">{val.verdict}</div>}
+                        </td>
+                        <td className="px-3 py-2 align-top font-mono text-xs text-accent2">
+                          {v.revenue ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 align-top text-xs text-muted">
+                          <span className="line-clamp-3">{v.statement}</span>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          {v.id !== activeVersionId && (
+                            <button
+                              onClick={() => switchVersion(v.id)}
+                              className="rounded-md border border-border px-2 py-1 text-xs hover:bg-panel2"
+                            >
+                              View
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {(() => {
+                const deltaVersions: DeltaVersion[] = visibleVersions
+                  .map((v): DeltaVersion | null => {
+                    const val = artifacts[v.id]?.validation?.data as Validation | undefined;
+                    if (!val?.criteria?.length) return null;
+                    const criteria: Record<string, number> = {};
+                    for (const c of val.criteria) criteria[c.name] = c.score;
+                    return { id: v.id, n: v.n, label: v.label, criteria };
+                  })
+                  .filter((x): x is DeltaVersion => x !== null);
+                return <CriteriaDeltaTable versions={deltaVersions} />;
+              })()}
+            </div>
+          </div>
         )}
 
         {/* archived versions — hidden by default; each can be viewed or restored */}
@@ -1345,11 +1428,20 @@ export default function IdeaWorkspace({
           <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border/70 bg-panel/30 px-3 py-2">
             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Archived</span>
             {archivedVersions.map((v) => (
-              <span key={v.id} className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-panel2/50 px-2.5 py-1 text-sm text-muted">
-                <button onClick={() => switchVersion(v.id)} className="flex items-center gap-1.5 hover:text-fg" title={v.label ?? v.statement}>
+              <span
+                key={v.id}
+                className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-panel2/50 px-2.5 py-1 text-sm text-muted"
+              >
+                <button
+                  onClick={() => switchVersion(v.id)}
+                  className="flex items-center gap-1.5 hover:text-fg"
+                  title={v.label ?? v.statement}
+                >
                   <span className="font-mono font-semibold">v{v.n}</span>
                   {v.score != null ? (
-                    <span className="font-mono font-bold" style={{ color: scoreColor(v.score, goalBands) }}>{v.score}</span>
+                    <span className="font-mono font-bold" style={{ color: scoreColor(v.score, goalBands) }}>
+                      {v.score}
+                    </span>
                   ) : (
                     <span className="text-xs">—</span>
                   )}
@@ -1366,70 +1458,6 @@ export default function IdeaWorkspace({
           </div>
         )}
 
-        {/* side-by-side version comparison */}
-        {comparing && visibleVersions.length > 1 && (
-          <div className="mb-5 overflow-x-auto rounded-xl border border-border bg-panel">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
-                  <th className="px-3 py-2 font-medium">Version</th>
-                  <th className="px-3 py-2 font-medium">Score</th>
-                  <th className="px-3 py-2 font-medium">Revenue/yr</th>
-                  <th className="px-3 py-2 font-medium">Statement</th>
-                  <th className="px-3 py-2 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleVersions.map((v) => {
-                  const val = artifacts[v.id]?.validation?.data as { verdict?: string } | undefined;
-                  return (
-                    <tr key={v.id} className={`border-b border-border/60 last:border-0 ${v.id === activeVersionId ? "bg-panel2/50" : ""}`}>
-                      <td className="px-3 py-2 align-top">
-                        <span className="font-mono font-semibold">v{v.n}</span>
-                        {v.score != null && v.score === bestScore && <span className="ml-1" title="best">★</span>}
-                        <div className="text-[11px] text-muted">{v.label ?? v.origin}</div>
-                      </td>
-                      <td className="px-3 py-2 align-top">
-                        {v.score != null ? (
-                          <span className="font-mono font-bold" style={{ color: scoreColor(v.score, goalBands) }}>{v.score}</span>
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
-                        {val?.verdict && <div className="text-[11px] text-muted">{val.verdict}</div>}
-                      </td>
-                      <td className="px-3 py-2 align-top font-mono text-xs text-accent2">{v.revenue ?? "—"}</td>
-                      <td className="px-3 py-2 align-top text-xs text-muted">
-                        <span className="line-clamp-3">{v.statement}</span>
-                      </td>
-                      <td className="px-3 py-2 align-top">
-                        {v.id !== activeVersionId && (
-                          <button onClick={() => switchVersion(v.id)} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-panel2">
-                            View
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {/* per-criterion Δ vs the baseline version — the refine loop's real work,
-                read client-side from each version's stored validation artifact. */}
-            {(() => {
-              const deltaVersions: DeltaVersion[] = visibleVersions
-                .map((v): DeltaVersion | null => {
-                  const val = artifacts[v.id]?.validation?.data as Validation | undefined;
-                  if (!val?.criteria?.length) return null;
-                  const criteria: Record<string, number> = {};
-                  for (const c of val.criteria) criteria[c.name] = c.score;
-                  return { id: v.id, n: v.n, label: v.label, criteria };
-                })
-                .filter((x): x is DeltaVersion => x !== null);
-              return <CriteriaDeltaTable versions={deltaVersions} />;
-            })()}
-          </div>
-        )}
-
         {/* ONE decision surface — score, why, open question, primary CTA. No peer cards. */}
         {hasValidate && activeValidation && decisionScore != null ? (
           <DecisionCard
@@ -1440,6 +1468,8 @@ export default function IdeaWorkspace({
             title={idea.title}
             statement={activeVersion.statement}
             versionLabel={`v${activeVersion.n} · spent ${fmtCost(cost)}`}
+            versionN={activeVersion.n}
+            variantCount={visibleVersions.length}
             rationale={
               activeVersion.rationale
                 ? `${activeVersion.label ? `${activeVersion.label}: ` : ""}${activeVersion.rationale}`
