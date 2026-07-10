@@ -1,8 +1,9 @@
-# IdeaValidator
+# Validorian
 
-A **local, single-user** startup-idea validator. Describe an idea and your goal (side hustle →
-venture scale), get a grounded, scored GO/MAYBE/NO-GO report — demand, obtainable revenue, market
-& competition, money, risks, and a plan — then iterate the idea statement until it clears the bar.
+**Business validation studio** ([validorian.com](https://validorian.com)). Describe an idea and your
+goal (side hustle → venture scale), get a grounded, scored GO/MAYBE/NO-GO report — demand,
+obtainable revenue, market & competition, money, risks, and a plan — then iterate until the answer
+is clear.
 
 Everything runs on your machine and is stored in a local SQLite file. AI runs through
 [OpenRouter](https://openrouter.ai/) (one key → Claude / GPT / Gemini / Grok), with live web-search

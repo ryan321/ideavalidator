@@ -1,4 +1,4 @@
-# IdeaValidator API
+# Validorian API
 
 Grounded startup-idea validation for agents. Give it an idea, get an evidence-backed
 verdict, a pre-registered kill-test, a moat read, and the real posts behind the demand

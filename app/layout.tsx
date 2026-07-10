@@ -56,9 +56,10 @@ const fontVars = [
   .join(" ");
 
 export const metadata: Metadata = {
-  title: "IdeaValidator — Red-team your idea",
+  title: "Validorian — Business validation studio",
   description:
-    "A grounded GO / MAYBE / NO-GO memo for founders — scored against your goal, not hype.",
+    "Premier business idea validation: grounded GO / MAYBE / NO-GO scores, evidence, and an iterable studio to sharpen until the answer is clear.",
+  metadataBase: new URL("https://validorian.com"),
 };
 
 const styleBootScript = `
@@ -112,15 +113,23 @@ export default function RootLayout({
               <div className="flex w-full items-center gap-3 px-4 py-3 sm:px-5">
                 <Link href="/" className="group flex shrink-0 items-center gap-2.5">
                   <span
-                    className="inline-grid h-8 w-8 place-items-center rounded-[var(--radius-control)] bg-accent font-display text-[11px] font-extrabold tracking-tight text-on-accent"
+                    className="inline-grid h-8 w-8 place-items-center rounded-[var(--radius-control)] bg-accent text-on-accent"
                     aria-hidden
                   >
-                    RT
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
+                      <path
+                        d="M5 5 L12 19 L19 5"
+                        stroke="currentColor"
+                        strokeWidth="2.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </span>
                   <span className="font-display text-base font-bold tracking-tight text-fg">
-                    IdeaValidator
+                    Validorian
                     <span className="mt-0.5 hidden font-mono text-[10px] font-medium uppercase text-muted [letter-spacing:var(--tracking-eyebrow)] sm:block">
-                      red team desk
+                      business validation studio
                     </span>
                   </span>
                 </Link>
@@ -145,7 +154,7 @@ export default function RootLayout({
             </div>
 
             <footer className="no-print border-t border-border/70 py-4 text-center font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
-              Grounded scores · real evidence · your machine
+              Validorian · grounded scores · real evidence
             </footer>
           </div>
         </StyleProvider>

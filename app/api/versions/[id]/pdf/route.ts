@@ -64,7 +64,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       footerTemplate: `
         <div style="width:100%;font-size:8px;color:#9aa;padding:0 14mm;display:flex;justify-content:space-between;font-family:sans-serif;">
           <span>${idea.title.replace(/</g, "&lt;").slice(0, 70)}</span>
-          <span>IdeaValidator · <span class="pageNumber"></span>/<span class="totalPages"></span></span>
+          <span>Validorian · <span class="pageNumber"></span>/<span class="totalPages"></span></span>
         </div>`,
     });
 

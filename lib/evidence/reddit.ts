@@ -6,7 +6,7 @@ import { hasWtpSignal } from "./queries";
 // are absent we skip Reddit gracefully and the UI shows how to connect it.
 
 const TIMEOUT_MS = 8000;
-const USER_AGENT = "ideavalidator/0.1 (local dev tool)";
+const USER_AGENT = "validorian/1.0 (https://validorian.com)";
 
 export function redditConfigured(): boolean {
   return !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET);

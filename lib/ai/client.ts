@@ -16,7 +16,7 @@ function client(): OpenAI {
       baseURL: "https://openrouter.ai/api/v1",
       defaultHeaders: {
         "HTTP-Referer": process.env.OPENROUTER_APP_URL ?? "http://localhost:3000",
-        "X-Title": "IdeaValidator",
+        "X-Title": "Validorian",
       },
     });
   }

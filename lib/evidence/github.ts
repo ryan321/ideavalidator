@@ -8,7 +8,7 @@ import { excerpt } from "./text";
 // at a low rate limit (10 search req/min); an optional GITHUB_TOKEN raises it to 30/min.
 
 const TIMEOUT_MS = 8000;
-const USER_AGENT = "ideavalidator/0.1 (idea validation tool)";
+const USER_AGENT = "validorian/1.0 (https://validorian.com)";
 
 // works unauthenticated — GITHUB_TOKEN only raises the rate limit
 export function githubConfigured(): boolean {

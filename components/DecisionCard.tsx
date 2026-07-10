@@ -154,7 +154,7 @@ export function DecisionCard({
           />
         </div>
         <div className="min-w-0 text-center sm:pr-10 sm:text-left">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted">Committee read</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted">Validation read</p>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
             {dist && (
               <span className="font-mono text-sm font-medium tabular-nums" style={{ color }}>

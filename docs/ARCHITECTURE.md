@@ -1,4 +1,4 @@
-# IdeaValidator — Architecture
+# Validorian — Architecture
 
 A **local, single-user** idea validator (originally inspired by
 [IdeaProof.io](https://ideaproof.io/), see [IDEAPROOF_FEATURES.md](./IDEAPROOF_FEATURES.md)) — no

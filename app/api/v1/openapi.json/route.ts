@@ -35,7 +35,7 @@ function spec(origin: string) {
   return {
     openapi: "3.1.0",
     info: {
-      title: "IdeaValidator API",
+      title: "Validorian API",
       version: "1.0.0",
       description:
         "Grounded startup-idea validation for agents. POST an idea, get an evidence-backed verdict, a pre-registered kill-test, a moat read, and the real posts behind the demand signal. Then iterate: refine, explore divergent wedges, generate the test kit, and record the real-world result to re-judge.\n\nAuth: `Authorization: Bearer iv_live_…`. Each generative call costs one credit; reads are free. Keys own the ideas they create and cannot see other keys' data.",

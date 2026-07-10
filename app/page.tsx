@@ -21,7 +21,7 @@ export default async function Home() {
         </p>
         <h1 className="mt-3 max-w-2xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-5xl">
           Put the idea on the table.
-          <span className="mt-2 block text-muted">Get a hard read before you begin.</span>
+          <span className="mt-2 block text-muted">Validate it before you begin.</span>
         </h1>
         <p className="mt-4 max-w-xl text-base leading-relaxed text-muted">
           A scored GO / MAYBE / NO-GO report against <em className="text-fg/80 not-italic">your</em> goal —

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
             currency: "usd",
             unit_amount: priceCents(),
             product_data: {
-              name: "IdeaValidator — full validation campaign",
+              name: "Validorian — full validation campaign",
               description: `“${idea.title}” — grounded validation, wedge tournament, kill-test kit, competitor intel & revalidations.`,
             },
           },

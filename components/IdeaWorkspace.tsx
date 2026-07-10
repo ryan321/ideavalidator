@@ -1649,7 +1649,7 @@ export default function IdeaWorkspace({
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-accent2">
-              Case file
+              Idea
             </p>
             <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
               {stage.label}

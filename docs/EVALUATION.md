@@ -1,4 +1,4 @@
-# IdeaValidator — Evaluation Framework
+# Validorian — Evaluation Framework
 
 The durable reference for **how this tool scores an idea**: what each criterion measures, how
 bands become numbers, where the founder's goal enters, which code-level gates can kill a verdict,

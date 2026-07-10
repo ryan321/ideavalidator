@@ -1,6 +1,6 @@
 # Deploying to Fly.io
 
-IdeaValidator is a persistent single-node app: one machine + one volume holding the
+Validorian is a persistent single-node app: one machine + one volume holding the
 SQLite database. Don't run it serverless or multi-instance — the DB is a local file and
 validations run as in-process background jobs.
 
