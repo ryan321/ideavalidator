@@ -416,13 +416,14 @@ export default function IdeaWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialStage]);
 
-  // panels
-  const [editing, setEditing] = useState(false);
+  // panels — Ask (chat) vs New version (composer). Composer modes share one surface so
+  // founders don't hunt across Improve / Discuss / Respond / Refine.
+  type ComposerMode = "write" | "suggest" | "context" | "advanced";
+  const [composerMode, setComposerMode] = useState<ComposerMode | null>(null);
   const [draft, setDraft] = useState("");
   const [proposal, setProposal] = useState<Refinement | null>(null);
   const [proposalDraft, setProposalDraft] = useState("");
   const [suggesting, setSuggesting] = useState(false);
-  const [responding, setResponding] = useState(false);
   const [responseDraft, setResponseDraft] = useState("");
   const [chatting, setChatting] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: string; text: string }[]>([]);
@@ -430,21 +431,39 @@ export default function IdeaWorkspace({
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
 
   // Changing stage via the left nav (URL) should close any transient panels that
   // were opened on the previous stage.
   useEffect(() => {
     setProposal(null);
-    setResponding(false);
     setChatting(false);
-    setEditing(false);
+    setComposerMode(null);
     setEditingGoal(false);
   }, [initialStage]);
 
-  async function openChat() {
+  function closeComposer() {
+    setComposerMode(null);
     setProposal(null);
-    setResponding(false);
-    setEditing(false);
+    setSuggesting(false);
+  }
+
+  function openComposer(mode: ComposerMode, opts?: { contextSeed?: string }) {
+    setChatting(false);
+    setEditingGoal(false);
+    setProposal(null);
+    resetGoalDrafts();
+    setDraft(activeVersion.statement);
+    setResponseDraft(opts?.contextSeed ?? "");
+    setComposerMode(mode);
+    requestAnimationFrame(() => {
+      composerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    if (mode === "suggest") void runSuggest();
+  }
+
+  async function openChat() {
+    closeComposer();
     setChatting(true);
     try {
       const res = await fetch(`/api/versions/${activeVersionId}/ask`);
@@ -457,14 +476,28 @@ export default function IdeaWorkspace({
     requestAnimationFrame(() => chatInputRef.current?.focus());
   }
 
+  /** Promote the last user chat turn (or free text) into a New version · context draft. */
+  function promoteChatToVersion(text?: string) {
+    const seed =
+      text?.trim() ||
+      [...chatMessages].reverse().find((m) => m.role === "user")?.text ||
+      chatInput.trim();
+    if (!seed) {
+      openComposer("context");
+      return;
+    }
+    setChatting(false);
+    openComposer("context", { contextSeed: seed });
+  }
+
   // Keep the thread scrolled to the latest message / thinking indicator.
   useEffect(() => {
     if (!chatting) return;
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [chatMessages, chatLoading, chatting]);
 
-  async function sendQuestion() {
-    const q = chatInput.trim();
+  async function sendQuestionText(raw: string) {
+    const q = raw.trim();
     if (!q || chatLoading) return;
     setChatInput("");
     if (chatInputRef.current) chatInputRef.current.style.height = "auto";
@@ -489,6 +522,10 @@ export default function IdeaWorkspace({
       setChatLoading(false);
       requestAnimationFrame(() => chatInputRef.current?.focus());
     }
+  }
+
+  async function sendQuestion() {
+    return sendQuestionText(chatInput);
   }
   const [goalBucket, setGoalBucket] = useState(idea.goal ?? "unsure");
   const [goalDetail, setGoalDetail] = useState(idea.goal_detail ?? "");
@@ -557,6 +594,10 @@ export default function IdeaWorkspace({
   const [wedgeLog, setWedgeLog] = useState<string[]>([]);
   const [wedgeResults, setWedgeResults] = useState<WedgeResult[] | null>(null);
   const [wedgeBaseline, setWedgeBaseline] = useState<{ id: string; n: number; score: number } | null>(null);
+  /** Per-entrant live status while the tournament runs (queued → creating → validating → done/failed). */
+  const [wedgeEntrants, setWedgeEntrants] = useState<
+    { label: string; status: "queued" | "creating" | "validating" | "done" | "failed"; detail?: string }[]
+  >([]);
   // Sticky failure message inside the panel so a failed draft isn't only an error
   // toast buried under the report.
   const [wedgeError, setWedgeError] = useState<string | null>(null);
@@ -564,6 +605,7 @@ export default function IdeaWorkspace({
   // used to live below the fold with only a faint pulse line, so the disabled button
   // was the only visible feedback).
   const wedgePanelRef = useRef<HTMLDivElement>(null);
+  const wedgeLogRef = useRef<HTMLPreElement>(null);
 
   // Archived versions (cleanup hid them) stay in `versions` for state sync but are
   // filtered out of every user-facing list: the switcher, compare, and the
@@ -597,9 +639,7 @@ export default function IdeaWorkspace({
 
   function switchVersion(id: string) {
     setActiveVersionId(id);
-    setProposal(null);
-    setEditing(false);
-    setResponding(false);
+    closeComposer();
     setChatting(false);
     setChatMessages([]);
   }
@@ -890,8 +930,8 @@ export default function IdeaWorkspace({
         text,
         text
       );
-      setResponding(false);
       setResponseDraft("");
+      closeComposer();
       switchVersion(v.id);
       await generate("validation", v.id);
     } catch (e) {
@@ -921,35 +961,25 @@ export default function IdeaWorkspace({
     }
   }
 
-  // --- manual refine ----------------------------------------------------------
-  function startManual() {
-    setProposal(null);
-    setResponding(false);
-    setEditingGoal(false);
-    setDraft(activeVersion.statement);
-    resetGoalDrafts();
-    setEditing(true);
-  }
-  async function saveManual() {
+  // --- manual refine (New version · write) ------------------------------------
+  async function saveManual(andValidate = true) {
     if (draft.trim().length < 8) return;
     setError(null);
     try {
       await persistGoalIfChanged();
       const v = await createVersionFrom(draft.trim(), "manual", activeVersionId);
-      setEditing(false);
+      closeComposer();
       switchVersion(v.id);
+      if (andValidate) await generate("validation", v.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create version");
     }
   }
 
-  // --- AI suggest -------------------------------------------------------------
-  async function suggest() {
-    setEditing(false);
-    setResponding(false);
-    setEditingGoal(false);
-    resetGoalDrafts();
+  // --- AI suggest (New version · suggest) -------------------------------------
+  async function runSuggest() {
     setSuggesting(true);
+    setProposal(null);
     setError(null);
     try {
       const res = await fetch(`/api/versions/${activeVersionId}/refine`, { method: "POST" });
@@ -976,7 +1006,7 @@ export default function IdeaWorkspace({
         proposal.label,
         proposal.rationale
       );
-      setProposal(null);
+      closeComposer();
       switchVersion(v.id);
       await generate("validation", v.id);
     } catch (e) {
@@ -1084,12 +1114,11 @@ export default function IdeaWorkspace({
   async function exploreWedges() {
     setError(null);
     setWedgeError(null);
-    setProposal(null);
-    setEditing(false);
+    closeComposer();
     setChatting(false);
-    setResponding(false);
     setWedgeResults(null);
     setWedgeLog([]);
+    setWedgeEntrants([]);
     setWedgeBaseline(null);
     setWedgeSet(null);
     setWedgeFetching(true);
@@ -1112,15 +1141,21 @@ export default function IdeaWorkspace({
 
   // Keep the tournament panel on-screen for the whole busy window — fetching proposals
   // and the parallel validation pass both take long enough that a disabled button alone
-  // reads as a hang.
+  // reads as a hang. Prefer `start` so we don't leave the user staring at the alpha
+  // card's subdued CTA at the bottom of the report.
   useEffect(() => {
     if (!wedgeFetching && !wedgeRunning) return;
-    // rAF: wait until the panel is mounted after wedgeFetching flips true
     const id = requestAnimationFrame(() => {
-      wedgePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      wedgePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     return () => cancelAnimationFrame(id);
   }, [wedgeFetching, wedgeRunning]);
+
+  // Keep the live log tail visible while the tournament runs.
+  useEffect(() => {
+    if (!wedgeRunning || wedgeLog.length === 0) return;
+    wedgeLogRef.current?.scrollTo({ top: wedgeLogRef.current.scrollHeight, behavior: "smooth" });
+  }, [wedgeLog, wedgeRunning]);
 
   async function runWedgeTournament() {
     if (!wedgeSet) return;
@@ -1130,6 +1165,12 @@ export default function IdeaWorkspace({
     setError(null);
     const log = (m: string) => setWedgeLog((prev) => [...prev, m]);
     setWedgeLog([]);
+    setWedgeEntrants(entrants.map((p) => ({ label: p.wedge, status: "queued" as const })));
+    const patchEntrant = (
+      i: number,
+      patch: Partial<{ status: "queued" | "creating" | "validating" | "done" | "failed"; detail: string }>
+    ) =>
+      setWedgeEntrants((prev) => prev.map((e, j) => (j === i ? { ...e, ...patch } : e)));
     const scoreOf = (a: Artifact) => Math.round((a.data as { score?: number })?.score ?? 0);
     try {
       const baseId = activeVersionId;
@@ -1147,18 +1188,24 @@ export default function IdeaWorkspace({
 
       // Create the variant versions sequentially (cheap, keeps version numbers tidy);
       // each child pins the baseline's corpus server-side, so scores compare fairly.
-      const created: { proposal: WedgeProposal; v: Version }[] = [];
-      for (const p of entrants) {
+      const created: { proposal: WedgeProposal; v: Version; idx: number }[] = [];
+      for (let i = 0; i < entrants.length; i++) {
+        const p = entrants[i];
+        patchEntrant(i, { status: "creating" });
         const v = await createVersionFrom(p.statement, "ai", baseId, p.label, p.rationale);
-        created.push({ proposal: p, v });
+        created.push({ proposal: p, v, idx: i });
+        patchEntrant(i, { status: "queued", detail: `v${v.n}` });
         log(`→ v${v.n} "${p.wedge}"`);
       }
 
       // Validate ALL entrants in parallel — the tournament's wall-clock is one
       // validation, not N. A failed entrant records its error and stays in the table.
       log(`Validating ${created.length} variants in parallel…`);
+      for (const { idx, v } of created) {
+        patchEntrant(idx, { status: "validating", detail: `v${v.n}` });
+      }
       const results = await Promise.all(
-        created.map(async ({ proposal, v }): Promise<WedgeResult> => {
+        created.map(async ({ proposal, v, idx }): Promise<WedgeResult> => {
           try {
             const art = await generate("validation", v.id);
             const d = art.data as {
@@ -1166,15 +1213,22 @@ export default function IdeaWorkspace({
               verdict?: string;
               demand?: { obtainable_revenue?: string };
             };
+            const score = typeof d?.score === "number" ? Math.round(d.score) : null;
+            patchEntrant(idx, {
+              status: "done",
+              detail: score != null ? `v${v.n} · ${score}/100` : `v${v.n}`,
+            });
             return {
               proposal,
               versionId: v.id,
               n: v.n,
-              score: typeof d?.score === "number" ? Math.round(d.score) : null,
+              score,
               revenue: d?.demand?.obtainable_revenue ?? "",
               verdict: d?.verdict ?? "",
             };
           } catch (e) {
+            const err = e instanceof Error ? e.message : "validation failed";
+            patchEntrant(idx, { status: "failed", detail: err });
             return {
               proposal,
               versionId: v.id,
@@ -1182,7 +1236,7 @@ export default function IdeaWorkspace({
               score: null,
               revenue: "",
               verdict: "",
-              error: e instanceof Error ? e.message : "validation failed",
+              error: err,
             };
           }
         })
@@ -1240,8 +1294,7 @@ export default function IdeaWorkspace({
   async function autoIterate() {
     setIterating(true);
     setError(null);
-    setProposal(null);
-    setEditing(false);
+    closeComposer();
     const log = (m: string) => setIterLog((prev) => [...prev, m]);
     setIterLog([]);
     const scoreOf = (a: Artifact) => Math.round((a.data as { score?: number })?.score ?? 0);
@@ -1462,15 +1515,6 @@ export default function IdeaWorkspace({
     .filter((v) => v.id !== activeVersionId && v.score != null)
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
   const showBestOther = !!bestOther && (bestOther.score ?? 0) > (activeVersion?.score ?? -1);
-  const campaignNextMove =
-    activeValidationData?.verdict === "GO"
-      ? { label: "The plan is unlocked — build", href: "#plan" as string | undefined, onClick: undefined as (() => void) | undefined }
-      : activeOutcome
-        ? { label: "Re-validate with the result", href: undefined, onClick: revalidateWithResult }
-        : activeArtifacts.kit
-          ? { label: "Run the test — kit is ready", href: "#next-test", onClick: undefined }
-          : { label: generatingKit ? "Writing the kit…" : "Generate the run kit", href: undefined, onClick: generateKit };
-
   // Score bands for the active artifact (goal it was scored under), so chrome can't
   // recolor a stale number after a mid-flight goal edit.
   const decisionBands = verdictBands(activeValidation?.goal_scored ?? goalBucket);
@@ -1478,6 +1522,126 @@ export default function IdeaWorkspace({
     typeof activeValidationData?.score === "number" ? Math.round(activeValidationData.score) : null;
   const decisionColor =
     decisionScore != null ? scoreColor(decisionScore, decisionBands) : "var(--color-muted)";
+
+  // One primary next-move — not always the kill-test kit. Weak scores need a better
+  // framing first; only promote "prep interviews" when the idea is close enough that
+  // real-world evidence (not more rewriting) is the bottleneck.
+  type NextMove = {
+    label: string;
+    hint: string;
+    href?: string;
+    onClick?: () => void;
+    busy?: boolean;
+    /** Alternate path shown under the CTA when primary is iterate vs test. */
+    alt?: { label: string; detail: string; onClick: () => void };
+  };
+
+  const topDragName = (() => {
+    if (!activeValidation || !Array.isArray(activeValidation.criteria)) return null;
+    const drags = [...activeValidation.criteria]
+      .filter((c) => typeof c.score === "number" && c.score < 72)
+      .sort((a, b) => (a.score ?? 0) - (b.score ?? 0));
+    return (drags[0]?.name as string | undefined) ?? null;
+  })();
+
+  const kitMove = (ready: boolean): NextMove =>
+    ready
+      ? {
+          label: "Open the interview kit",
+          hint: "Script, outreach copy, and pass/kill tally for the kill-test above — run it this week, then record the result.",
+          href: "#next-test",
+        }
+      : {
+          label: generatingKit ? "Writing interview kit…" : "Prep this week's interviews",
+          hint: "Turns the kill-test above into questions, outreach, and green/red signals — so you can talk to buyers, not just re-score the pitch.",
+          onClick: generateKit,
+          busy: generatingKit,
+        };
+
+  const campaignNextMove: NextMove = (() => {
+    const verdict = activeValidation?.verdict;
+
+    // Pipeline steps that override shaping/testing once you're in them.
+    if (activeOutcome) {
+      return {
+        label: "Rescore with the test result",
+        hint: "Feed the real-world kill-test outcome back into a new validation pass.",
+        onClick: revalidateWithResult,
+      };
+    }
+    if (activeArtifacts.kit) return kitMove(true);
+    if (verdict === "GO") {
+      return {
+        label: "See the build plan",
+        hint: "GO unlocked the plan section — milestones and next build steps.",
+        href: "#plan",
+      };
+    }
+    if (verdict === "INSUFFICIENT EVIDENCE") {
+      return {
+        label: "Re-run the analysis",
+        hint: "Confidence was too low to grade. A fresh grounded pass may pick up more signal.",
+        onClick: () => runValidate(),
+      };
+    }
+
+    const score = decisionScore ?? 0;
+    // Within ~8 of GO → field evidence is the bottleneck; kit is primary.
+    const nearGo = score >= decisionBands.go - 8;
+    // NO-GO or barely MAYBE → reshape the idea first.
+    const weak = verdict === "NO-GO" || score < decisionBands.maybe + 10;
+
+    const sharpen = (): NextMove => ({
+      label: "Sharpen this version",
+      hint: topDragName
+        ? `Biggest drag: “${topDragName}”. AI proposes a sharper statement targeting weak criteria, then re-scores.`
+        : "AI proposes a sharper statement targeting weak criteria, then re-scores.",
+      onClick: () => openComposer("suggest"),
+      alt: {
+        label: "Or prep interviews instead",
+        detail: "Skip more rewriting — test the riskiest assumption with buyers this week.",
+        onClick: generateKit,
+      },
+    });
+    const rewrite = (): NextMove => ({
+      label: activeAlphas.length ? "Compare different edges" : "Rewrite the idea",
+      hint: topDragName
+        ? `Weak on “${topDragName}”. ${activeAlphas.length ? "Run angles head-to-head on the same evidence." : "Change the framing, then re-score."}`
+        : activeAlphas.length
+          ? "This framing is weak. Compare divergent angles on the same evidence."
+          : "This framing is weak. Rewrite the statement, then re-score.",
+      onClick: () => (activeAlphas.length ? exploreWedges() : openComposer("write")),
+      alt: {
+        label: "Or prep interviews instead",
+        detail: "If you believe the assumption is the real issue, test it with buyers.",
+        onClick: generateKit,
+      },
+    });
+
+    if (weak) return rewrite();
+    if (nearGo) {
+      // Close to GO: prove the kill-test assumption in the real world.
+      return {
+        ...kitMove(false),
+        alt: {
+          label: "Or add context first",
+          detail: "If the report missed founder facts, rescore before interviewing.",
+          onClick: () => openComposer("context"),
+        },
+      };
+    }
+    // Mid-MAYBE: improve the idea; kit stays available as alternate.
+    return sharpen();
+  })();
+
+  // Alt path under the decision card (only when primary isn't already that action).
+  const iterateHint = campaignNextMove.alt
+    ? {
+        label: campaignNextMove.alt.label,
+        detail: campaignNextMove.alt.detail,
+        onClick: campaignNextMove.alt.onClick,
+      }
+    : null;
 
   return (
     <div>
@@ -1669,63 +1833,58 @@ export default function IdeaWorkspace({
               href: campaignNextMove.href,
               onClick: campaignNextMove.onClick,
             }}
-            primaryBusy={generatingKit || busy.has(bk(activeVersionId, "validation"))}
-            primaryDisabled={anyBusy || locked || generatingKit}
+            primaryBusy={!!campaignNextMove.busy || busy.has(bk(activeVersionId, "validation"))}
+            primaryDisabled={anyBusy || locked || !!campaignNextMove.busy}
+            primaryHint={campaignNextMove.hint}
             secondary={
               <>
-                <DropMenu
-                  trigger={
-                    <span className="flex items-center gap-1.5 text-sm">
-                      {(wedgeFetching || wedgeRunning) && (
-                        <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
-                      )}
-                      {wedgeFetching
-                        ? "Drafting wedges…"
-                        : wedgeRunning
-                          ? "Tournament…"
-                          : iterating
-                            ? "Auto-iterating…"
-                            : "Improve"}
-                    </span>
-                  }
-                  tone="default"
-                  disabled={anyBusy || locked}
-                  items={[
-                    { label: "Refine manually", hint: "Edit the statement yourself.", onClick: startManual },
-                    { label: "✨ Suggest a sharper version", hint: "AI targets weak criteria.", onClick: suggest },
-                    { label: "⟳ Auto-iterate to a target", hint: "Hill-climb toward a score.", onClick: autoIterate },
-                    { label: "🧭 Wedge tournament", hint: "3–5 angles, head-to-head.", onClick: exploreWedges },
-                  ]}
-                />
-                <DropMenu
-                  trigger={<span className="text-sm">Discuss</span>}
-                  tone="default"
+                <button
+                  type="button"
                   disabled={anyBusy}
-                  items={[
-                    {
-                      label: "Chat about this analysis",
-                      hint: "Conversational Q&A — does not re-score.",
-                      onClick: () => {
-                        setResponding(false);
-                        openChat();
-                      },
-                    },
-                    {
-                      label: "Respond & re-validate",
-                      hint: "Push back or add context, then run a new version.",
-                      onClick: () => {
-                        setProposal(null);
-                        setEditing(false);
-                        setChatting(false);
-                        setEditingGoal(false);
-                        resetGoalDrafts();
-                        setResponseDraft("");
-                        setResponding(true);
-                      },
-                    },
-                  ]}
-                />
-                {suggesting && <span className="animate-pulse font-mono text-xs text-accent">✨ drafting…</span>}
+                  onClick={() => (chatting ? setChatting(false) : openChat())}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition disabled:opacity-50 ${
+                    chatting
+                      ? "border-accent2/50 bg-accent2/10 text-accent2"
+                      : "border-border text-muted hover:text-fg"
+                  }`}
+                  title="Conversational Q&A about this report — does not create a version or re-score"
+                >
+                  Ask
+                  <span className="hidden font-mono text-[10px] uppercase tracking-wide text-muted sm:inline">
+                    · no rescore
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={anyBusy || locked}
+                  onClick={() =>
+                    composerMode ? closeComposer() : openComposer("write")
+                  }
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition disabled:opacity-50 ${
+                    composerMode
+                      ? "border-accent/50 bg-accent/10 text-accent"
+                      : "border-border text-muted hover:text-fg"
+                  }`}
+                  title="Create a new version — edit, sharpen, add context, or run advanced modes"
+                >
+                  {(wedgeFetching || wedgeRunning || iterating || suggesting) && (
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+                  )}
+                  {wedgeFetching
+                    ? "Drafting angles…"
+                    : wedgeRunning
+                      ? "Tournament…"
+                      : iterating
+                        ? "Climbing…"
+                        : suggesting
+                          ? "Drafting…"
+                          : "New version"}
+                  {!wedgeFetching && !wedgeRunning && !iterating && !suggesting && (
+                    <span className="hidden font-mono text-[10px] uppercase tracking-wide text-muted sm:inline">
+                      · ~1 run
+                    </span>
+                  )}
+                </button>
                 {showBestOther && bestOther && (
                   <button
                     type="button"
@@ -1765,11 +1924,11 @@ export default function IdeaWorkspace({
                         disabled: anyBusy || locked,
                       },
                       {
-                        label: "✎ Edit idea statement",
-                        onClick: startManual,
+                        label: "✎ New version (edit statement)",
+                        onClick: () => openComposer("write"),
                       },
                       {
-                        label: "✎ Edit goal",
+                        label: "✎ Edit goal only",
                         onClick: openGoalEditor,
                       },
                       { label: "Delete idea", danger: true, onClick: remove },
@@ -1779,55 +1938,25 @@ export default function IdeaWorkspace({
               </>
             }
             ideaExtras={
-              editing || editingGoal ? (
-                <div className="mt-3 space-y-3">
-                  {editing && (
-                    <div>
-                      <textarea
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        rows={3}
-                        className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
-                      />
-                      <VariantGoalFields
-                        className="mt-3"
-                        goalDraft={goalDraft}
-                        setGoalDraft={setGoalDraft}
-                        goalDetailDraft={goalDetailDraft}
-                        setGoalDetailDraft={setGoalDetailDraft}
-                      />
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          onClick={saveManual}
-                          disabled={draft.trim().length < 8}
-                          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                        >
-                          Save as v{versions.length + 1}
-                        </button>
-                        <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {editingGoal && !editing && (
-                    <div className="rounded-lg border border-border bg-panel2 p-2">
-                      <VariantGoalFields
-                        goalDraft={goalDraft}
-                        setGoalDraft={setGoalDraft}
-                        goalDetailDraft={goalDetailDraft}
-                        setGoalDetailDraft={setGoalDetailDraft}
-                      />
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <button onClick={saveGoal} className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-white">
-                          Save
-                        </button>
-                        <button onClick={() => setEditingGoal(false)} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-panel">
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
+              editingGoal ? (
+                <div className="mt-3 rounded-lg border border-border bg-panel2 p-2">
+                  <VariantGoalFields
+                    goalDraft={goalDraft}
+                    setGoalDraft={setGoalDraft}
+                    goalDetailDraft={goalDetailDraft}
+                    setGoalDetailDraft={setGoalDetailDraft}
+                  />
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <button onClick={saveGoal} className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-white">
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingGoal(false)}
+                      className="rounded-md border border-border px-2 py-1 text-xs hover:bg-panel"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ) : null
             }
@@ -1865,6 +1994,16 @@ export default function IdeaWorkspace({
                   <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
                 )}
                 🧭 Wedge tournament
+                {wedgeFetching && (
+                  <span className="font-mono text-[11px] font-normal uppercase tracking-wide text-accent2">
+                    drafting…
+                  </span>
+                )}
+                {wedgeRunning && (
+                  <span className="font-mono text-[11px] font-normal uppercase tracking-wide text-accent2">
+                    running…
+                  </span>
+                )}
               </div>
               {!wedgeRunning && !wedgeFetching && (
                 <button
@@ -1872,6 +2011,7 @@ export default function IdeaWorkspace({
                     setWedgeSet(null);
                     setWedgeResults(null);
                     setWedgeLog([]);
+                    setWedgeEntrants([]);
                     setWedgeError(null);
                   }}
                   className="text-xs text-muted hover:text-fg"
@@ -1920,70 +2060,133 @@ export default function IdeaWorkspace({
                   ))}
                 </ul>
                 <p className="text-xs text-muted">
-                  Usually 15–40 seconds. The Improve idea control stays disabled until proposals are ready.
+                  Usually 15–40 seconds. Other actions stay disabled until proposals are ready.
                 </p>
               </div>
             )}
 
-            {/* phase 1: pick entrants */}
+            {/* phase 1: pick entrants (idle) or live progress (running) */}
             {wedgeSet && !wedgeResults && !wedgeFetching && (
               <>
-                <p className="mb-3 text-xs text-muted">
-                  Each is a different strategic angle on the same core idea. Selected wedges become versions and are
-                  validated <b>in parallel on the same evidence corpus</b> — a fair head-to-head. Cost ≈ one validation
-                  per wedge.
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {wedgeSet.wedges.map((w, i) => (
-                    <label
-                      key={i}
-                      className={`flex cursor-pointer flex-col rounded-lg border p-3 transition ${
-                        wedgeSelected.has(i) ? "border-accent/50 bg-panel2" : "border-border bg-panel2/50 opacity-60"
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <input
-                          type="checkbox"
-                          checked={wedgeSelected.has(i)}
-                          disabled={wedgeRunning}
-                          onChange={(e) =>
-                            setWedgeSelected((prev) => {
-                              const n = new Set(prev);
-                              if (e.target.checked) n.add(i);
-                              else n.delete(i);
-                              return n;
-                            })
-                          }
-                          className="mt-0.5"
-                        />
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium">{w.wedge}</div>
-                          <p className="mt-1 text-xs leading-relaxed text-fg/80">{w.statement}</p>
-                          <p className="mt-1 text-xs leading-relaxed text-muted">
-                            {w.rationale} <span className="text-accent2">→ {w.targets}</span>
-                          </p>
+                {wedgeRunning ? (
+                  <div className="mt-2 space-y-3">
+                    <div className="flex items-start gap-3 rounded-lg border border-accent/35 bg-accent/10 px-3.5 py-3">
+                      <span className="mt-0.5 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-accent">
+                          Running head-to-head · {wedgeEntrants.length} angle
+                          {wedgeEntrants.length === 1 ? "" : "s"}
                         </div>
+                        <p className="mt-0.5 text-xs text-muted">
+                          Creating versions, then validating them in parallel on the same evidence corpus.
+                          Wall-clock is roughly one full analysis — hang tight.
+                        </p>
                       </div>
-                    </label>
-                  ))}
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {!wedgeRunning && (
-                    <button
-                      onClick={runWedgeTournament}
-                      disabled={wedgeSelected.size === 0 || anyBusy}
-                      className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                    >
-                      Run tournament ({wedgeSelected.size} wedge{wedgeSelected.size === 1 ? "" : "s"})
-                    </button>
-                  )}
-                  {wedgeRunning && (
-                    <div className="flex items-center gap-2 text-sm text-accent2">
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent2/30 border-t-accent2" />
-                      Validating selected wedges in parallel on the same corpus…
                     </div>
-                  )}
-                </div>
+                    <ul className="space-y-2">
+                      {wedgeEntrants.map((e, i) => {
+                        const spinning = e.status === "creating" || e.status === "validating";
+                        const statusLabel =
+                          e.status === "queued"
+                            ? "Queued"
+                            : e.status === "creating"
+                              ? "Creating version…"
+                              : e.status === "validating"
+                                ? "Validating…"
+                                : e.status === "done"
+                                  ? "Done"
+                                  : "Failed";
+                        const statusCls =
+                          e.status === "done"
+                            ? "text-good"
+                            : e.status === "failed"
+                              ? "text-bad"
+                              : e.status === "queued"
+                                ? "text-muted"
+                                : "text-accent2";
+                        return (
+                          <li
+                            key={i}
+                            className="flex items-center gap-2.5 rounded-lg border border-border bg-panel2 px-3 py-2.5"
+                          >
+                            {spinning ? (
+                              <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-accent2/30 border-t-accent2" />
+                            ) : e.status === "done" ? (
+                              <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-good/20 text-[10px] text-good">
+                                ✓
+                              </span>
+                            ) : e.status === "failed" ? (
+                              <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-bad/20 text-[10px] text-bad">
+                                !
+                              </span>
+                            ) : (
+                              <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-border bg-panel" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-medium">{e.label}</div>
+                              {e.detail && (
+                                <div className="truncate font-mono text-[11px] text-muted">{e.detail}</div>
+                              )}
+                            </div>
+                            <span className={`shrink-0 font-mono text-[11px] uppercase tracking-wide ${statusCls}`}>
+                              {statusLabel}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : (
+                  <>
+                    <p className="mb-3 text-xs text-muted">
+                      Each is a different strategic angle on the same core idea. Selected wedges become versions and are
+                      validated <b>in parallel on the same evidence corpus</b> — a fair head-to-head. Cost ≈ one validation
+                      per wedge.
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {wedgeSet.wedges.map((w, i) => (
+                        <label
+                          key={i}
+                          className={`flex cursor-pointer flex-col rounded-lg border p-3 transition ${
+                            wedgeSelected.has(i) ? "border-accent/50 bg-panel2" : "border-border bg-panel2/50 opacity-60"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              checked={wedgeSelected.has(i)}
+                              onChange={(e) =>
+                                setWedgeSelected((prev) => {
+                                  const n = new Set(prev);
+                                  if (e.target.checked) n.add(i);
+                                  else n.delete(i);
+                                  return n;
+                                })
+                              }
+                              className="mt-0.5"
+                            />
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium">{w.wedge}</div>
+                              <p className="mt-1 text-xs leading-relaxed text-fg/80">{w.statement}</p>
+                              <p className="mt-1 text-xs leading-relaxed text-muted">
+                                {w.rationale} <span className="text-accent2">→ {w.targets}</span>
+                              </p>
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={runWedgeTournament}
+                        disabled={wedgeSelected.size === 0 || anyBusy}
+                        className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        Run tournament ({wedgeSelected.size} wedge{wedgeSelected.size === 1 ? "" : "s"})
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
@@ -2053,32 +2256,78 @@ export default function IdeaWorkspace({
             )}
 
             {wedgeLog.length > 0 && (
-              <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-bg/60 p-3 font-mono text-xs leading-relaxed text-muted">
+              <pre
+                ref={wedgeLogRef}
+                className="mt-3 max-h-48 overflow-auto rounded-lg bg-bg/60 p-3 font-mono text-xs leading-relaxed text-muted"
+              >
                 {wedgeLog.join("\n")}
               </pre>
             )}
           </div>
         )}
 
-        {/* chat about the analysis (Q&A — does not re-validate) */}
+        {/* Alternate path — the non-primary fork (iterate vs field-test) */}
+        {hasValidate && iterateHint && !composerMode && !chatting && (
+          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border/80 bg-panel/40 px-3.5 py-2.5 text-sm">
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+              Also
+            </span>
+            <button
+              type="button"
+              onClick={iterateHint.onClick}
+              disabled={anyBusy || locked}
+              className="font-medium text-accent hover:underline disabled:opacity-50"
+            >
+              {iterateHint.label} →
+            </button>
+            <span className="text-xs text-muted">{iterateHint.detail}</span>
+          </div>
+        )}
+
+        {/* Ask — Q&A only, never creates a version */}
         {chatting && (
           <div className="mb-5 rounded-xl border border-accent2/40 bg-accent2/5 p-4">
-            <div className="mb-1 flex items-center justify-between">
-              <div className="text-sm font-semibold text-accent2">💬 Chat about this analysis</div>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-sm font-semibold text-accent2">Ask about this analysis</div>
+                <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent2">
+                  no rescore
+                </span>
+              </div>
               <button onClick={() => setChatting(false)} className="text-xs text-muted hover:text-fg">
                 close
               </button>
             </div>
             <p className="mb-2 text-xs text-muted">
-              Talk through the research for v{activeVersion.n} — scores, competitors, risks, next moves.
-              Grounded in what&apos;s already generated; this does <b className="font-medium text-fg/70">not</b>{" "}
-              re-run validation. Use &ldquo;Respond &amp; re-validate&rdquo; if you want a new scored version.
+              Talk through v{activeVersion.n} — scores, competitors, risks. Does not create a version.
+              When you have new facts or a pivot,{" "}
+              <button
+                type="button"
+                onClick={() => promoteChatToVersion()}
+                className="font-medium text-accent2 underline-offset-2 hover:underline"
+              >
+                turn it into a new version
+              </button>
+              .
             </p>
             <div className="max-h-80 space-y-3 overflow-auto rounded-lg bg-bg/40 p-3">
               {chatMessages.length === 0 && (
-                <p className="text-xs text-muted">
-                  Say anything — e.g. “Why only Moderate demand?” or “What’s the fastest path to first revenue?”
-                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "Why this score?",
+                    "What would move us to GO?",
+                    "Is the competitive set fair?",
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => void sendQuestionText(q)}
+                      className="rounded-full border border-border bg-panel2 px-2.5 py-1 text-xs text-muted hover:border-accent2/40 hover:text-fg"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
               )}
               {chatMessages.map((m, i) => (
                 <div key={i} className={m.role === "user" ? "text-right" : ""}>
@@ -2098,6 +2347,17 @@ export default function IdeaWorkspace({
                       m.text
                     )}
                   </div>
+                  {m.role === "user" && (
+                    <div className="mt-1">
+                      <button
+                        type="button"
+                        onClick={() => promoteChatToVersion(m.text)}
+                        className="text-[11px] text-muted hover:text-accent2"
+                      >
+                        Use as new version context →
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
               {chatLoading && <div className="animate-pulse text-xs text-muted">thinking…</div>}
@@ -2134,104 +2394,274 @@ export default function IdeaWorkspace({
           </div>
         )}
 
-        {/* respond-to-validator panel */}
-        {responding && (
-          <div className="mb-5 rounded-xl border border-accent2/40 bg-accent2/5 p-4">
-            <div className="mb-1 text-sm font-semibold text-accent2">
-              ⟳ Respond &amp; re-validate
+        {/* New version composer — one surface for write / suggest / context / advanced */}
+        {composerMode && (
+          <div
+            ref={composerRef}
+            className="mb-5 scroll-mt-4 rounded-xl border border-accent/40 bg-accent/5 p-4"
+          >
+            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-sm font-semibold text-accent">New version</div>
+                <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent">
+                  creates v{versions.length + 1}
+                </span>
+              </div>
+              <button onClick={closeComposer} className="text-xs text-muted hover:text-fg">
+                close
+              </button>
             </div>
-            <p className="mb-2 text-xs text-muted">
-              Push back on what it got wrong, add context, or answer its questions — then run a{" "}
-              <b className="font-medium text-fg/70">new scored version</b>. Facts about yourself
-              (skills, network, capital, time) are taken as authoritative; claims about customers,
-              competitors, or the market get verified against the evidence — not taken on faith.
-              Prefer chat if you only want to discuss the current report.
+            <p className="mb-3 text-xs text-muted">
+              Change the idea, goal, or context, then rescore. Prefer{" "}
+              <b className="font-medium text-fg/70">Ask</b> if you only want to understand this report.
             </p>
-            {activeQuestions.length > 0 && (
-              <div className="mb-2 rounded-lg border border-border bg-panel2 p-3">
-                <div className="mb-1 text-xs font-medium text-muted">The validator asked:</div>
-                <ul className="space-y-1">
-                  {activeQuestions.map((q, i) => (
-                    <li key={i} className="flex gap-2 text-xs">
-                      <button
-                        onClick={() =>
-                          setResponseDraft((d) => (d ? d + "\n" : "") + `Q: ${q}\nA: `)
-                        }
-                        className="shrink-0 text-accent2 hover:underline"
-                        title="add this question to your response"
-                      >
-                        ＋
-                      </button>
-                      <span>{q}</span>
-                    </li>
-                  ))}
-                </ul>
+
+            {/* mode chips */}
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {(
+                [
+                  { key: "write" as const, label: "I'll write it" },
+                  { key: "suggest" as const, label: "Suggest sharper" },
+                  { key: "context" as const, label: "Add context" },
+                  { key: "advanced" as const, label: "Advanced" },
+                ] as const
+              ).map((m) => (
+                <button
+                  key={m.key}
+                  type="button"
+                  disabled={anyBusy && m.key === "suggest"}
+                  onClick={() => {
+                    if (m.key === composerMode) return;
+                    if (m.key === "suggest") openComposer("suggest");
+                    else {
+                      setProposal(null);
+                      setComposerMode(m.key);
+                      if (m.key === "write") setDraft(activeVersion.statement);
+                    }
+                  }}
+                  className={`rounded-md border px-2.5 py-1 text-xs transition ${
+                    composerMode === m.key
+                      ? "border-accent bg-accent/15 text-accent"
+                      : "border-border text-muted hover:text-fg"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
+            {composerMode === "write" && (
+              <div>
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  rows={4}
+                  placeholder="Rewrite the idea statement…"
+                  className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
+                />
+                <VariantGoalFields
+                  className="mt-3"
+                  goalDraft={goalDraft}
+                  setGoalDraft={setGoalDraft}
+                  goalDetailDraft={goalDetailDraft}
+                  setGoalDetailDraft={setGoalDetailDraft}
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => saveManual(true)}
+                    disabled={anyBusy || draft.trim().length < 8}
+                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    Create v{versions.length + 1} &amp; validate
+                  </button>
+                  <button
+                    onClick={() => saveManual(false)}
+                    disabled={anyBusy || draft.trim().length < 8}
+                    className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2 disabled:opacity-50"
+                  >
+                    Create only
+                  </button>
+                  <button onClick={closeComposer} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
+                    Cancel
+                  </button>
+                </div>
               </div>
             )}
-            <textarea
-              value={responseDraft}
-              onChange={(e) => setResponseDraft(e.target.value)}
-              rows={4}
-              placeholder={`e.g. "The competitors you listed (X, Y) are CLI tools for individual developers — my product is a team workspace, 'Jira for AI-agent intent management'. Re-evaluate competition with that in mind."`}
-              className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent2"
-            />
-            <VariantGoalFields
-              className="mt-3"
-              goalDraft={goalDraft}
-              setGoalDraft={setGoalDraft}
-              goalDetailDraft={goalDetailDraft}
-              setGoalDetailDraft={setGoalDetailDraft}
-            />
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={respondToValidator}
-                disabled={anyBusy || responseDraft.trim().length < 4}
-                className="rounded-lg bg-accent2 px-3 py-1.5 text-sm font-medium text-bg disabled:opacity-50"
-              >
-                Re-validate with this context (v{versions.length + 1})
-              </button>
-              <button onClick={() => setResponding(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* AI proposal panel */}
-        {proposal && (
-          <div className="mb-5 rounded-xl border border-accent/40 bg-accent/5 p-4">
-            <div className="mb-1 text-sm font-semibold text-accent">✨ Suggested refinement — {proposal.label}</div>
-            <textarea
-              value={proposalDraft}
-              onChange={(e) => setProposalDraft(e.target.value)}
-              rows={3}
-              className="mt-1 w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
-            />
-            <p className="mt-2 text-xs text-muted">
-              <b className="text-fg/80">Why:</b> {proposal.rationale} <span className="text-fg/60">{proposal.expected_effect}</span>
-            </p>
-            <VariantGoalFields
-              className="mt-3"
-              goalDraft={goalDraft}
-              setGoalDraft={setGoalDraft}
-              goalDetailDraft={goalDetailDraft}
-              setGoalDetailDraft={setGoalDetailDraft}
-            />
-            <ul className="mt-2 space-y-1">
-              {proposal.changes.map((c, i) => (
-                <li key={i} className="text-xs text-muted">
-                  <span className="text-accent">•</span> {c.change} <span className="text-fg/50">→ {c.targets}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-3 flex gap-2">
-              <button onClick={acceptProposal} disabled={anyBusy} className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
-                Create v{versions.length + 1} & validate
-              </button>
-              <button onClick={() => setProposal(null)} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
-                Dismiss
-              </button>
-            </div>
+            {composerMode === "suggest" && (
+              <div>
+                {suggesting && (
+                  <div className="flex items-center gap-2 text-sm text-accent">
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+                    Drafting a sharper version targeting weak criteria…
+                  </div>
+                )}
+                {!suggesting && proposal && (
+                  <>
+                    <div className="mb-1 text-xs font-medium text-muted">
+                      Suggested — {proposal.label}
+                    </div>
+                    <textarea
+                      value={proposalDraft}
+                      onChange={(e) => setProposalDraft(e.target.value)}
+                      rows={4}
+                      className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
+                    />
+                    <p className="mt-2 text-xs text-muted">
+                      <b className="text-fg/80">Why:</b> {proposal.rationale}{" "}
+                      <span className="text-fg/60">{proposal.expected_effect}</span>
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {proposal.changes.map((c, i) => (
+                        <li key={i} className="text-xs text-muted">
+                          <span className="text-accent">•</span> {c.change}{" "}
+                          <span className="text-fg/50">→ {c.targets}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <VariantGoalFields
+                      className="mt-3"
+                      goalDraft={goalDraft}
+                      setGoalDraft={setGoalDraft}
+                      goalDetailDraft={goalDetailDraft}
+                      setGoalDetailDraft={setGoalDetailDraft}
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        onClick={acceptProposal}
+                        disabled={anyBusy}
+                        className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        Create v{versions.length + 1} &amp; validate
+                      </button>
+                      <button
+                        onClick={() => void runSuggest()}
+                        disabled={anyBusy}
+                        className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2 disabled:opacity-50"
+                      >
+                        Try another
+                      </button>
+                      <button onClick={closeComposer} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
+                {!suggesting && !proposal && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => void runSuggest()}
+                      disabled={anyBusy}
+                      className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      Draft a sharper version
+                    </button>
+                    <button onClick={closeComposer} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {composerMode === "context" && (
+              <div>
+                <p className="mb-2 text-xs text-muted">
+                  Push back on what it got wrong or add facts about you (skills, network, capital).
+                  Market claims still get verified — not taken on faith. Creates a{" "}
+                  <b className="font-medium text-fg/70">new scored version</b>.
+                </p>
+                {activeQuestions.length > 0 && (
+                  <div className="mb-2 rounded-lg border border-border bg-panel2 p-3">
+                    <div className="mb-1 text-xs font-medium text-muted">The validator asked:</div>
+                    <ul className="space-y-1">
+                      {activeQuestions.map((q, i) => (
+                        <li key={i} className="flex gap-2 text-xs">
+                          <button
+                            onClick={() =>
+                              setResponseDraft((d) => (d ? d + "\n" : "") + `Q: ${q}\nA: `)
+                            }
+                            className="shrink-0 text-accent hover:underline"
+                            title="add this question to your response"
+                          >
+                            ＋
+                          </button>
+                          <span>{q}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <textarea
+                  value={responseDraft}
+                  onChange={(e) => setResponseDraft(e.target.value)}
+                  rows={4}
+                  placeholder={`e.g. "Those competitors are CLI tools — mine is a team workspace. I have warm intros to 20 Shopify agencies."`}
+                  className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
+                />
+                <VariantGoalFields
+                  className="mt-3"
+                  goalDraft={goalDraft}
+                  setGoalDraft={setGoalDraft}
+                  goalDetailDraft={goalDetailDraft}
+                  setGoalDetailDraft={setGoalDetailDraft}
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={respondToValidator}
+                    disabled={anyBusy || responseDraft.trim().length < 4}
+                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    Create v{versions.length + 1} &amp; validate
+                  </button>
+                  <button onClick={closeComposer} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-panel2">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {composerMode === "advanced" && (
+              <div className="space-y-3">
+                <p className="text-xs text-muted">
+                  Multi-run modes. Prefer a single rewrite or context pass unless you need parallel
+                  experiments.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    disabled={anyBusy || locked}
+                    onClick={() => {
+                      closeComposer();
+                      void exploreWedges();
+                    }}
+                    className="rounded-lg border border-border bg-panel2 p-3 text-left transition hover:border-accent/40 disabled:opacity-50"
+                  >
+                    <div className="text-sm font-medium">Compare angles</div>
+                    <p className="mt-1 text-xs text-muted">
+                      3–5 divergent wedges, scored head-to-head on the same evidence. ~1 run each.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={anyBusy || locked}
+                    onClick={() => {
+                      closeComposer();
+                      void autoIterate();
+                    }}
+                    className="rounded-lg border border-border bg-panel2 p-3 text-left transition hover:border-accent/40 disabled:opacity-50"
+                  >
+                    <div className="text-sm font-medium">Climb toward a score</div>
+                    <p className="mt-1 text-xs text-muted">
+                      Auto-iterate: propose → validate → keep climbs until target or max rounds.
+                    </p>
+                  </button>
+                </div>
+                <button onClick={closeComposer} className="text-xs text-muted hover:text-fg">
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -2379,15 +2809,38 @@ export default function IdeaWorkspace({
                     onClick={exploreWedges}
                     disabled={anyBusy}
                     title="Feeds these alphas (plus competitor complaint themes and the moat targets) into 3–5 divergent variants and validates them head-to-head on the same evidence."
-                    className="rounded-md border border-accent/40 px-2.5 py-1 text-xs font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-accent/40 px-2.5 py-1 text-xs font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
                   >
-                    🧭 Test the angles head-to-head →
+                    {(wedgeFetching || wedgeRunning) && (
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+                    )}
+                    {wedgeFetching
+                      ? "Drafting angles…"
+                      : wedgeRunning
+                        ? "Tournament running…"
+                        : "Compare angles head-to-head →"}
                   </button>
                 </div>
                 <p className="mb-3 text-xs text-muted">
-                  Differentiators this idea could pursue. Re-validate around one, or run the tournament to compare
-                  several at once on the same evidence.
+                  Differentiators this idea could pursue. Re-validate around one, or open{" "}
+                  <b className="font-medium text-fg/70">New version → Advanced</b> / Compare angles for a
+                  full tournament on the same evidence.
                 </p>
+                {(wedgeFetching || wedgeRunning) && (
+                  <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2.5 text-sm text-fg/90">
+                    <span className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+                    <div>
+                      <div className="font-medium text-accent">
+                        {wedgeFetching ? "Drafting tournament angles…" : "Validating wedges head-to-head…"}
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted">
+                        {wedgeFetching
+                          ? "Usually 15–40s. Progress also appears in the Wedge tournament panel above the report."
+                          : "Running selected angles in parallel on the same evidence corpus."}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className="grid gap-2 sm:grid-cols-2">
                   {activeAlphas.map((a, i) => (
                     <div key={i} className="flex flex-col rounded-lg border border-border bg-panel2 p-3">

@@ -56,6 +56,7 @@ export function DecisionCard({
   primary,
   primaryBusy,
   primaryDisabled,
+  primaryHint,
   secondary,
   ideaExtras,
   /** Current version number — badge shown top-right when variantCount > 1. */
@@ -76,6 +77,8 @@ export function DecisionCard({
   primary: { label: string; href?: string; onClick?: () => void };
   primaryBusy?: boolean;
   primaryDisabled?: boolean;
+  /** One line under the CTA row — what the primary button actually does. */
+  primaryHint?: string | null;
   secondary: React.ReactNode;
   ideaExtras?: React.ReactNode;
   versionN?: number;
@@ -271,20 +274,26 @@ export function DecisionCard({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <PrimaryTag
-            {...(primary.href
-              ? { href: primary.href }
-              : { type: "button" as const, onClick: primary.onClick, disabled: primaryDisabled })}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-          >
-            {primaryBusy && (
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-            )}
-            {primary.label}
-            {!primaryBusy && <span aria-hidden>→</span>}
-          </PrimaryTag>
-          {secondary}
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <PrimaryTag
+              {...(primary.href
+                ? { href: primary.href }
+                : { type: "button" as const, onClick: primary.onClick, disabled: primaryDisabled })}
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              title={primaryHint ?? undefined}
+            >
+              {primaryBusy && (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              )}
+              {primary.label}
+              {!primaryBusy && <span aria-hidden>→</span>}
+            </PrimaryTag>
+            {secondary}
+          </div>
+          {primaryHint && (
+            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-muted">{primaryHint}</p>
+          )}
         </div>
 
         {/* Idea — collapsed by default */}

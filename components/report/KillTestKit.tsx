@@ -50,15 +50,15 @@ export function KillTestKit({
     return (
       <div className="no-print mt-3 flex items-center gap-3 rounded-xl border border-dashed border-accent2/40 bg-accent2/[0.03] px-4 py-3">
         <span className="text-sm text-muted">
-          Ready to run it? The kit writes the interview script, the signals to tally, and the outreach copy — all tied
-          to the pass/kill bars above.
+          Ready to talk to buyers? This writes the interview script, signals to tally, and outreach copy — all tied to
+          the pass/kill bars above.
         </span>
         <button
           onClick={onGenerate}
           disabled={generating}
           className="ml-auto shrink-0 rounded-lg border border-accent2/40 px-3 py-1.5 text-sm font-medium text-accent2 transition hover:bg-accent2/10 disabled:opacity-50"
         >
-          {generating ? "Writing the kit…" : "🧰 Generate the run kit"}
+          {generating ? "Writing kit…" : "🧰 Prep this week's interviews"}
         </button>
       </div>
     );

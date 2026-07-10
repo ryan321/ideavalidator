@@ -884,7 +884,7 @@ export function ValidationView({
           {d.clarifying_questions && d.clarifying_questions.length > 0 && (
             <div className="rounded-r-lg border-l-2 border-accent2/50 bg-accent2/5 px-4 py-3">
               <div className="mb-1.5 font-mono text-[13px] uppercase tracking-wide text-accent2">Open questions</div>
-              <p className="mb-2 text-xs text-muted">Answer these via “Discuss → Respond &amp; re-validate” to sharpen the next pass.</p>
+              <p className="mb-2 text-xs text-muted">Answer these via “New version → Add context” to sharpen the next pass.</p>
               <ul className="space-y-1.5">
                 {d.clarifying_questions.map((q, i) => (
                   <li key={i} className="flex gap-2 text-sm leading-snug text-fg/90">
