@@ -1,159 +1,190 @@
 @import "tailwindcss";
 
 /* -------------------------------------------------------------------------- */
-/* Default = Vellum (paper). Packs override on html[data-style="…"].           */
+/* Default tokens = Studio. Runtime packs set the same vars on <html> via JS   */
+/* (lib/styles.ts). CSS packs below are SSR/no-JS fallbacks.                   */
 /* -------------------------------------------------------------------------- */
 
 @theme {
-  --color-bg: #f7f3ea;
-  --color-panel: #fffdf8;
-  --color-panel2: #efe8db;
-  --color-border: #d9d0bf;
-  --color-fg: #161310;
-  --color-muted: #6a6258;
-  --color-accent: #9b2c2c;
-  --color-accent2: #7a2222;
-  --color-on-accent: #fffdf8;
-  --color-good: #1a7a4c;
-  --color-warn: #b56a12;
-  --color-bad: #9b2c2c;
-  --color-header: #fffdf8f0;
+  --color-bg: #f6f7f9;
+  --color-panel: #ffffff;
+  --color-panel2: #eef0f3;
+  --color-border: #dde1e6;
+  --color-fg: #14181f;
+  --color-muted: #5c6570;
+  --color-accent: #3b5bdb;
+  --color-accent2: #2f4ac4;
+  --color-on-accent: #ffffff;
+  --color-good: #0f9f6e;
+  --color-warn: #c98500;
+  --color-bad: #e03131;
+  --color-header: #fffffff5;
 
-  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-mono), ui-monospace, monospace;
+  /* Default faces — packs override --font-sans / --font-display / --font-mono */
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jb-mono), ui-monospace, monospace;
 
-  --radius-card: 1.1rem;
-  --radius-control: 0.6rem;
+  --radius-card: 0.85rem;
+  --radius-control: 0.5rem;
+  --radius-pill: 999px;
+  --tracking-display: -0.035em;
+  --tracking-body: 0;
+  --tracking-eyebrow: 0.12em;
+  --weight-display: 700;
+  --stamp-rotate: -2deg;
+  --stamp-radius: 0.45rem;
+  --stamp-border: 2.5px;
+  --stamp-tracking: 0.04em;
+  --noise-opacity: 0;
 }
 
-/* ---- Style packs ------------------------------------------------------------ */
+/* ---- Style packs (fallback when JS tokens not yet applied) ------------------ */
 
-/* Vellum — ivory brief, carmine action (reads as a real paper memo) */
-html[data-style="paper"],
+html[data-style="studio"],
 html:not([data-style]) {
   color-scheme: light;
-  --color-bg: #f7f3ea;
-  --color-panel: #fffdf8;
-  --color-panel2: #efe8db;
-  --color-border: #d9d0bf;
-  --color-fg: #161310;
-  --color-muted: #6a6258;
-  --color-accent: #9b2c2c;
-  --color-accent2: #7a2222;
-  --color-on-accent: #fffdf8;
-  --color-good: #1a7a4c;
-  --color-warn: #b56a12;
-  --color-bad: #9b2c2c;
-  --color-header: #fffdf8f0;
-  --desk-glow: rgba(155, 44, 44, 0.05);
-  --desk-glow-2: rgba(22, 19, 16, 0.03);
-  --folio-top: #fffdf8;
-  --folio-bot: #faf6ee;
-  --folio-shadow: 0 1px 0 #fff inset, 0 1px 2px rgba(22, 19, 16, 0.04),
-    0 14px 32px -18px rgba(22, 19, 16, 0.16);
-  --stamp-fill: #fffdf8;
-  --radius-card: 1.1rem;
-}
-
-/* Foundry — true charcoal + molten gold (not muddy brown) */
-html[data-style="ink"] {
-  color-scheme: dark;
-  --color-bg: #0e0e10;
-  --color-panel: #161618;
-  --color-panel2: #1e1e22;
-  --color-border: #2e2e34;
-  --color-fg: #f2efe8;
-  --color-muted: #96918a;
-  --color-accent: #e2b13c;
-  --color-accent2: #f0c55a;
-  --color-on-accent: #12110e;
-  --color-good: #3ecf8e;
-  --color-warn: #e8a83a;
-  --color-bad: #f07167;
-  --color-header: #0e0e10f0;
-  --desk-glow: rgba(226, 177, 60, 0.07);
-  --desk-glow-2: rgba(240, 113, 103, 0.04);
-  --folio-top: #1c1c20;
-  --folio-bot: #161618;
-  --folio-shadow: 0 1px 0 rgba(226, 177, 60, 0.07), 0 20px 44px -22px rgba(0, 0, 0, 0.75);
-  --stamp-fill: #161618;
-  --radius-card: 1rem;
-}
-
-/* Nocturne — deep navy observatory, ice accent */
-html[data-style="slate"] {
-  color-scheme: dark;
-  --color-bg: #0a1020;
-  --color-panel: #111a2e;
-  --color-panel2: #18243c;
-  --color-border: #283552;
-  --color-fg: #e8eef8;
-  --color-muted: #8b9bb8;
-  --color-accent: #5b9fd4;
-  --color-accent2: #7eb8e8;
-  --color-on-accent: #0a1020;
-  --color-good: #3dcea0;
-  --color-warn: #e0b04a;
-  --color-bad: #e8727a;
-  --color-header: #0a1020f0;
-  --desk-glow: rgba(91, 159, 212, 0.1);
-  --desk-glow-2: rgba(61, 206, 160, 0.04);
-  --folio-top: #152038;
-  --folio-bot: #111a2e;
-  --folio-shadow: 0 1px 0 rgba(126, 184, 232, 0.08), 0 20px 44px -22px rgba(0, 0, 0, 0.7);
-  --stamp-fill: #111a2e;
-  --radius-card: 1rem;
-}
-
-/* Broadsheet — newsprint, stop-press red, hard geometry */
-html[data-style="signal"] {
-  color-scheme: light;
-  --color-bg: #f4f4f0;
+  --color-bg: #f6f7f9;
   --color-panel: #ffffff;
-  --color-panel2: #ebebe6;
-  --color-border: #c8c8c0;
-  --color-fg: #111111;
-  --color-muted: #555550;
-  --color-accent: #d12b2b;
-  --color-accent2: #a82020;
+  --color-panel2: #eef0f3;
+  --color-border: #dde1e6;
+  --color-fg: #14181f;
+  --color-muted: #5c6570;
+  --color-accent: #3b5bdb;
+  --color-accent2: #2f4ac4;
   --color-on-accent: #ffffff;
-  --color-good: #0f7a4d;
-  --color-warn: #c47a00;
-  --color-bad: #d12b2b;
+  --color-good: #0f9f6e;
+  --color-warn: #c98500;
+  --color-bad: #e03131;
   --color-header: #fffffff5;
-  --desk-glow: rgba(209, 43, 43, 0.04);
+  --desk-glow: rgba(59, 91, 219, 0.04);
   --desk-glow-2: transparent;
   --folio-top: #ffffff;
-  --folio-bot: #fcfcfa;
-  --folio-shadow: 3px 3px 0 rgba(17, 17, 17, 0.08);
+  --folio-bot: #ffffff;
+  --folio-shadow: 0 1px 2px rgba(20, 24, 31, 0.04), 0 8px 24px -12px rgba(20, 24, 31, 0.1);
   --stamp-fill: #ffffff;
-  --radius-card: 0.2rem;
+  --radius-card: 0.85rem;
 }
 
-/* Library — linen + forest, quiet study (not muddy sage soup) */
+html[data-style="paper"] {
+  color-scheme: light;
+  --color-bg: #f4efe6;
+  --color-panel: #fffcf7;
+  --color-panel2: #ebe4d6;
+  --color-border: #d5ccbc;
+  --color-fg: #1a1714;
+  --color-muted: #5f584f;
+  --color-accent: #8b2942;
+  --color-accent2: #6e1f34;
+  --color-on-accent: #fff8f6;
+  --color-good: #1b7a4c;
+  --color-warn: #b56e10;
+  --color-bad: #c23a2e;
+  --color-header: #fffcf7f2;
+  --desk-glow: rgba(139, 41, 66, 0.045);
+  --desk-glow-2: rgba(26, 23, 20, 0.025);
+  --folio-top: #fffcf7;
+  --folio-bot: #faf6ef;
+  --folio-shadow: 0 1px 0 #fff inset, 0 1px 2px rgba(26, 23, 20, 0.04),
+    0 16px 36px -20px rgba(26, 23, 20, 0.15);
+  --stamp-fill: #fffcf7;
+  --radius-card: 1.05rem;
+}
+
+html[data-style="ink"] {
+  color-scheme: dark;
+  --color-bg: #0c0c0e;
+  --color-panel: #151518;
+  --color-panel2: #1c1c21;
+  --color-border: #2c2c33;
+  --color-fg: #f0ebe3;
+  --color-muted: #9a958c;
+  --color-accent: #d4a84b;
+  --color-accent2: #e6bf66;
+  --color-on-accent: #14120c;
+  --color-good: #3dd68c;
+  --color-warn: #e6a93a;
+  --color-bad: #f0756b;
+  --color-header: #0c0c0ef2;
+  --desk-glow: rgba(212, 168, 75, 0.06);
+  --desk-glow-2: rgba(240, 117, 107, 0.035);
+  --folio-top: #1a1a1f;
+  --folio-bot: #151518;
+  --folio-shadow: 0 1px 0 rgba(212, 168, 75, 0.06), 0 22px 48px -24px rgba(0, 0, 0, 0.78);
+  --stamp-fill: #151518;
+  --radius-card: 1rem;
+}
+
+html[data-style="slate"] {
+  color-scheme: dark;
+  --color-bg: #0b1220;
+  --color-panel: #121c30;
+  --color-panel2: #1a2740;
+  --color-border: #2a3a58;
+  --color-fg: #e9eef8;
+  --color-muted: #8b9bb5;
+  --color-accent: #6aa3d8;
+  --color-accent2: #8bb8e4;
+  --color-on-accent: #0b1220;
+  --color-good: #3ecf9f;
+  --color-warn: #d9a94a;
+  --color-bad: #e87880;
+  --color-header: #0b1220f2;
+  --desk-glow: rgba(106, 163, 216, 0.09);
+  --desk-glow-2: rgba(62, 207, 159, 0.035);
+  --folio-top: #162338;
+  --folio-bot: #121c30;
+  --folio-shadow: 0 1px 0 rgba(139, 184, 228, 0.07), 0 22px 48px -24px rgba(0, 0, 0, 0.72);
+  --stamp-fill: #121c30;
+  --radius-card: 1rem;
+}
+
+html[data-style="signal"] {
+  color-scheme: light;
+  --color-bg: #f3f2ed;
+  --color-panel: #ffffff;
+  --color-panel2: #e9e8e2;
+  --color-border: #c9c8c0;
+  --color-fg: #121212;
+  --color-muted: #52524c;
+  --color-accent: #c8102e;
+  --color-accent2: #9e0c24;
+  --color-on-accent: #ffffff;
+  --color-good: #0d7a4a;
+  --color-warn: #b86e00;
+  --color-bad: #a81212;
+  --color-header: #fffffff5;
+  --desk-glow: rgba(200, 16, 46, 0.035);
+  --desk-glow-2: transparent;
+  --folio-top: #ffffff;
+  --folio-bot: #fbfbf9;
+  --folio-shadow: 3px 3px 0 rgba(18, 18, 18, 0.09);
+  --stamp-fill: #ffffff;
+  --radius-card: 0.15rem;
+}
+
 html[data-style="grove"] {
   color-scheme: light;
-  --color-bg: #f2f0e9;
-  --color-panel: #fbfaf6;
-  --color-panel2: #e8e4d8;
-  --color-border: #cdc6b6;
-  --color-fg: #1c211c;
-  --color-muted: #5e665c;
-  --color-accent: #2f5d50;
-  --color-accent2: #244a40;
-  --color-on-accent: #f7faf7;
-  --color-good: #1f7a4d;
-  --color-warn: #a86f14;
-  --color-bad: #b03d36;
-  --color-header: #fbfaf6f0;
-  --desk-glow: rgba(47, 93, 80, 0.07);
-  --desk-glow-2: rgba(28, 33, 28, 0.03);
-  --folio-top: #fbfaf6;
-  --folio-bot: #f5f3ec;
-  --folio-shadow: 0 1px 0 #fff inset, 0 1px 2px rgba(28, 33, 28, 0.04),
-    0 14px 30px -18px rgba(28, 33, 28, 0.14);
-  --stamp-fill: #fbfaf6;
+  --color-bg: #f1efe6;
+  --color-panel: #fbfaf5;
+  --color-panel2: #e6e2d4;
+  --color-border: #ccc5b4;
+  --color-fg: #1a1f1a;
+  --color-muted: #5a6158;
+  --color-accent: #2a5248;
+  --color-accent2: #1e3d36;
+  --color-on-accent: #f4faf7;
+  --color-good: #1f8a52;
+  --color-warn: #a87212;
+  --color-bad: #b33d36;
+  --color-header: #fbfaf5f2;
+  --desk-glow: rgba(42, 82, 72, 0.055);
+  --desk-glow-2: rgba(26, 31, 26, 0.025);
+  --folio-top: #fbfaf5;
+  --folio-bot: #f5f3eb;
+  --folio-shadow: 0 1px 0 #fff inset, 0 1px 2px rgba(26, 31, 26, 0.04),
+    0 16px 34px -18px rgba(26, 31, 26, 0.13);
+  --stamp-fill: #fbfaf5;
   --radius-card: 1rem;
 }
 
@@ -167,19 +198,29 @@ body {
   background-color: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
+  letter-spacing: var(--tracking-body, 0);
   background-image:
     radial-gradient(ellipse 110% 50% at 50% -18%, var(--desk-glow, transparent), transparent 55%),
     radial-gradient(ellipse 45% 30% at 100% 100%, var(--desk-glow-2, transparent), transparent 50%),
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
   background-attachment: fixed;
+}
+
+/* Studio: almost no grain; Foundry/Nocturne keep ambient glow + noise */
+html[data-style="studio"] body {
+  background-image: radial-gradient(
+    ellipse 110% 50% at 50% -18%,
+    var(--desk-glow, transparent),
+    transparent 55%
+  );
 }
 
 h1,
 h2,
 h3 {
   font-family: var(--font-display);
-  letter-spacing: -0.03em;
-  font-weight: 700;
+  letter-spacing: var(--tracking-display, -0.03em);
+  font-weight: var(--weight-display, 700);
 }
 
 * {
@@ -203,62 +244,77 @@ h3 {
   outline-offset: 2px;
 }
 
-/* Signature: rubber-stamp verdict */
+/* Signature: rubber-stamp verdict — form driven by pack tokens */
 .verdict-stamp {
   display: inline-block;
   font-family: var(--font-display);
-  font-weight: 800;
-  letter-spacing: 0.05em;
+  font-weight: var(--weight-display, 800);
+  letter-spacing: var(--stamp-tracking, 0.05em);
   text-transform: uppercase;
   line-height: 1;
-  border: 3px solid currentColor;
-  border-radius: 0.3rem;
+  border-style: solid;
+  border-width: var(--stamp-border, 3px);
+  border-color: currentColor;
+  border-radius: var(--stamp-radius, 0.3rem);
   padding: 0.38em 0.52em 0.3em;
-  transform: rotate(-3.2deg);
+  transform: rotate(var(--stamp-rotate, -3.2deg));
   box-shadow:
     0 0 0 1px color-mix(in srgb, currentColor 18%, transparent),
     2px 3px 0 color-mix(in srgb, currentColor 10%, transparent);
   background: color-mix(in srgb, currentColor 8%, var(--stamp-fill, var(--color-panel)));
 }
 
-html[data-style="signal"] .verdict-stamp {
-  border-radius: 0.1rem;
-  border-width: 2.5px;
-  transform: rotate(-1.5deg);
-  letter-spacing: 0.1em;
-  box-shadow: 2px 2px 0 color-mix(in srgb, currentColor 15%, transparent);
-}
-
 html[data-style="ink"] .verdict-stamp,
 html[data-style="slate"] .verdict-stamp {
   box-shadow:
-    0 0 0 1px color-mix(in srgb, currentColor 25%, transparent),
-    0 0 24px color-mix(in srgb, currentColor 12%, transparent);
+    0 0 0 1px color-mix(in srgb, currentColor 22%, transparent),
+    0 0 28px color-mix(in srgb, currentColor 10%, transparent);
+}
+
+html[data-style="signal"] .verdict-stamp {
+  box-shadow: 2px 2px 0 color-mix(in srgb, currentColor 14%, transparent);
+}
+
+html[data-style="studio"] .verdict-stamp {
+  box-shadow: 0 1px 3px rgba(20, 24, 31, 0.08);
 }
 
 /* Folio card */
 .folio {
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
-  background: linear-gradient(180deg, var(--folio-top, var(--color-panel)) 0%, var(--folio-bot, var(--color-panel)) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--folio-top, var(--color-panel)) 0%,
+    var(--folio-bot, var(--color-panel)) 100%
+  );
   box-shadow: var(--folio-shadow);
 }
 
 html[data-style="signal"] .folio {
-  border-radius: 0.15rem;
   border: 1.5px solid var(--color-fg);
-  box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.1);
+}
+
+html[data-style="studio"] .folio {
+  background: #ffffff;
 }
 
 .folio-inset {
-  border-radius: max(0.25rem, calc(var(--radius-card) - 0.35rem));
+  border-radius: max(0.15rem, calc(var(--radius-card) - 0.35rem));
   border: 1px solid color-mix(in srgb, var(--color-border) 92%, transparent);
   background: color-mix(in srgb, var(--color-bg) 55%, var(--color-panel));
 }
 
 html[data-style="signal"] .folio-inset {
-  border-radius: 0.1rem;
-  border-color: color-mix(in srgb, var(--color-fg) 22%, transparent);
+  border-color: color-mix(in srgb, var(--color-fg) 18%, transparent);
+}
+
+/* Controls that opt into pack geometry */
+.rounded-control {
+  border-radius: var(--radius-control);
+}
+.rounded-pill-pack {
+  border-radius: var(--radius-pill);
 }
 
 .rule-brass {
@@ -273,7 +329,7 @@ html[data-style="signal"] .folio-inset {
 
 html[data-style="signal"] .rule-brass {
   background: linear-gradient(90deg, transparent, var(--color-fg), transparent);
-  opacity: 0.25;
+  opacity: 0.22;
   height: 1.5px;
 }
 
@@ -306,16 +362,16 @@ html[data-style="signal"] .rule-brass {
   html[data-style] {
     --color-bg: #ffffff !important;
     --color-panel: #ffffff !important;
-    --color-panel2: #f5f1ea !important;
+    --color-panel2: #f4f1ea !important;
     --color-border: #d0c8b8 !important;
-    --color-fg: #161310 !important;
+    --color-fg: #1a1714 !important;
     --color-muted: #5c5348 !important;
-    --color-accent: #7a2222 !important;
-    --color-accent2: #7a2222 !important;
+    --color-accent: #6e1f34 !important;
+    --color-accent2: #6e1f34 !important;
     --color-on-accent: #ffffff !important;
-    --color-good: #1a7a4c !important;
-    --color-warn: #b56a12 !important;
-    --color-bad: #9b2c2c !important;
+    --color-good: #1b7a4c !important;
+    --color-warn: #b56e10 !important;
+    --color-bad: #c23a2e !important;
   }
   html {
     color-scheme: light;

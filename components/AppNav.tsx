@@ -33,7 +33,7 @@ export default function AppNav() {
       <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex">
         <Link
           href="/"
-          className={`shrink-0 rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition ${
+          className={`shrink-0 rounded-pill-pack px-3 py-1.5 font-mono text-[11px] uppercase transition [letter-spacing:var(--tracking-eyebrow)] ${
             !activeId && pathname === "/"
               ? "bg-accent/20 text-accent2"
               : "text-muted hover:bg-panel2 hover:text-fg"
@@ -46,7 +46,7 @@ export default function AppNav() {
             key={i.id}
             href={`/idea/${i.id}`}
             title={cleanTitle(i.title)}
-            className={`max-w-[10rem] shrink-0 truncate rounded-full px-3 py-1.5 text-sm transition ${
+            className={`max-w-[10rem] shrink-0 truncate rounded-pill-pack px-3 py-1.5 text-sm transition ${
               i.id === activeId
                 ? "bg-panel2 font-medium text-fg ring-1 ring-accent/35"
                 : "text-muted hover:bg-panel2/80 hover:text-fg"
@@ -59,7 +59,7 @@ export default function AppNav() {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="shrink-0 rounded-full px-2 py-1.5 font-mono text-[11px] text-muted hover:text-fg"
+            className="shrink-0 rounded-pill-pack px-2 py-1.5 font-mono text-[11px] text-muted hover:text-fg"
           >
             +{ideas.length - 6}
           </button>
@@ -70,14 +70,14 @@ export default function AppNav() {
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="rounded-full border border-border bg-panel px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted transition hover:border-accent/40 hover:text-fg md:hidden"
+          className="rounded-pill-pack border border-border bg-panel px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)] md:hidden"
           aria-expanded={open}
         >
           Ideas · {ideas.length}
         </button>
         <Link
           href="/account"
-          className={`rounded-full border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition ${
+          className={`rounded-pill-pack border px-3 py-1.5 font-mono text-[11px] uppercase transition [letter-spacing:var(--tracking-eyebrow)] ${
             pathname === "/account"
               ? "border-accent/40 bg-accent/15 text-accent2"
               : "border-border text-muted hover:border-accent/30 hover:text-fg"

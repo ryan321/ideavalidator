@@ -53,7 +53,7 @@ export function AnglesPicker({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full border border-border bg-panel/80 px-3 py-1.5 text-sm transition hover:border-accent/35 hover:bg-panel2"
+        className="flex items-center gap-2 rounded-pill-pack border border-border bg-panel/80 px-3 py-1.5 text-sm transition hover:border-accent/35 hover:bg-panel2"
         title="Switch angle / version"
       >
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
@@ -75,7 +75,7 @@ export function AnglesPicker({
         <button
           type="button"
           onClick={onCompareVariants}
-          className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
+          className={`rounded-pill-pack px-3.5 py-1.5 text-sm font-semibold transition ${
             comparingVariants
               ? "bg-accent2 text-on-accent hover:opacity-90"
               : "bg-accent text-on-accent hover:opacity-90"

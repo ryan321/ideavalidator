@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useStyle } from "./StyleProvider";
-import type { StyleId } from "@/lib/styles";
+import { STYLE_IDS, type StyleId } from "@/lib/styles";
 
 export function StylePicker() {
   const { style, setStyle, styles } = useStyle();
@@ -35,7 +35,7 @@ export function StylePicker() {
         aria-haspopup="listbox"
         aria-expanded={open}
         title={`Style: ${current.label}`}
-        className="flex items-center gap-2 rounded-full border border-border bg-panel px-2.5 py-1.5 text-xs transition hover:border-accent/40 hover:bg-panel2"
+        className="flex items-center gap-2 rounded-pill-pack border border-border bg-panel px-2.5 py-1.5 text-xs transition hover:border-accent/40 hover:bg-panel2"
       >
         <span className="flex gap-0.5" aria-hidden>
           {current.swatches.map((c, i) => (
@@ -62,7 +62,7 @@ export function StylePicker() {
             Desk style
           </div>
           <ul className="max-h-80 overflow-auto p-1">
-            {(Object.keys(styles) as StyleId[]).map((id) => {
+            {STYLE_IDS.map((id) => {
               const s = styles[id];
               const active = id === style;
               return (

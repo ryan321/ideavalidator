@@ -166,7 +166,7 @@ export default function NewIdeaForm() {
         <button
           type="submit"
           disabled={busy || prompt.trim().length < 8}
-          className="rounded-full bg-accent px-6 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-45"
+          className="rounded-pill-pack bg-accent px-6 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-45"
         >
           {busy ? "Opening case…" : "Open the case →"}
         </button>

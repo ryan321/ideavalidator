@@ -274,7 +274,7 @@ export function DecisionCard({
               {...(primary.href
                 ? { href: primary.href }
                 : { type: "button" as const, onClick: primary.onClick, disabled: primaryDisabled })}
-              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-pill-pack bg-accent px-4 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-50"
               title={primaryHint ?? undefined}
             >
               {primaryBusy && (
