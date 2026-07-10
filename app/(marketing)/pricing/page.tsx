@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Pricing — Validorian",
   description:
-    "One clear price per idea: a full validation pass with full scored reports included and unlimited questions while you iterate.",
+    "One clear price per idea: a full validation pass with full scored reports included and chat with the review while you iterate.",
 };
 
 /** Plain-language benefits — no internal feature names in titles. */
@@ -67,7 +67,7 @@ export default async function PricingPage() {
   const user = await getSessionUser();
   const price = (priceCents() / 100).toFixed(0);
   const ctaHref = user ? "/studio" : "/signup";
-  const ctaLabel = user ? "Open studio →" : "Start free →";
+  const ctaLabel = user ? "Open studio →" : "Validate my idea →";
 
   return (
     <div className="folio-enter">
@@ -174,7 +174,7 @@ export default async function PricingPage() {
           Ready for a hard read?
         </h2>
         <p className="mx-auto mt-3 max-w-md text-muted">
-          ${price} per idea · {CAMPAIGN_RUN_CAP} full scored reports · unlimited questions on that
+          ${price} per idea · {CAMPAIGN_RUN_CAP} full scored reports · chat with the review on that
           idea
         </p>
         <Link

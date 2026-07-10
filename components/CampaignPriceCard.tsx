@@ -36,7 +36,7 @@ export function CampaignPriceCard({
         <span className="font-medium text-fg/85">
           {CAMPAIGN_RUN_CAP} full scored reports included
         </span>
-        , plus unlimited questions and tools while you work that idea.
+        , plus chat with the review and tools while you work that idea.
       </p>
       <ul className="mt-5 space-y-2 text-sm text-fg/85">
         <li className="flex gap-2">
@@ -49,13 +49,13 @@ export function CampaignPriceCard({
           <span className="text-accent" aria-hidden>
             ✓
           </span>
-          Room to re-score when the idea changes
+          Re-score, variations, and iterate as the idea changes
         </li>
         <li className="flex gap-2">
           <span className="text-accent" aria-hidden>
             ✓
           </span>
-          Unlimited questions — never metered like credits
+          Chat with the review — not metered like credits
         </li>
       </ul>
       <Link
@@ -64,8 +64,8 @@ export function CampaignPriceCard({
       >
         {ctaLabel}
       </Link>
-      <p className="mt-3 text-xs text-muted">
-        You unlock on the idea page — one payment covers that idea end-to-end.
+      <p className="mt-3 text-xs leading-relaxed text-muted">
+        Account is free. Unlock this idea for ${price} when you run a full score.
         {detailsHref ? (
           <>
             {" "}

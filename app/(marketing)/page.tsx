@@ -31,35 +31,21 @@ const STEPS = [
   },
   {
     n: "02",
-    title: "Get a grounded score",
-    body: "Evidence-backed GO / MAYBE / NO-GO: demand, willingness to pay, competition, risks, and a clear next test.",
+    title: "Unlock & get a hard score",
+    body: "One payment opens a full pass on that idea. You get an evidence-backed GO / MAYBE / NO-GO — not a pep talk.",
   },
   {
     n: "03",
     title: "Keep working it",
-    body: "Rewrite the pitch, try a different angle, ask questions, re-score — until the answer is clear.",
-  },
-];
-
-const PILLARS = [
-  {
-    title: "Scored for your goal",
-    body: "A side hustle and a venture raise aren't judged the same. The bar matches what you're actually going for.",
-  },
-  {
-    title: "Evidence, not vibes",
-    body: "Claims are checked against real sources and demand signals — not confidence theater.",
-  },
-  {
-    title: "Built to iterate",
-    body: "One report is the start, not the product. Rewrite the angle, re-score, and keep going until it's clear.",
+    body: "Rewrite the pitch, try a different angle, chat with the review, re-score — until the answer is clear.",
   },
 ];
 
 export default async function LandingPage() {
   const user = await getSessionUser();
+  const price = (priceCents() / 100).toFixed(0);
   const ctaHref = user ? "/studio" : "/signup";
-  const ctaLabel = user ? "Open studio →" : "Start free →";
+  const ctaLabel = user ? "Open studio →" : "Validate my idea →";
 
   return (
     <div className="folio-enter">
@@ -75,9 +61,11 @@ export default async function LandingPage() {
               <span className="mt-2 block text-muted">Validate it before you begin.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-              Premier GO / MAYBE / NO-GO reads against{" "}
-              <em className="text-fg/80 not-italic">your</em> goal — grounded in evidence,
-              designed so you can iterate until the answer is obvious.
+              Most bad ideas don&apos;t fail in a pitch deck — they fail after you&apos;ve already
+              built them. Get a clear{" "}
+              <em className="text-fg/85 not-italic">GO, MAYBE, or NO-GO</em> against{" "}
+              <em className="text-fg/85 not-italic">your</em> goal, grounded in evidence, before
+              you burn months.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
@@ -101,8 +89,22 @@ export default async function LandingPage() {
                 </Link>
               )}
             </div>
-            <p className="mt-4 font-mono text-[11px] text-muted">
-              Private by default · scored for your goal · a real next test
+            <p className="mt-4 text-sm text-muted">
+              {user ? (
+                <>
+                  Open the studio and describe an idea. Full validation is{" "}
+                  <span className="font-medium text-fg/80">${price} per idea</span>.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-fg/80">Account is free.</span> Unlock a full
+                  pass for <span className="font-medium text-fg/80">${price}</span> when you&apos;re
+                  ready to score that idea.
+                </>
+              )}
+            </p>
+            <p className="mt-2 font-mono text-[11px] text-muted">
+              For solo founders, side projects, and first-time builders · private by default
             </p>
           </div>
 
@@ -126,12 +128,14 @@ export default async function LandingPage() {
             Everything in a full validation
           </h2>
           <p className="mt-2 max-w-xl text-muted">
-            One pass covers the decision surface — not a single vague score. From $
-            {(priceCents() / 100).toFixed(0)} per idea.
+            Not a single vague score — a full decision package. From ${price} per idea.
           </p>
           <ul className="mt-10 grid gap-x-10 gap-y-3 sm:grid-cols-2">
             {WHAT_YOU_GET.map((item) => (
-              <li key={item} className="flex items-start gap-3 text-sm leading-snug text-fg/90 sm:text-[15px]">
+              <li
+                key={item}
+                className="flex items-start gap-3 text-sm leading-snug text-fg/90 sm:text-[15px]"
+              >
                 <span
                   className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 font-semibold text-accent"
                   aria-hidden
@@ -148,9 +152,11 @@ export default async function LandingPage() {
       {/* How it works */}
       <section className="border-y border-border bg-panel/40 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">How it works</h2>
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+            How it works
+          </h2>
           <p className="mt-2 max-w-xl text-muted">
-            Not a one-shot score. A studio loop from first read to a decision you can act on.
+            From first description to a decision you can act on — without building first.
           </p>
           <ol className="mt-10 grid gap-6 sm:grid-cols-3">
             {STEPS.map((s) => (
@@ -166,59 +172,94 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* Pillars */}
+      {/* Why + verdict — one combined trust strip */}
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-        <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Why Validorian</h2>
-        <div className="mt-10 grid gap-6 sm:grid-cols-3">
-          {PILLARS.map((p) => (
-            <div key={p.title} className="border-t-2 border-accent/40 pt-4">
-              <h3 className="font-display text-lg font-bold tracking-tight">{p.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{p.body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Verdict preview strip */}
-      <section className="border-y border-border bg-panel/50 py-14 sm:py-16">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="folio flex flex-col items-start gap-8 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-            <div>
-              <p className="font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
-                The deliverable
-              </p>
-              <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-                A decision you can stand behind
-              </h2>
-              <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted">
-                Demand, revenue potential, competition, and risks — plus a simple test you can run
-                with real people before you build. Then rewrite the angle and re-score if you need to.
-              </p>
-            </div>
+        <div className="folio flex flex-col gap-10 p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 max-w-xl">
+            <p className="font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
+              Why Validorian
+            </p>
+            <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
+              A decision you can stand behind
+            </h2>
+            <ul className="mt-5 space-y-3 text-sm leading-relaxed text-muted">
+              <li className="flex gap-2">
+                <span className="font-medium text-accent" aria-hidden>
+                  ·
+                </span>
+                <span>
+                  <b className="font-medium text-fg/85">Scored for your goal</b> — side hustle and
+                  venture raise aren&apos;t graded the same.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-medium text-accent" aria-hidden>
+                  ·
+                </span>
+                <span>
+                  <b className="font-medium text-fg/85">Evidence, not vibes</b> — demand and
+                  competition checked against real sources.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-medium text-accent" aria-hidden>
+                  ·
+                </span>
+                <span>
+                  <b className="font-medium text-fg/85">Built to iterate</b> — one report is the
+                  start; rewrite, compare angles, re-score until it&apos;s clear.
+                </span>
+              </li>
+            </ul>
+          </div>
+          <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
+            <p className="font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
+              The call
+            </p>
             <div className="flex flex-wrap gap-2">
               <span className="verdict-stamp text-sm text-good">GO</span>
               <span className="verdict-stamp text-sm text-warn">MAYBE</span>
               <span className="verdict-stamp text-sm text-bad">NO-GO</span>
             </div>
+            <p className="max-w-xs text-left text-xs leading-relaxed text-muted sm:text-right">
+              Walk away knowing whether to build, pivot the angle, or stop — with a next test if
+              you continue.
+            </p>
           </div>
         </div>
       </section>
 
       {/* Final CTA */}
-      <section className="mx-auto max-w-6xl px-4 py-16 text-center sm:px-6 sm:py-24">
-        <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-          Ready for a hard read?
-        </h2>
-        <p className="mx-auto mt-3 max-w-md text-muted">
-          Open the studio, describe the idea, and get a hard first read — then keep working it.
-          One clear price per idea: depth on full reports, not a charge for every question.
-        </p>
-        <Link
-          href={ctaHref}
-          className="mt-8 inline-flex rounded-pill-pack bg-accent px-8 py-3.5 font-display text-base font-bold text-on-accent transition hover:bg-accent2"
-        >
-          {ctaLabel}
-        </Link>
+      <section className="border-t border-border bg-panel/40 py-16 text-center sm:py-24">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Ready for a hard read?
+          </h2>
+          <p className="mx-auto mt-3 max-w-md text-muted">
+            {user ? (
+              <>
+                Open the studio, describe the idea, and run a full pass — ${price} unlocks that
+                idea end-to-end.
+              </>
+            ) : (
+              <>
+                Create a free account, describe the idea, then unlock a full pass for ${price} when
+                you&apos;re ready to score.
+              </>
+            )}
+          </p>
+          <Link
+            href={ctaHref}
+            className="mt-8 inline-flex rounded-pill-pack bg-accent px-8 py-3.5 font-display text-base font-bold text-on-accent transition hover:bg-accent2"
+          >
+            {ctaLabel}
+          </Link>
+          {!user && (
+            <p className="mt-3 text-xs text-muted">
+              No subscription. Pay once per idea.
+            </p>
+          )}
+        </div>
       </section>
     </div>
   );

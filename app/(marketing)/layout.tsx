@@ -58,7 +58,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
                   href="/signup"
                   className="rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
                 >
-                  Get started
+                  Validate my idea →
                 </Link>
               </>
             )}
