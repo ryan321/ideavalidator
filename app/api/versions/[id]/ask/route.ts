@@ -3,6 +3,7 @@ import { answerQuestion } from "@/lib/generators/ask";
 import { getMessages } from "@/lib/db";
 import { campaignAccessForVersion, campaignDenyBody } from "@/lib/billing";
 import { requireVersionOwner } from "@/lib/auth";
+import { resolveLocale } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -25,7 +26,7 @@ export async function POST(
   const owner = await requireVersionOwner(id);
   if ("response" in owner) return owner.response;
   // Needs campaign unlocked; does NOT burn a scoring run (inert without billing)
-  const access = campaignAccessForVersion(id);
+  const access = campaignAccessForVersion(id, await resolveLocale());
   if (!access.unlocked) return NextResponse.json(campaignDenyBody(access), { status: 402 });
   const { question } = await req.json();
   if (typeof question !== "string" || question.trim().length < 2) {

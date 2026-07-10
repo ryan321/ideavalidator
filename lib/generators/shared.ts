@@ -37,6 +37,11 @@ export type GenContext = {
   /** Communities the evidence corpus was drawn from (corpus.stats.communities) — the
    * next_test's cheapest_test must name its channel from these. */
   corpusCommunities?: string[] | null;
+  /**
+   * UI/report locale (e.g. "es"). Passed into generateStructured/generateText so
+   * user-facing prose matches the site language.
+   */
+  locale?: string | null;
 };
 
 // Goal/ambition buckets. The goal does NOT bend the measurement: criteria are scored

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { CAMPAIGN_RUN_CAP, priceCents } from "@/lib/billing";
+import { getTranslator } from "@/lib/i18n/server";
 
 /**
  * Primary pricing offer — shared by landing and /pricing so the promise stays identical.
+ * Copy comes from the English site catalog (lib/i18n/messages/en.ts).
  */
-export function CampaignPriceCard({
+export async function CampaignPriceCard({
   ctaHref,
   ctaLabel,
   detailsHref,
@@ -12,50 +14,48 @@ export function CampaignPriceCard({
 }: {
   ctaHref: string;
   ctaLabel: string;
-  /** Optional “see full pricing” link under the CTA (landing). */
   detailsHref?: string;
   className?: string;
 }) {
   const price = (priceCents() / 100).toFixed(0);
+  const { t } = await getTranslator();
+  const reports = String(CAMPAIGN_RUN_CAP);
 
   return (
-    <div
-      className={`folio border-accent/35 p-6 sm:p-8 ${className}`}
-      id="pricing"
-    >
+    <div className={`folio border-accent/35 p-6 sm:p-8 ${className}`} id="pricing">
       <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-        Per idea
+        {t("priceCard.perIdea")}
       </div>
       <div className="mt-3 flex items-baseline gap-2">
         <span className="font-display text-5xl font-extrabold tracking-tight text-fg">
           ${price}
         </span>
-        <span className="text-sm text-muted">one-time · that idea</span>
+        <span className="text-sm text-muted">{t("priceCard.oneTime")}</span>
       </div>
       <p className="mt-4 text-sm leading-relaxed text-muted">
         <span className="font-medium text-fg/85">
-          {CAMPAIGN_RUN_CAP} full scored reports included
+          {t("priceCard.includedLead", { reports })}
         </span>
-        , plus chat with the review and tools while you work that idea.
+        {t("priceCard.includedRest")}
       </p>
       <ul className="mt-5 space-y-2 text-sm text-fg/85">
         <li className="flex gap-2">
           <span className="text-accent" aria-hidden>
             ✓
           </span>
-          GO / MAYBE / NO-GO scored against your goal
+          {t("priceCard.bullet1")}
         </li>
         <li className="flex gap-2">
           <span className="text-accent" aria-hidden>
             ✓
           </span>
-          Re-score, variations, and iterate as the idea changes
+          {t("priceCard.bullet2")}
         </li>
         <li className="flex gap-2">
           <span className="text-accent" aria-hidden>
             ✓
           </span>
-          Chat with the review, not metered like credits
+          {t("priceCard.bullet3")}
         </li>
       </ul>
       <Link
@@ -65,12 +65,12 @@ export function CampaignPriceCard({
         {ctaLabel}
       </Link>
       <p className="mt-3 text-xs leading-relaxed text-muted">
-        Account is free. Unlock this idea for ${price} when you run a full score.
+        {t("priceCard.unlockNote", { price: `$${price}` })}
         {detailsHref ? (
           <>
             {" "}
             <Link href={detailsHref} className="text-accent hover:underline">
-              Full pricing details →
+              {t("priceCard.details")}
             </Link>
           </>
         ) : null}

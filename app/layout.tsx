@@ -12,7 +12,10 @@ import {
   IBM_Plex_Mono,
   JetBrains_Mono,
 } from "next/font/google";
+import { LocaleProvider } from "@/components/LocaleProvider";
 import { StyleProvider } from "@/components/StyleProvider";
+import { getRequestLocale } from "@/lib/i18n/server";
+import { createTranslator } from "@/lib/i18n/t";
 import { STYLE_STORAGE_KEY, STYLE_TOKENS } from "@/lib/styles";
 import "./globals.css";
 
@@ -52,12 +55,15 @@ const fontVars = [
   .map((f) => f.variable)
   .join(" ");
 
-export const metadata: Metadata = {
-  title: "Validorian — Business validation studio",
-  description:
-    "Premier business idea validation: grounded GO / MAYBE / NO-GO scores, evidence, and an iterable studio to sharpen until the answer is clear.",
-  metadataBase: new URL("https://validorian.com"),
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const t = createTranslator(locale);
+  return {
+    title: t("meta.title"),
+    description: t("meta.description"),
+    metadataBase: new URL("https://validorian.com"),
+  };
+}
 
 const styleBootScript = `
 (function(){
@@ -95,16 +101,19 @@ const styleBootScript = `
 })();
 `;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await getRequestLocale();
   return (
-    <html lang="en" className={`${fontVars} h-full antialiased`} suppressHydrationWarning>
+    <html lang={locale} className={`${fontVars} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: styleBootScript }} />
       </head>
       <body className="min-h-full" suppressHydrationWarning>
-        <StyleProvider>{children}</StyleProvider>
+        <LocaleProvider locale={locale}>
+          <StyleProvider>{children}</StyleProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

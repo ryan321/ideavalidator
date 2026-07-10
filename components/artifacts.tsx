@@ -37,6 +37,7 @@ import {
 } from "./report/DeepReport";
 import { WhyThisScore } from "./report/WhyThisScore";
 import { ReportChapter } from "./report/ReportChapter";
+import { useT } from "./LocaleProvider";
 
 // Light structural guard for a stored kit artifact (KitSchema lives server-side with
 // the generator — its module pulls in the db, so the client checks shape, not zod).
@@ -65,6 +66,7 @@ function PlanBody({
   collapsed: boolean;
   print?: boolean;
 }) {
+  const t = useT();
   const body = (
     <>
       <ol className="space-y-2">
@@ -83,7 +85,7 @@ function PlanBody({
       </ol>
       {plan.team_and_ops && (
         <p className="mt-3 text-sm text-muted">
-          <span className="font-medium text-fg/80">Team &amp; ops: </span>
+          <span className="font-medium text-fg/80">{t("report.teamAndOps")} </span>
           {plan.team_and_ops}
         </p>
       )}
@@ -94,7 +96,7 @@ function PlanBody({
     <details className="group" open={print || undefined}>
       <summary className="flex cursor-pointer list-none items-center gap-2 font-mono text-[12px] uppercase tracking-[0.12em] text-muted hover:text-fg">
         <span className="transition group-open:rotate-90">▸</span>
-        The build plan — unlocks when the kill-test passes ({(plan.milestones ?? []).length} milestones)
+        {t("report.buildPlanSummary", { n: (plan.milestones ?? []).length })}
       </summary>
       <div className="mt-3">{body}</div>
     </details>
@@ -150,12 +152,25 @@ function scoreColor(n: number, b: Bands): string {
 
 // Plain-English calibration for the 0-100 score, against the goal's real thresholds,
 // so a founder knows whether the number is good without startup intuition.
-function scoreBand(n: number, b: Bands): { label: string; hint: string } {
+function scoreBand(
+  n: number,
+  b: Bands,
+  labels: { strong: string; mixed: string; weak: string }
+): { label: string; hint: string } {
   if (n >= b.go)
-    return { label: "Strong signal", hint: `clears the ${b.go}+ GO bar for your goal — worth committing and moving to build/sell.` };
+    return {
+      label: labels.strong,
+      hint: `clears the ${b.go}+ GO bar for your goal — worth committing and moving to build/sell.`,
+    };
   if (n >= b.maybe)
-    return { label: "Mixed", hint: `in the MAYBE band (${b.maybe}–${b.go - 1}) for your goal — refine the weak criteria below, then re-validate.` };
-  return { label: "Weak as written", hint: `below the ${b.maybe} MAYBE bar for your goal — iterate hard or reconsider the wedge.` };
+    return {
+      label: labels.mixed,
+      hint: `in the MAYBE band (${b.maybe}–${b.go - 1}) for your goal — refine the weak criteria below, then re-validate.`,
+    };
+  return {
+    label: labels.weak,
+    hint: `below the ${b.maybe} MAYBE bar for your goal — iterate hard or reconsider the wedge.`,
+  };
 }
 
 // Human noun for the goal, used in goal-conditional copy.
@@ -175,6 +190,7 @@ export function SourcesList({
   /** Print/PDF should pass true so the full list is present. */
   defaultOpen?: boolean;
 }) {
+  const t = useT();
   if (!sources?.length) return null;
   return (
     <details
@@ -196,8 +212,8 @@ export function SourcesList({
         </span>
         <span className="hidden text-xs text-muted sm:inline">cited links · optional</span>
         <span className="ml-auto shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
-          <span className="group-open:hidden">Expand</span>
-          <span className="hidden group-open:inline">Collapse</span>
+          <span className="group-open:hidden">{t("common.expand")}</span>
+          <span className="hidden group-open:inline">{t("common.collapse")}</span>
         </span>
       </summary>
       <ul className="space-y-1.5 border-t border-border/60 px-4 py-3">
@@ -273,6 +289,7 @@ function VerdictMeter({
   bands: Bands;
   insufficient?: boolean;
 }) {
+  const t = useT();
   const s = Math.max(0, Math.min(100, Math.round(score)));
   const pos = Math.max(5, Math.min(95, s)); // keep the needle chip on-canvas at extremes
   // Under INSUFFICIENT EVIDENCE the whole instrument goes neutral — a green needle
@@ -325,8 +342,8 @@ function VerdictMeter({
       </div>
       {/* zone labels under their bands */}
       <div className="relative mt-1.5 h-3 font-mono text-[10px] uppercase tracking-wider">
-        <span className="absolute -translate-x-1/2 text-bad/70" style={{ left: `${bands.maybe / 2}%` }}>No-go</span>
-        <span className="absolute -translate-x-1/2 text-warn/80" style={{ left: `${(bands.maybe + bands.go) / 2}%` }}>Maybe</span>
+        <span className="absolute -translate-x-1/2 text-bad/70" style={{ left: `${bands.maybe / 2}%` }}>{t("report.noGo")}</span>
+        <span className="absolute -translate-x-1/2 text-warn/80" style={{ left: `${(bands.maybe + bands.go) / 2}%` }}>{t("report.maybe")}</span>
         <span className="absolute -translate-x-1/2 text-good/80" style={{ left: `${(bands.go + 100) / 2}%` }}>Go · {bands.go}+</span>
       </div>
       <div className="mt-2.5 font-mono text-xs" style={{ color }}>
@@ -453,6 +470,7 @@ export function ValidationView({
   /** Print/PDF render: open every collapsed section and unclamp prose. */
   print?: boolean;
 }) {
+  const t = useT();
   const navLink =
     "rounded-md px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-muted transition hover:bg-panel2 hover:text-fg";
   // Judge the stored score by the goal it was actually computed under (goal_scored),
@@ -462,7 +480,11 @@ export function ValidationView({
   const insufficient = d.verdict === "INSUFFICIENT EVIDENCE";
   // INSUFFICIENT EVIDENCE is a neutral state — no verdict color may imply a read.
   const color = insufficient ? "var(--color-muted)" : scoreColor(d.score, bands);
-  const band = scoreBand(d.score, bands);
+  const band = scoreBand(d.score, bands, {
+    strong: t("report.strongSignal"),
+    mixed: t("report.mixed"),
+    weak: t("report.weakAsWritten"),
+  });
   // Where this score sits across every idea validated locally — only shown when Flows
   // provided it (it withholds the prop until there are ≥8 scores to rank against, so a
   // tiny population can't read as a meaningful "90th percentile").
@@ -505,17 +527,17 @@ export function ValidationView({
 
   // the four headline reads → one divided strip
   const dims: { label: string; value: string; color?: string; hint?: string }[] = [];
-  if (d.demand) dims.push({ label: "Demand", value: d.demand.strength, color: tone3(d.demand.strength, "Strong", "Moderate"), hint: "How strongly the target wants this." });
-  if (d.demand) dims.push({ label: "Will pay", value: d.demand.willingness_to_pay, hint: "What they'll realistically pay." });
-  if (d.operating) dims.push({ label: "Effort to run", value: d.operating.effort_level, color: tone3(d.operating.effort_level, "Low", "Medium"), hint: "Ongoing work to operate it." });
-  if (d.acquisition) dims.push({ label: "Hard to sell", value: d.acquisition.difficulty, color: tone3(d.acquisition.difficulty, "Easy", "Moderate"), hint: "How hard it is to win each customer." });
+  if (d.demand) dims.push({ label: t("report.demand"), value: d.demand.strength, color: tone3(d.demand.strength, "Strong", "Moderate"), hint: "How strongly the target wants this." });
+  if (d.demand) dims.push({ label: t("report.willPay"), value: d.demand.willingness_to_pay, hint: "What they'll realistically pay." });
+  if (d.operating) dims.push({ label: t("report.effortToRun"), value: d.operating.effort_level, color: tone3(d.operating.effort_level, "Low", "Medium"), hint: "Ongoing work to operate it." });
+  if (d.acquisition) dims.push({ label: t("report.hardToSell"), value: d.acquisition.difficulty, color: tone3(d.acquisition.difficulty, "Easy", "Moderate"), hint: "How hard it is to win each customer." });
   if (d.moat?.paths?.length) {
     // headline the STRONGEST graded path — honest-to-zero, so "None yet" is common
     const order = { strong: 0, plausible: 1, weak: 2, none: 3 } as const;
     const best = d.moat.paths.slice().sort((a, b) => (order[a.grade] ?? 3) - (order[b.grade] ?? 3))[0];
     const hasAny = best && best.grade !== "none";
     dims.push({
-      label: "Moat today",
+      label: t("report.moatToday"),
       value: hasAny ? `${best.grade[0].toUpperCase()}${best.grade.slice(1)} · ${best.type.replace(/_/g, " ")}` : "None yet",
       color: best?.grade === "strong" ? "var(--color-good)" : hasAny ? "var(--color-warn)" : "var(--color-bad)",
       hint: "Strongest defensibility path graded today — details in Market.",
@@ -579,13 +601,13 @@ export function ValidationView({
               <span className="tabular-nums">{Math.round(d.score)}</span>
             </a>
           )}
-          <a href="#verdict" className={navLink}>Verdict</a>
-          <a href="#brief" className={navLink}>Brief</a>
-          {showMarket && <a href="#market" className={navLink}>Market</a>}
-          {showMoney && <a href="#money" className={navLink}>Money</a>}
-          {d.risk_matrix?.length || d.pre_mortem?.length ? <a href="#risks" className={navLink}>Risks</a> : null}
-          {showPlan && <a href="#plan" className={navLink}>Plan</a>}
-          {evidence && <a href="#evidence" className={navLink}>Evidence</a>}
+          <a href="#verdict" className={navLink}>{t("report.verdict")}</a>
+          <a href="#brief" className={navLink}>{t("report.brief")}</a>
+          {showMarket && <a href="#market" className={navLink}>{t("report.market")}</a>}
+          {showMoney && <a href="#money" className={navLink}>{t("report.money")}</a>}
+          {d.risk_matrix?.length || d.pre_mortem?.length ? <a href="#risks" className={navLink}>{t("report.risks")}</a> : null}
+          {showPlan && <a href="#plan" className={navLink}>{t("report.plan")}</a>}
+          {evidence && <a href="#evidence" className={navLink}>{t("report.evidence")}</a>}
         </nav>
       )}
 
@@ -598,7 +620,7 @@ export function ValidationView({
             <div className="p-6 sm:p-7">
               <div className="flex items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
                 <span className="flex flex-wrap items-center gap-2">
-                  Validation readout
+                  {t("report.validationReadout")}
                   <ModeBadge mode={d.mode} />
                   <ProvenanceTag provenance={provenance} />
                 </span>
@@ -736,8 +758,8 @@ export function ValidationView({
                 Scoring notes &amp; guards
               </span>
               <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
-                <span className="group-open:hidden">Expand</span>
-                <span className="hidden group-open:inline">Collapse</span>
+                <span className="group-open:hidden">{t("common.expand")}</span>
+                <span className="hidden group-open:inline">{t("common.collapse")}</span>
               </span>
             </summary>
             <div className="space-y-4 border-t border-border/60 px-4 py-4">
@@ -791,7 +813,7 @@ export function ValidationView({
 
       {chapters && (
         <div className="pt-2">
-          <p className="text-sm font-medium text-fg/85">Dig deeper</p>
+          <p className="text-sm font-medium text-fg/85">{t("report.digDeeper")}</p>
           <p className="mt-0.5 text-xs text-muted">
             Click any section below to expand it — Brief, Market, Money, Risks, Plan, Evidence.
           </p>
@@ -1268,8 +1290,8 @@ export function ValidationView({
             Full scorecard &amp; signals
           </span>
           <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
-            <span className="group-open:hidden">Expand</span>
-            <span className="hidden group-open:inline">Collapse</span>
+            <span className="group-open:hidden">{t("common.expand")}</span>
+            <span className="hidden group-open:inline">{t("common.collapse")}</span>
           </span>
         </summary>
         <div className="space-y-6 border-t border-border p-5">

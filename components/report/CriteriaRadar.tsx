@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from "recharts";
 import { Card, Section, Badge } from "@/components/ui";
+import { useT } from "../LocaleProvider";
 
 type Criterion = {
   name: string;
@@ -20,11 +21,12 @@ type Criterion = {
 };
 
 export function CriteriaRadar({ criteria }: { criteria: Criterion[] }) {
+  const t = useT();
   const items = Array.isArray(criteria) ? criteria.filter(Boolean) : [];
 
   if (items.length === 0) {
     return (
-      <Section title="Criteria Radar">
+      <Section title={t("report.criteriaRadar")}>
         <Card>
           <p className="text-sm text-muted">No criteria available yet.</p>
         </Card>
@@ -39,7 +41,7 @@ export function CriteriaRadar({ criteria }: { criteria: Criterion[] }) {
 
   return (
     <Section
-      title="Criteria Radar"
+      title={t("report.criteriaRadar")}
       right={<Badge tone="accent">{items.length} criteria</Badge>}
     >
       <Card>

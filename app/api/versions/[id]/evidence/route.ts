@@ -3,6 +3,7 @@ import { campaignAccessForVersion, campaignDenyBody } from "@/lib/billing";
 import { requireVersionOwner } from "@/lib/auth";
 import { deleteEvidence } from "@/lib/db";
 import { collectEvidence } from "@/lib/evidence";
+import { resolveLocale } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 // Query generation + fan-out searches + ranking can take a little while.
@@ -17,7 +18,7 @@ export async function POST(
   const owner = await requireVersionOwner(id);
   if ("response" in owner) return owner.response;
   // Needs unlock only — evidence refresh does not burn a scoring run
-  const access = campaignAccessForVersion(id);
+  const access = campaignAccessForVersion(id, await resolveLocale());
   if (!access.unlocked) return NextResponse.json(campaignDenyBody(access), { status: 402 });
   try {
     deleteEvidence(id);

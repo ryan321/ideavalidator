@@ -1,5 +1,8 @@
+"use client";
+
 import React from "react";
 import { Card } from "@/components/ui";
+import { useT } from "../LocaleProvider";
 
 type Signal = { text: string; category: string };
 
@@ -110,6 +113,7 @@ export function ValidationSummary({
     areas_of_concern: { text: string; category: string }[];
   };
 }) {
+  const t = useT();
   const positive = Array.isArray(go?.positive_signals)
     ? go.positive_signals
     : [];
@@ -151,7 +155,7 @@ export function ValidationSummary({
 
             <div className="space-y-5">
               <Subsection
-                title="Positive Signals"
+                title={t("report.positiveSignals")}
                 count={positive.length}
                 tone="good"
               >
@@ -159,7 +163,7 @@ export function ValidationSummary({
               </Subsection>
 
               <Subsection
-                title="Key Strengths"
+                title={t("report.keyStrengths")}
                 count={strengths.length}
                 tone="good"
               >
@@ -186,7 +190,7 @@ export function ValidationSummary({
 
             <div className="space-y-5">
               <Subsection
-                title="Critical Risks"
+                title={t("report.criticalRisks")}
                 count={risks.length}
                 tone="bad"
               >
@@ -194,7 +198,7 @@ export function ValidationSummary({
               </Subsection>
 
               <Subsection
-                title="Areas of Concern"
+                title={t("report.areasOfConcern")}
                 count={concerns.length}
                 tone="warn"
               >

@@ -1,4 +1,7 @@
+"use client";
+
 import { LEVER_MEANING, type Lever } from "@/lib/scoring";
+import { useT } from "../LocaleProvider";
 
 // Shared report chips: the lever tag on a criterion (positioning | evidence |
 // execution | exogenous) and the Mom-Test evidence tier chip (T1 money/behavior …
@@ -54,12 +57,15 @@ export function TierChip({ tier, compact = false }: { tier?: 1 | 2 | 3 | 4 | nul
 
 // A one-line legend for the four tiers — rendered once above a tiered list.
 export function TierLegend({ className = "" }: { className?: string }) {
+  const tr = useT();
   return (
     <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${className}`}>
-      <span className="font-mono text-[9px] uppercase tracking-wide text-muted/70">Mom-Test tiers:</span>
-      {([1, 2, 3, 4] as const).map((t) => (
-        <span key={t} className="font-mono text-[9px] text-muted" title={TIER_META[t].help}>
-          {TIER_META[t].label}
+      <span className="font-mono text-[9px] uppercase tracking-wide text-muted/70">
+        {tr("report.momTestTiers")}
+      </span>
+      {([1, 2, 3, 4] as const).map((tier) => (
+        <span key={tier} className="font-mono text-[9px] text-muted" title={TIER_META[tier].help}>
+          {TIER_META[tier].label}
         </span>
       ))}
     </div>

@@ -1,19 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-// Honest phases of what a grounded generation actually does. Timings are estimates
-// (we don't stream real events), but each label reflects a real step, so the wait
-// reads as rigor — the opposite of a "60-second" black box.
-const GROUNDED_STEPS = [
-  "Fetching real posts, reviews & issues from public sources",
-  "Searching the web for market & competitor evidence",
-  "Reading & citing sources",
-  "Scoring the idea against your goal",
-  "Sizing the market, the money & the plan",
-  "Writing the report",
-];
-const PLAIN_STEPS = ["Gathering your research", "Writing it up"];
+import { useT } from "./LocaleProvider";
 
 export default function GenerationProgress({
   label,
@@ -22,12 +10,20 @@ export default function GenerationProgress({
   label: string;
   grounded: boolean;
 }) {
-  const steps = grounded ? GROUNDED_STEPS : PLAIN_STEPS;
+  const t = useT();
+  const steps = grounded
+    ? [
+        t("progress.step1"),
+        t("progress.step2"),
+        t("progress.step3"),
+        t("progress.step4"),
+        t("progress.step5"),
+        t("progress.step6"),
+      ]
+    : [t("progress.plain1"), t("progress.plain2")];
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
-    // seconds at which each later step becomes the active one (the comprehensive
-    // grounded pass takes ~1-2 min, so the steps are spread out accordingly)
     const at = grounded ? [12, 24, 40, 60, 85] : [6];
     const timers = at.map((sec, i) => setTimeout(() => setIdx(i + 1), sec * 1000));
     return () => timers.forEach(clearTimeout);
@@ -35,9 +31,11 @@ export default function GenerationProgress({
 
   return (
     <div className="folio p-6">
-      <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent2">In session</div>
+      <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent2">
+        {t("progress.inSession")}
+      </div>
       <div className="mt-1 font-display text-lg font-bold tracking-tight">
-        Assembling {label.toLowerCase()}…
+        {t("progress.assembling", { label: label.toLowerCase() })}
       </div>
       <ul className="mt-4 space-y-2.5">
         {steps.map((s, i) => {
@@ -55,7 +53,11 @@ export default function GenerationProgress({
               )}
               <span
                 className={
-                  state === "todo" ? "text-muted/50" : state === "active" ? "text-fg" : "text-muted"
+                  state === "todo"
+                    ? "text-muted/50"
+                    : state === "active"
+                      ? "text-fg"
+                      : "text-muted"
                 }
               >
                 {s}
@@ -64,10 +66,7 @@ export default function GenerationProgress({
           );
         })}
       </ul>
-      <p className="mt-4 text-xs text-muted/70">
-        Real validation takes a minute — it&apos;s actually searching the web and citing sources, not
-        guessing.
-      </p>
+      <p className="mt-4 text-xs text-muted/70">{t("progress.footnote")}</p>
     </div>
   );
 }

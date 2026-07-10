@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getIdeaForUser, markIdeaPaid } from "@/lib/db";
 import { billingEnabled, campaignAccess, stripe } from "@/lib/billing";
 import { requireUser } from "@/lib/auth";
+import { resolveLocale } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       paid: true,
       ideaId,
-      billing: campaignAccess(idea),
+      billing: campaignAccess(idea, await resolveLocale()),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not confirm payment";

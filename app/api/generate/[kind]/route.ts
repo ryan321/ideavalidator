@@ -3,6 +3,7 @@ import { GENERATORS, runGenerator } from "@/lib/generators";
 import { getJob, incrementCampaignRuns, getVersion, setJob, type ArtifactKind } from "@/lib/db";
 import { campaignAccessForVersion, campaignDenyBody } from "@/lib/billing";
 import { requireVersionOwner } from "@/lib/auth";
+import { resolveLocale } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 // Grounded multi-step generation can take a while.
@@ -42,7 +43,7 @@ export async function POST(
 
   // Scoring-run gate: needs unlock + remaining cap. Only validations count toward
   // the cap (see countRun). Inert while billing is disabled (no STRIPE_SECRET_KEY).
-  const access = campaignAccessForVersion(versionId);
+  const access = campaignAccessForVersion(versionId, await resolveLocale());
   if (!access.canScore) {
     return NextResponse.json(campaignDenyBody(access), { status: 402 });
   }

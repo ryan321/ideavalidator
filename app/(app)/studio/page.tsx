@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import NewIdeaForm from "@/components/NewIdeaForm";
 import { listIdeasForUser } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { getTranslator } from "@/lib/i18n/server";
 import { verdictBands } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
@@ -11,18 +12,19 @@ export default async function StudioPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   const ideas = listIdeasForUser(user.id);
+  const { t } = await getTranslator();
 
   return (
     <div className="folio-enter space-y-12">
       <header className="relative overflow-hidden">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
-          Studio
+          {t("studio.eyebrow")}
         </p>
         <h1 className="mt-2 max-w-2xl font-display text-3xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-4xl">
-          Your ideas
+          {t("studio.title")}
         </h1>
         <p className="mt-2 max-w-xl text-base leading-relaxed text-muted">
-          Start a new validation or open an existing one. Scores are goal-relative and grounded in evidence.
+          {t("studio.subtitle")}
         </p>
       </header>
 
@@ -30,11 +32,9 @@ export default async function StudioPage() {
       <section className="folio p-5 sm:p-7" aria-labelledby="new-idea">
         <div className="mb-5">
           <h2 id="new-idea" className="font-display text-xl font-bold tracking-tight">
-            New idea
+            {t("studio.newIdea")}
           </h2>
-          <p className="mt-1 text-sm text-muted">
-            What you&apos;re offering, who it&apos;s for, and why now — the clearer that is, the better the read.
-          </p>
+          <p className="mt-1 text-sm text-muted">{t("studio.newIdeaBlurb")}</p>
         </div>
         <NewIdeaForm />
       </section>
@@ -43,15 +43,15 @@ export default async function StudioPage() {
       <section aria-labelledby="your-ideas">
         <div className="mb-4 flex items-baseline justify-between gap-3">
           <h2 id="your-ideas" className="font-display text-xl font-bold tracking-tight">
-            Your ideas
+            {t("studio.yourIdeas")}
             <span className="ml-2 font-mono text-sm font-medium text-muted">({ideas.length})</span>
           </h2>
         </div>
 
         {ideas.length === 0 ? (
           <div className="folio-inset border-dashed py-14 text-center">
-            <p className="font-display text-lg font-semibold text-fg/80">No ideas yet</p>
-            <p className="mt-1 text-sm text-muted">Describe one above — validation starts right away.</p>
+            <p className="font-display text-lg font-semibold text-fg/80">{t("studio.emptyTitle")}</p>
+            <p className="mt-1 text-sm text-muted">{t("studio.emptyBody")}</p>
           </div>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
@@ -95,7 +95,9 @@ export default async function StudioPage() {
                     )}
                     <div className="mt-auto flex flex-wrap gap-x-2 pt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
                       <span>{new Date(idea.created_at).toLocaleDateString()}</span>
-                      {idea.version_count > 1 && <span>· {idea.version_count} versions</span>}
+                      {idea.version_count > 1 && (
+                        <span>· {t("studio.versions", { n: idea.version_count })}</span>
+                      )}
                       {idea.cost && idea.cost > 0 && (
                         <span>
                           · ${idea.cost < 1 ? idea.cost.toFixed(3) : idea.cost.toFixed(2)}

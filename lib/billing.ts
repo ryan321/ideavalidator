@@ -1,5 +1,7 @@
 import Stripe from "stripe";
 import { getIdea, getVersion, type Idea } from "./db";
+import { DEFAULT_LOCALE, type Locale } from "./i18n/config";
+import { createTranslator } from "./i18n/t";
 
 // Campaign-pass billing: ONE Stripe payment unlocks an idea's full campaign —
 // validations, wedge tournaments, the kill-test kit, intel, and revalidations — up to
@@ -55,7 +57,11 @@ export type CampaignAccess = {
 };
 
 /** The campaign entitlement for an idea. When billing is disabled, everything is allowed. */
-export function campaignAccess(idea: Idea | undefined): CampaignAccess {
+export function campaignAccess(
+  idea: Idea | undefined,
+  locale: Locale = DEFAULT_LOCALE
+): CampaignAccess {
+  const t = createTranslator(locale);
   const enabled = billingEnabled();
   const paid = !!idea?.paid;
   const runsUsed = idea?.campaign_runs ?? 0;
@@ -80,7 +86,7 @@ export function campaignAccess(idea: Idea | undefined): CampaignAccess {
       canScore: false,
       allowed: false,
       code: "CAMPAIGN_LOCKED",
-      reason: "Unknown idea.",
+      reason: t("billingMsg.unknownIdea"),
     };
   }
   if (!paid) {
@@ -90,8 +96,7 @@ export function campaignAccess(idea: Idea | undefined): CampaignAccess {
       canScore: false,
       allowed: false,
       code: "CAMPAIGN_LOCKED",
-      reason:
-        "Unlock this idea’s campaign to run full analyses — one payment covers scores, wedges, kit, intel, and unlimited chat on this idea.",
+      reason: t("billingMsg.locked"),
     };
   }
   if (runsUsed >= runCap) {
@@ -101,17 +106,20 @@ export function campaignAccess(idea: Idea | undefined): CampaignAccess {
       canScore: false,
       allowed: false,
       code: "CAMPAIGN_RUNS_EXHAUSTED",
-      reason: `You’ve finished the ${runCap} full analyses included in this campaign. Chat, the kill-test kit, and your reports stay open — start a new idea when you’re testing something different.`,
+      reason: t("billingMsg.exhausted", { n: runCap }),
     };
   }
   return { ...base, unlocked: true, canScore: true, allowed: true };
 }
 
 /** Resolve a versionId to its idea's campaign access — the gate the API routes use. */
-export function campaignAccessForVersion(versionId: string): CampaignAccess {
+export function campaignAccessForVersion(
+  versionId: string,
+  locale: Locale = DEFAULT_LOCALE
+): CampaignAccess {
   const version = getVersion(versionId);
   const idea = version ? getIdea(version.idea_id) : undefined;
-  return campaignAccess(idea);
+  return campaignAccess(idea, locale);
 }
 
 /** JSON body for a 402 when a campaign gate fails. */

@@ -1,4 +1,7 @@
+"use client";
+
 import type { Validation } from "@/lib/generators/validation";
+import { useT } from "../LocaleProvider";
 
 // "The one thing to test next" — the report's LEAD. The deliverable is a decision
 // plus the cheapest way to change it, so the kill-test reads BEFORE the verdict meter:
@@ -15,6 +18,7 @@ export function NextTest({
   verdict?: string;
   print?: boolean;
 }) {
+  const t = useT();
   const pivotal = next.pivotal_criterion?.trim();
   // The pivotal-criterion callout is meaningful only for a borderline read — the model
   // is told to leave it blank otherwise, but gate on the verdict too so it never shows
@@ -35,7 +39,7 @@ export function NextTest({
 
       {/* the cheapest test that could change the verdict, with its channel */}
       <div className="mt-4">
-        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Cheapest test · ≤ 1 week</div>
+        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("report.cheapestTest")}</div>
         <p className="mt-1 text-[15px] leading-relaxed text-fg/90">{next.cheapest_test}</p>
       </div>
 
@@ -43,11 +47,11 @@ export function NextTest({
           the founder can't move the goalposts after seeing the result */}
       <div className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
         <div className="bg-panel px-3.5 py-3">
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-good">Pass · keep going</div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-good">{t("report.passKeep")}</div>
           <p className="mt-1 text-sm leading-snug text-fg/90">{next.pass_threshold}</p>
         </div>
         <div className="bg-panel px-3.5 py-3">
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-bad">Kill · pivot or drop</div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-bad">{t("report.killPivot")}</div>
           <p className="mt-1 text-sm leading-snug text-fg/90">{next.kill_threshold}</p>
         </div>
       </div>

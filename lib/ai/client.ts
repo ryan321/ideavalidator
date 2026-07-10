@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import { z } from "zod";
+import { withOutputLocale } from "../i18n/ai";
+import { resolveLocale } from "../i18n/server";
 import { ModelRole, resolveModel } from "./models";
 
 // Single OpenRouter client. All AI calls go through here, server-side only.
@@ -35,6 +37,11 @@ export type GenerateOptions = {
   webMaxResults?: number;
   maxTokens?: number;
   temperature?: number;
+  /**
+   * UI/report locale (e.g. "es"). Injects an OUTPUT LANGUAGE instruction so
+   * user-facing prose matches the site; JSON keys/enums stay English.
+   */
+  locale?: string | null;
 };
 
 export type Usage = { prompt_tokens: number; completion_tokens: number; cost: number };
@@ -131,8 +138,9 @@ export async function generateStructured<T>(
   opts: GenerateOptions
 ): Promise<GenerateResult<T>> {
   const model = resolveModel(opts.role ?? "writing");
+  const locale = await resolveLocale(opts.locale);
   const system =
-    opts.system +
+    withOutputLocale(opts.system, locale) +
     "\n\nReturn ONLY a single valid JSON object matching the requested shape. " +
     "No markdown, no code fences, no commentary.";
 
@@ -206,10 +214,13 @@ export async function generateText(opts: {
   grounded?: boolean;
   maxTokens?: number;
   temperature?: number;
+  /** UI/report locale — same as generateStructured. */
+  locale?: string | null;
 }): Promise<{ text: string; usage: Usage; model: string }> {
   const model = resolveModel(opts.role ?? "writing");
+  const locale = await resolveLocale(opts.locale);
   const chatMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-    { role: "system", content: opts.system },
+    { role: "system", content: withOutputLocale(opts.system, locale) },
   ];
   if (opts.messages?.length) {
     for (const m of opts.messages) chatMessages.push({ role: m.role, content: m.content });

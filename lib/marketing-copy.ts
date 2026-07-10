@@ -1,38 +1,17 @@
-/** Shared marketing copy so landing and pricing stay aligned. */
+/**
+ * @deprecated Prefer lib/i18n message catalogs (lib/i18n/messages/en.ts).
+ * Kept as thin re-exports so older imports keep working.
+ */
+import { createTranslator, checklistItems } from "./i18n/t";
 
-/** Concrete deliverables in a validation pass (checkmark list). */
-export const WHAT_YOU_GET = [
-  "GO / MAYBE / NO-GO scored against your goal",
-  "Demand analysis (how badly people want this)",
-  "Willingness-to-pay read",
-  "Competition review",
-  "Obtainable revenue estimate",
-  "Risk map (what can kill it)",
-  "Buyer profile: who to sell to and where",
-  "Real-world test plan (who to talk to, pass/fail)",
-  "Social media search (Reddit, forums, and live web signals)",
-  "Evidence-backed claims with sources",
-  "Iterate: rewrite the pitch and re-score",
-  "Variations: try different angles side by side",
-  "Multiple full reports as the idea evolves",
-  "Chat with the review: dig into scores, risks, and next steps",
-] as const;
+const t = createTranslator("en");
 
-/** Landing-only process steps (pricing stays lean and does not repeat these). */
+/** @deprecated Use checklistItems(t) with getTranslator(). */
+export const WHAT_YOU_GET = checklistItems(t);
+
+/** @deprecated Use landing.how* keys via t(). */
 export const HOW_IT_WORKS_STEPS = [
-  {
-    n: "01",
-    title: "Describe the idea",
-    body: "What you're offering, who it's for, and why now, plus your goal so GO means the right thing for you.",
-  },
-  {
-    n: "02",
-    title: "Unlock & get a hard score",
-    body: "One payment opens a full pass on that idea. You get an evidence-backed GO / MAYBE / NO-GO, not a pep talk.",
-  },
-  {
-    n: "03",
-    title: "Keep working it",
-    body: "Rewrite the pitch, try a different angle, chat with the review, and re-score until the answer is clear.",
-  },
+  { n: "01", title: t("landing.how1Title"), body: t("landing.how1Body") },
+  { n: "02", title: t("landing.how2Title"), body: t("landing.how2Body") },
+  { n: "03", title: t("landing.how3Title"), body: t("landing.how3Body") },
 ] as const;

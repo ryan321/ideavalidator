@@ -1,4 +1,7 @@
+"use client";
+
 import { Card, Section } from "@/components/ui";
+import { useT } from "../LocaleProvider";
 
 type RiskCategory = "tech" | "market" | "financial";
 
@@ -35,6 +38,7 @@ function cellTint(probability: number, impact: number): string {
 }
 
 export function RiskMatrix({ risks }: { risks: Risk[] }) {
+  const t = useT();
   const list = Array.isArray(risks) ? risks : [];
 
   // Build a lookup of risks per cell, keyed by `${probability}-${impact}`.
@@ -54,7 +58,7 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
   const cols = [1, 2, 3, 4, 5];
 
   return (
-    <Section title="Risk Map">
+    <Section title={t("report.riskMap")}>
       <p className="mb-4 text-xs text-muted">
         Probability x Impact. Top-right = mitigation priority.
       </p>

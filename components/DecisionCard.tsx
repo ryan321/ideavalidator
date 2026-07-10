@@ -8,7 +8,9 @@ import {
   normalizeGoal,
   type CriterionName,
 } from "@/lib/scoring";
+import type { TranslateFn } from "@/lib/i18n/t";
 import { ScoreRing } from "./VerdictBox";
+import { useT } from "./LocaleProvider";
 
 type Bands = { go: number; maybe: number };
 
@@ -26,15 +28,22 @@ function dragCriteria(d: Validation, goal: string | null | undefined, n = 2) {
     .slice(0, n);
 }
 
-function distanceLine(score: number, bands: Bands, insufficient: boolean): string | null {
+function distanceLine(
+  score: number,
+  bands: Bands,
+  insufficient: boolean,
+  t: TranslateFn
+): string | null {
   if (insufficient) return null;
   const s = Math.round(score);
   if (s >= bands.go) {
     const over = s - bands.go;
-    return over === 0 ? `On GO (${bands.go})` : `+${over} above GO (${bands.go})`;
+    return over === 0
+      ? t("decision.onGo", { go: bands.go })
+      : t("decision.aboveGo", { n: over, go: bands.go });
   }
-  if (s >= bands.maybe) return `${bands.go - s} pts under GO (${bands.go})`;
-  return `${bands.maybe - s} pts under MAYBE (${bands.maybe})`;
+  if (s >= bands.maybe) return t("decision.underGo", { n: bands.go - s, go: bands.go });
+  return t("decision.underMaybe", { n: bands.maybe - s, maybe: bands.maybe });
 }
 
 /**
@@ -84,6 +93,7 @@ export function DecisionCard({
   versionN?: number;
   variantCount?: number;
 }) {
+  const t = useT();
   const [whyOpen, setWhyOpen] = useState(false);
   const [ideaOpen, setIdeaOpen] = useState(false);
   const ideaExpanded = ideaOpen || !!ideaExtras;
@@ -91,7 +101,7 @@ export function DecisionCard({
   const goalKey = d.goal_scored ?? normalizeGoal(goal);
   const insufficient = d.verdict === "INSUFFICIENT EVIDENCE";
   const score = Math.round(d.score);
-  const dist = distanceLine(score, bands, insufficient);
+  const dist = distanceLine(score, bands, insufficient, t);
   const drags = dragCriteria(d, goalKey);
   const vitamin = d.narrative?.verdict === "Vitamin";
   const painkiller = d.narrative?.verdict === "Painkiller";
@@ -154,7 +164,9 @@ export function DecisionCard({
           />
         </div>
         <div className="min-w-0 text-center sm:pr-10 sm:text-left">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted">Validation read</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
+            {t("decision.validationRead")}
+          </p>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
             {dist && (
               <span className="font-mono text-sm font-medium tabular-nums" style={{ color }}>
@@ -182,7 +194,9 @@ export function DecisionCard({
         </div>
         {revenue && (
           <div className="text-center sm:text-right">
-            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Obtainable / yr</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+              {t("decision.obtainableYr")}
+            </div>
             <div className="mt-1 font-display text-2xl font-extrabold leading-none tracking-tight text-accent2 sm:text-3xl">
               {revenue}
             </div>
@@ -195,7 +209,7 @@ export function DecisionCard({
         <div>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
-              Why this score
+              {t("decision.whyThisScore")}
             </div>
           </div>
           {(drags.length > 0 || vitamin || painkiller || pivotal) && (
@@ -235,7 +249,7 @@ export function DecisionCard({
           )}
           {(whyOpen || !summaryLong) && goalNote && goalNote !== summary && (
             <p className="max-w-3xl text-sm leading-relaxed text-muted">
-              <span className="font-medium text-fg/70">Goal fit: </span>
+              <span className="font-medium text-fg/70">{t("decision.goalFit")} </span>
               {goalNote}
             </p>
           )}
@@ -259,7 +273,9 @@ export function DecisionCard({
               </div>
               <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: statusColor }} />
-                <span style={{ color: statusColor }}>kill-test · {testStatus}</span>
+                <span style={{ color: statusColor }}>
+                  {t("campaign.killTest", { status: testStatus })}
+                </span>
               </div>
             </div>
             {openQ && (

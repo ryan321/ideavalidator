@@ -1,12 +1,15 @@
 import Link from "next/link";
 import AppNav from "@/components/AppNav";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { StylePicker } from "@/components/StylePicker";
 import { getSessionUser } from "@/lib/auth";
+import { getTranslator } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  const { t } = await getTranslator();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -28,9 +31,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </svg>
             </span>
             <span className="font-display text-base font-bold tracking-tight text-fg">
-              Validorian
+              {t("brand.name")}
               <span className="mt-0.5 hidden font-mono text-[10px] font-medium uppercase text-muted [letter-spacing:var(--tracking-eyebrow)] sm:block">
-                business validation studio
+                {t("brand.tagline")}
               </span>
             </span>
           </Link>
@@ -41,14 +44,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               href="/pricing"
               className="rounded-pill-pack border border-transparent px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
             >
-              Pricing
+              {t("nav.pricing")}
             </Link>
             <Link
               href="/account"
               className="rounded-pill-pack border border-border px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
             >
-              Account
+              {t("nav.account")}
             </Link>
+            <LocaleSwitcher />
             <StylePicker />
           </div>
         </div>
@@ -60,9 +64,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
 
       <footer className="no-print border-t border-border/70 py-4 text-center font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
-        Validorian · grounded scores · real evidence ·{" "}
+        {t("brand.footerApp")} ·{" "}
         <Link href="/pricing" className="hover:text-fg">
-          Pricing
+          {t("nav.pricing")}
         </Link>
       </footer>
     </div>

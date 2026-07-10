@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { verdictBands } from "@/lib/scoring";
+import { useT } from "./LocaleProvider";
 
 type IdeaLite = {
   id: string;
@@ -16,7 +17,6 @@ type IdeaLite = {
 const cleanTitle = (t: string) =>
   t.replace(/^#+\s*/, "").replace(/^Business Idea:\s*/i, "");
 
-/** Score color against the idea's own goal GO/MAYBE lines (same as home case cards). */
 function scoreTone(score: number, goal: string | null | undefined): string {
   const b = verdictBands(goal);
   if (score >= b.go) return "var(--color-good)";
@@ -25,6 +25,7 @@ function scoreTone(score: number, goal: string | null | undefined): string {
 }
 
 export default function AppNav() {
+  const t = useT();
   const pathname = usePathname();
   const activeId = pathname?.match(/^\/idea\/([^/?]+)/)?.[1] ?? null;
   const [ideas, setIdeas] = useState<IdeaLite[]>([]);
@@ -67,10 +68,10 @@ export default function AppNav() {
             : "text-muted hover:bg-panel2 hover:text-fg"
         }`}
       >
-        <span>+ New idea</span>
+        <span>{t("appNav.newIdea")}</span>
       </Link>
       <div className="mb-1.5 mt-3 px-3 font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
-        Your ideas
+        {t("appNav.yourIdeas")}
         <span className="ml-1.5 tabular-nums text-fg/50">({ideas.length})</span>
       </div>
       <ul className="space-y-0.5">
@@ -88,7 +89,9 @@ export default function AppNav() {
                     : "text-muted hover:bg-panel2/70 hover:text-fg"
                 }`}
               >
-                <span className="min-w-0 flex-1 leading-snug line-clamp-2">{cleanTitle(i.title)}</span>
+                <span className="min-w-0 flex-1 leading-snug line-clamp-2">
+                  {cleanTitle(i.title)}
+                </span>
                 {score != null && tone && (
                   <span
                     className="shrink-0 rounded-md px-1.5 py-0.5 font-mono text-xs font-bold tabular-nums leading-none"
@@ -97,7 +100,7 @@ export default function AppNav() {
                       background: `color-mix(in srgb, ${tone} 14%, transparent)`,
                       boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tone} 28%, transparent)`,
                     }}
-                    title={`Best score ${score} (goal bands)`}
+                    title={t("appNav.bestScore", { score })}
                   >
                     {score}
                   </span>
@@ -107,9 +110,7 @@ export default function AppNav() {
           );
         })}
         {ideas.length === 0 && (
-          <li className="px-3 py-4 text-xs leading-relaxed text-muted">
-            No ideas yet — create one from the desk.
-          </li>
+          <li className="px-3 py-4 text-xs leading-relaxed text-muted">{t("appNav.empty")}</li>
         )}
       </ul>
     </>
@@ -126,7 +127,7 @@ export default function AppNav() {
         className="rounded-pill-pack border border-border bg-panel px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
         aria-expanded={drawerOpen}
       >
-        Ideas · {ideas.length}
+        {t("appNav.ideasCount", { n: ideas.length })}
       </button>,
       document.getElementById("mobile-nav-slot")!
     );
@@ -135,28 +136,26 @@ export default function AppNav() {
     <>
       {mobileHeaderControls}
 
-      {/* Desktop idea rail — always visible full list */}
       <aside className="no-print hidden w-56 shrink-0 flex-col border-r border-border bg-panel/50 sm:flex lg:w-64">
         <div className="sticky top-[3.25rem] flex max-h-[calc(100vh-3.25rem)] flex-col overflow-y-auto px-2 py-3">
           {list}
         </div>
       </aside>
 
-      {/* Mobile full-list drawer */}
       {drawerOpen && (
         <>
           <button
             type="button"
             className="fixed inset-0 z-50 bg-[color-mix(in_srgb,var(--color-fg)_35%,transparent)] backdrop-blur-[2px] sm:hidden"
-            aria-label="Close ideas"
+            aria-label={t("appNav.closeIdeas")}
             onClick={() => setDrawerOpen(false)}
           />
           <div className="fixed left-0 top-0 z-50 flex h-full w-full max-w-xs flex-col border-r border-border bg-panel shadow-2xl sm:hidden">
             <div className="flex items-center justify-between border-b border-border px-4 py-4">
               <div>
-                <div className="font-display text-lg font-bold">Your ideas</div>
+                <div className="font-display text-lg font-bold">{t("appNav.yourIdeas")}</div>
                 <div className="font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
-                  {ideas.length} on the desk
+                  {t("appNav.onDesk", { n: ideas.length })}
                 </div>
               </div>
               <button
@@ -164,7 +163,7 @@ export default function AppNav() {
                 onClick={() => setDrawerOpen(false)}
                 className="rounded-[var(--radius-control)] border border-border px-2.5 py-1 text-xs text-muted hover:text-fg"
               >
-                Close
+                {t("common.close")}
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-3">{list}</div>

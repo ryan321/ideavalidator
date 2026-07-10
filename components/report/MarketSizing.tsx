@@ -1,4 +1,7 @@
+"use client";
+
 import { Card, Section, Badge } from "@/components/ui";
+import { useT } from "../LocaleProvider";
 
 type Tier = { value: string; note: string };
 
@@ -38,6 +41,7 @@ export function MarketSizing({
   };
   cagrPct: number;
 }) {
+  const t = useT();
   const tam = sizing?.tam ?? { value: "—", note: "" };
   const sam = sizing?.sam ?? { value: "—", note: "" };
   const som = sizing?.som ?? { value: "—", note: "" };
@@ -72,13 +76,13 @@ export function MarketSizing({
   const ySom = somInside ? 100 : 100 + rSom + 14;
 
   const legend = [
-    { key: "TAM", label: "Total market", tier: tam, raw: tamN, fill: "var(--color-accent)", opacity: 0.9, share: "100%" },
-    { key: "SAM", label: "You could serve", tier: sam, raw: samN, fill: "var(--color-accent)", opacity: 0.55, share: shareLabel(samN, tamN) },
-    { key: "SOM", label: "You could win", tier: som, raw: somN, fill: "var(--color-accent)", opacity: 1, share: shareLabel(somN, tamN) },
+    { key: "TAM", label: t("report.totalMarket"), tier: tam, raw: tamN, fill: "var(--color-accent)", opacity: 0.9, share: "100%" },
+    { key: "SAM", label: t("report.youCouldServe"), tier: sam, raw: samN, fill: "var(--color-accent)", opacity: 0.55, share: shareLabel(samN, tamN) },
+    { key: "SOM", label: t("report.youCouldWin"), tier: som, raw: somN, fill: "var(--color-accent)", opacity: 1, share: shareLabel(somN, tamN) },
   ];
 
   return (
-    <Section title="Market sizing">
+    <Section title={t("report.marketSizing")}>
       <Card>
         <div className="mb-4 flex items-center justify-between gap-3">
           <p className="text-xs text-muted">

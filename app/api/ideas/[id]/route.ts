@@ -12,6 +12,7 @@ import {
 } from "@/lib/db";
 import { campaignAccess } from "@/lib/billing";
 import { requireIdeaOwner } from "@/lib/auth";
+import { resolveLocale } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 
@@ -66,7 +67,7 @@ export async function GET(
     scoreDistribution: scoreDistribution(),
     // Campaign-pass state: {enabled, paid, runsUsed, runCap, priceCents, allowed}.
     // enabled=false (billing not configured) means the paywall never renders.
-    billing: campaignAccess(idea),
+    billing: campaignAccess(idea, await resolveLocale()),
   });
 }
 

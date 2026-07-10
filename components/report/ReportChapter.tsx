@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import { useT } from "../LocaleProvider";
 
 /**
  * Zone C chapter — collapsible evidence section. Must read as a button when closed:
@@ -25,6 +28,7 @@ export function ReportChapter({
   defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
+  const t = useT();
   if (print) {
     return (
       <section id={id} className="scroll-mt-20">
@@ -81,8 +85,8 @@ export function ReportChapter({
           </div>
 
           <span className="mt-1 shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2 sm:mt-0">
-            <span className="group-open:hidden">Expand</span>
-            <span className="hidden group-open:inline">Collapse</span>
+            <span className="group-open:hidden">{t("common.expand")}</span>
+            <span className="hidden group-open:inline">{t("common.collapse")}</span>
           </span>
         </summary>
         <div className="border-t border-border/70 px-4 py-5 sm:px-5">{children}</div>

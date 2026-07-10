@@ -2,16 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
-const GOAL_OPTIONS = [
-  { key: "lifestyle", label: "Lifestyle / replace my job" },
-  { key: "side_hustle", label: "Side hustle" },
-  { key: "venture", label: "Venture-scale / raise" },
-  { key: "unsure", label: "Not sure yet" },
-];
+import { useT } from "./LocaleProvider";
 
 export default function NewIdeaForm() {
   const router = useRouter();
+  const t = useT();
   const [prompt, setPrompt] = useState("");
   const [goal, setGoal] = useState("unsure");
   const [goalDetail, setGoalDetail] = useState("");
@@ -22,6 +17,13 @@ export default function NewIdeaForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
+
+  const goalOptions = [
+    { key: "lifestyle", label: t("studio.goalLifestyle") },
+    { key: "side_hustle", label: t("studio.goalSideHustle") },
+    { key: "venture", label: t("studio.goalVenture") },
+    { key: "unsure", label: t("studio.goalUnsure") },
+  ];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,13 +40,19 @@ export default function NewIdeaForm() {
       const res = await fetch("/api/ideas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, goal, goalDetail, founderFit, provenance: provenance || null }),
+        body: JSON.stringify({
+          prompt,
+          goal,
+          goalDetail,
+          founderFit,
+          provenance: provenance || null,
+        }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to create idea");
+      if (!res.ok) throw new Error(json.error ?? t("common.error"));
       router.push(`/idea/${json.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create idea");
+      setError(e instanceof Error ? e.message : t("common.error"));
       setBusy(false);
     }
   }
@@ -54,17 +62,17 @@ export default function NewIdeaForm() {
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder="e.g. A weekly meal kit for shift workers that delivers pre-portioned dinners to hospitals and warehouses — cheaper than DoorDash, ready in 10 minutes."
+        placeholder={t("studio.promptPlaceholder")}
         rows={4}
         className="w-full resize-none rounded-xl border border-border bg-bg/40 px-4 py-3.5 text-base leading-relaxed outline-none placeholder:text-muted/70 focus:border-accent"
       />
 
       <div>
         <div className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">
-          Goal — how we judge GO
+          {t("studio.goalLabel")}
         </div>
         <div className="flex flex-wrap gap-2">
-          {GOAL_OPTIONS.map((o) => (
+          {goalOptions.map((o) => (
             <button
               key={o.key}
               type="button"
@@ -82,7 +90,7 @@ export default function NewIdeaForm() {
         <input
           value={goalDetail}
           onChange={(e) => setGoalDetail(e.target.value)}
-          placeholder="Optional: time, effort & budget — e.g. nights & weekends, bootstrap only"
+          placeholder={t("studio.goalDetailPlaceholder")}
           className="mt-2.5 w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none placeholder:text-muted/70 focus:border-accent"
         />
       </div>
@@ -93,16 +101,33 @@ export default function NewIdeaForm() {
           onClick={() => setShowMore((s) => !s)}
           className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted transition hover:text-accent2"
         >
-          {showMore ? "− Hide" : "+"} founder context{" "}
-          <span className="normal-case tracking-normal text-muted/60">(optional, sharpens scoring)</span>
+          {showMore ? t("studio.founderContextHide") : t("studio.founderContextShow")}{" "}
+          <span className="normal-case tracking-normal text-muted/60">
+            {t("studio.founderContextHint")}
+          </span>
         </button>
         {showMore && (
           <div className="mt-3 space-y-2.5 rounded-xl border border-border/80 bg-bg/30 p-3.5">
             {(
               [
-                { label: "Know this market?", value: insider, set: setInsider, opts: ["Insider", "Some", "Outsider"] },
-                { label: "Built software before?", value: builder, set: setBuilder, opts: ["Yes", "No"] },
-                { label: "Warm intros to buyers?", value: network, set: setNetwork, opts: ["Yes", "Some", "None"] },
+                {
+                  label: t("studio.knowMarket"),
+                  value: insider,
+                  set: setInsider,
+                  opts: [t("studio.insider"), t("studio.some"), t("studio.outsider")],
+                },
+                {
+                  label: t("studio.builtSoftware"),
+                  value: builder,
+                  set: setBuilder,
+                  opts: [t("studio.yes"), t("studio.no")],
+                },
+                {
+                  label: t("studio.warmIntros"),
+                  value: network,
+                  set: setNetwork,
+                  opts: [t("studio.yes"), t("studio.some"), t("studio.none")],
+                },
               ] as const
             ).map((row) => (
               <div key={row.label} className="flex flex-wrap items-center gap-2">
@@ -126,12 +151,12 @@ export default function NewIdeaForm() {
               </div>
             ))}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="w-44 shrink-0 text-sm text-muted">Where did this come from?</span>
+              <span className="w-44 shrink-0 text-sm text-muted">{t("studio.whereFrom")}</span>
               <div className="flex flex-wrap gap-1.5">
                 {(
                   [
-                    { key: "organic", label: "A problem I hit" },
-                    { key: "whiteboard", label: "Brainstorming" },
+                    { key: "organic", label: t("studio.problemIHit") },
+                    { key: "whiteboard", label: t("studio.brainstorming") },
                   ] as const
                 ).map((o) => (
                   <button
@@ -154,21 +179,22 @@ export default function NewIdeaForm() {
       </div>
 
       {error && (
-        <div role="alert" className="rounded-xl border border-bad/35 bg-bad/10 px-3 py-2 text-sm text-bad">
+        <div
+          role="alert"
+          className="rounded-xl border border-bad/35 bg-bad/10 px-3 py-2 text-sm text-bad"
+        >
           {error}
         </div>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
-        <p className="max-w-sm text-xs leading-relaxed text-muted">
-          Scored against your goal · live web + fetched evidence · stays on your machine
-        </p>
+        <p className="max-w-sm text-xs leading-relaxed text-muted">{t("studio.scoredFooter")}</p>
         <button
           type="submit"
           disabled={busy || prompt.trim().length < 8}
           className="rounded-pill-pack bg-accent px-6 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-45"
         >
-          {busy ? "Starting…" : "Validate idea →"}
+          {busy ? t("studio.starting") : t("studio.validateIdea")}
         </button>
       </div>
     </form>

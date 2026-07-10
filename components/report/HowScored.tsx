@@ -1,3 +1,5 @@
+"use client";
+
 import {
   BASE_WEIGHTS,
   CRITERIA,
@@ -13,6 +15,7 @@ import {
   verdictBands,
   type GoalBucket,
 } from "@/lib/scoring";
+import { useT } from "../LocaleProvider";
 
 // "How this is scored" — the published scoring machinery, imported from the SAME
 // module the recompute uses (lib/scoring.ts). Nothing here is hardcoded copy: if a
@@ -39,6 +42,7 @@ export function HowScored({
   samples?: number;
   print?: boolean;
 }) {
+  const t = useT();
   const g = normalizeGoal(goal);
   const bands = verdictBands(g);
   const mods = GOAL_WEIGHTS[g];
@@ -59,7 +63,7 @@ export function HowScored({
     <details className="group rounded-xl border border-border bg-panel/40" open={print}>
       <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 font-mono text-[13px] uppercase tracking-[0.12em] text-muted hover:text-fg">
         <span className="transition group-open:rotate-90">▸</span>
-        How this is scored — published weights, bands &amp; gates
+        {t("report.howScored")}
       </summary>
       <div className="space-y-5 border-t border-border p-5">
         <p className="max-w-3xl text-xs leading-relaxed text-muted">

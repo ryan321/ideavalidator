@@ -18,6 +18,7 @@ import { MarkdownText } from "./MarkdownText";
 import { CriteriaDeltaTable, type DeltaVersion } from "./report/CriteriaDeltaTable";
 import type { ZodType } from "zod";
 import { ValidationSchema, type Validation } from "@/lib/generators/validation";
+import { useT } from "./LocaleProvider";
 
 // Validate persisted artifacts against the current schema so results saved under an
 // older schema show a regenerate prompt instead of crashing the render. Partial:
@@ -363,6 +364,7 @@ export default function IdeaWorkspace({
   scoringSamples: number;
 }) {
   const router = useRouter();
+  const t = useT();
   const [cost, setCost] = useState(initialCost);
   const [evidence, setEvidence] = useState<Record<string, EvidenceCorpus>>(evidenceByVersion);
   const [refreshingEvidence, setRefreshingEvidence] = useState(false);
@@ -968,9 +970,7 @@ export default function IdeaWorkspace({
               typeof j.billing?.runCap === "number"
                 ? j.billing.runCap
                 : 10;
-            setCampaignNotice(
-              `${cap} full scored reports included on this idea, plus unlimited questions and tools while you work it.`
-            );
+            setCampaignNotice(t("workspace.noticeUnlocked", { n: cap }));
             setError(null);
             cleanUrl(); // unlocked — safe to drop the session id
           } else if (r.status >= 400 && r.status < 500) {
@@ -2031,7 +2031,7 @@ export default function IdeaWorkspace({
             primary={{
               label:
                 exhausted && scoringPrimary
-                  ? "Campaign analyses complete"
+                  ? t("workspace.noScoringPrimary")
                   : campaignNextMove.label,
               href: exhausted && scoringPrimary ? undefined : campaignNextMove.href,
               onClick:
@@ -2046,7 +2046,7 @@ export default function IdeaWorkspace({
             }
             primaryHint={
               exhausted && scoringPrimary
-                ? "Full analyses included in this campaign are done — chat and your report stay open."
+                ? t("workspace.scoringHintExhausted")
                 : campaignNextMove.hint
             }
             secondary={
@@ -2126,7 +2126,7 @@ export default function IdeaWorkspace({
                         },
                       },
                       {
-                        label: "◆ Deep validation",
+                        label: `◆ ${t("workspaceExtra.deepValidation")}`,
                         hint: exhausted
                           ? "Campaign analyses complete — chat still open."
                           : "~3–4× cost · uses one full analysis.",
@@ -2136,7 +2136,7 @@ export default function IdeaWorkspace({
                       {
                         label: exhausted
                           ? "⟳ Analyses complete"
-                          : "⟳ Re-run analysis",
+                          : `⟳ ${t("workspaceExtra.reRunAnalysis")}`,
                         onClick: () => runValidate(),
                         disabled: anyBusy || scoreBlocked,
                       },
@@ -2148,7 +2148,7 @@ export default function IdeaWorkspace({
                         label: "✎ Edit goal only",
                         onClick: openGoalEditor,
                       },
-                      { label: "Delete idea", danger: true, onClick: remove },
+                      { label: t("workspaceExtra.deleteIdea"), danger: true, onClick: remove },
                     ]}
                   />
                 </div>
@@ -2185,7 +2185,7 @@ export default function IdeaWorkspace({
             <p className="mt-1 text-sm text-muted line-clamp-3">{activeVersion.statement}</p>
             {busy.has(bk(activeVersionId, "validation")) ? (
               <p className="mt-3 font-mono text-xs uppercase tracking-wide text-accent2">
-                Starting grounded analysis…
+                {t("workspaceExtra.startingAnalysis")}
               </p>
             ) : (
               <button
@@ -2194,10 +2194,10 @@ export default function IdeaWorkspace({
                 className="mt-3 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-on-accent disabled:opacity-50"
               >
                 {locked
-                  ? "Unlock campaign to validate →"
+                  ? t("workspace.unlockToValidate")
                   : exhausted
-                    ? "Campaign analyses complete"
-                    : "Validate this idea →"}
+                    ? t("workspace.analysesComplete")
+                    : t("workspace.validateThis")}
               </button>
             )}
           </div>
@@ -2510,7 +2510,9 @@ export default function IdeaWorkspace({
           <div className="folio mb-5 border-accent2/30 p-5">
             <div className="mb-1 flex items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="font-display text-base font-bold text-accent2">Ask about this analysis</div>
+                <div className="font-display text-base font-bold text-accent2">
+                  {t("workspace.askTitle")}
+                </div>
                 <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent2">
                   no rescore
                 </span>
@@ -2623,7 +2625,9 @@ export default function IdeaWorkspace({
           >
             <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="font-display text-base font-bold text-accent2">New version</div>
+                <div className="font-display text-base font-bold text-accent2">
+                  {t("workspace.newVersion")}
+                </div>
                 <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent">
                   creates v{versions.length + 1}
                 </span>
@@ -2641,10 +2645,10 @@ export default function IdeaWorkspace({
             <div className="mb-3 flex flex-wrap gap-1.5">
               {(
                 [
-                  { key: "write" as const, label: "I'll write it" },
-                  { key: "suggest" as const, label: "Suggest sharper" },
-                  { key: "context" as const, label: "Add context" },
-                  { key: "advanced" as const, label: "Advanced" },
+                  { key: "write" as const, label: t("workspace.writeIt") },
+                  { key: "suggest" as const, label: t("workspace.suggestSharper") },
+                  { key: "context" as const, label: t("workspace.addContext") },
+                  { key: "advanced" as const, label: t("workspace.advanced") },
                 ] as const
               ).map((m) => (
                 <button
@@ -2862,7 +2866,7 @@ export default function IdeaWorkspace({
                     }}
                     className="rounded-lg border border-border bg-panel2 p-3 text-left transition hover:border-accent/40 disabled:opacity-50"
                   >
-                    <div className="text-sm font-medium">Compare angles</div>
+                    <div className="text-sm font-medium">{t("workspace.compareAngles")}</div>
                     <p className="mt-1 text-xs text-muted">
                       3–5 divergent wedges, scored head-to-head on the same evidence. ~1 full
                       analysis each
@@ -2881,7 +2885,7 @@ export default function IdeaWorkspace({
                     }}
                     className="rounded-lg border border-border bg-panel2 p-3 text-left transition hover:border-accent/40 disabled:opacity-50"
                   >
-                    <div className="text-sm font-medium">Climb toward a score</div>
+                    <div className="text-sm font-medium">{t("workspace.climbScore")}</div>
                     <p className="mt-1 text-xs text-muted">
                       Auto-iterate: propose → validate → keep climbs until target or max rounds.
                     </p>
@@ -2946,7 +2950,7 @@ export default function IdeaWorkspace({
             className="mb-4 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-accent/35 bg-accent/8 px-4 py-3 text-sm text-fg/90"
           >
             <p className="min-w-0 flex-1 leading-relaxed">
-              <span className="font-medium text-accent">You&apos;re in.</span>{" "}
+              <span className="font-medium text-accent">{t("workspace.youreIn")}</span>{" "}
               {campaignNotice}
             </p>
             <button
@@ -2954,7 +2958,7 @@ export default function IdeaWorkspace({
               onClick={() => setCampaignNotice(null)}
               className="shrink-0 font-mono text-[10px] uppercase tracking-wide text-muted hover:text-fg"
             >
-              Dismiss
+              {t("common.dismiss")}
             </button>
           </div>
         )}
@@ -2973,22 +2977,21 @@ export default function IdeaWorkspace({
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-                      Full campaign
+                      {t("workspace.fullCampaign")}
                     </div>
                     <div className="mt-1 text-base font-semibold">
-                      Pressure-test this idea end-to-end — $
-                      {(billing!.priceCents / 100).toFixed(0)}
+                      {t("workspace.pressureTest", {
+                        price: (billing!.priceCents / 100).toFixed(0),
+                      })}
                     </div>
                     <p className="mt-1 text-sm leading-relaxed text-muted">
-                      One price for a full pass on this idea: a grounded score, room to re-score
-                      when the framing changes, compare angles, a practical buyer test, and
-                      competitor context.{" "}
+                      {t("workspace.unlockBodyBefore")}{" "}
                       <span className="text-fg/80">
-                        {billing!.runCap} full scored reports included
+                        {t("workspace.unlockReports", { n: billing!.runCap })}
                       </span>
-                      , plus unlimited questions — so you never pay per chat.{" "}
+                      {t("workspace.unlockBodyAfter")}{" "}
                       <a href="/pricing" className="text-accent hover:underline">
-                        Pricing details
+                        {t("workspace.pricingDetails")}
                       </a>
                     </p>
                   </div>
@@ -2996,7 +2999,9 @@ export default function IdeaWorkspace({
                     onClick={startCheckout}
                     className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:opacity-90"
                   >
-                    Unlock for ${(billing!.priceCents / 100).toFixed(0)} →
+                    {t("workspace.unlockFor", {
+                      price: (billing!.priceCents / 100).toFixed(0),
+                    })}
                   </button>
                 </div>
               </div>
@@ -3008,38 +3013,34 @@ export default function IdeaWorkspace({
                 <div className="flex flex-wrap items-start gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent2">
-                      Reports complete
+                      {t("workspace.reportsComplete")}
                     </div>
                     <div className="mt-1 text-base font-semibold">
-                      You&apos;ve used the {billing!.runCap} full scored reports on this idea
+                      {t("workspace.usedReports", { n: billing!.runCap })}
                     </div>
                     <p className="mt-1 text-sm leading-relaxed text-muted">
-                      That&apos;s the deep scoring included in your pass — most people need fewer.
-                      Keep reading the report and asking questions. Ready for a different idea?
-                      Start a new one.
+                      {t("workspace.usedBody")}
                     </p>
                   </div>
                   <a
                     href="/studio"
                     className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:opacity-90"
                   >
-                    Validate a new idea →
+                    {t("workspace.validateNew")}
                   </a>
                 </div>
               </div>
             )}
 
             {/* soft nudge when nearly through included analyses */}
-            {low && !exhausted && (
+            {low && !exhausted && remaining !== null && (
               <div className="mb-4 rounded-lg border border-accent/25 bg-accent/5 px-3.5 py-2.5 text-sm text-fg/90">
                 <span className="font-medium text-accent">
-                  {remaining} full report{remaining === 1 ? "" : "s"} remaining
+                  {remaining === 1
+                    ? t("workspace.reportsRemaining", { n: remaining })
+                    : t("workspace.reportsRemainingPlural", { n: remaining })}
                 </span>
-                <span className="text-muted">
-                  {" "}
-                  on this idea — best after a real change to the framing or evidence. Asking
-                  questions never uses one.
-                </span>
+                <span className="text-muted">{t("workspace.remainingHint")}</span>
               </div>
             )}
 
@@ -3048,7 +3049,7 @@ export default function IdeaWorkspace({
             {billing?.enabled && billing.paid && (
               <div
                 className="mb-3 flex flex-wrap items-center gap-2"
-                title={`${billing.runCap} full scored reports included on this idea. Questions and tools are unlimited.`}
+                title={t("workspace.meterTitle", { n: billing.runCap })}
               >
                 <span
                   className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] ${
@@ -3070,13 +3071,15 @@ export default function IdeaWorkspace({
                     }}
                   />
                   <span className="font-medium text-fg/85">
-                    {billing.runCap} full reports included
+                    {t("workspace.meterIncluded", { n: billing.runCap })}
                   </span>
                   {remaining !== null && !exhausted ? (
-                    <span className="text-fg/65">· {remaining} remaining</span>
+                    <span className="text-fg/65">
+                      {t("workspace.meterRemaining", { n: remaining })}
+                    </span>
                   ) : null}
                   {exhausted ? (
-                    <span className="text-fg/65">· complete</span>
+                    <span className="text-fg/65">{t("workspace.meterComplete")}</span>
                   ) : null}
                 </span>
                 {/* progress through included analyses */}
@@ -3103,7 +3106,7 @@ export default function IdeaWorkspace({
 
             {/* the one comprehensive analysis */}
             {busy.has(bk(activeVersionId, "validation")) ? (
-              <GenerationProgress label="the full analysis" grounded />
+              <GenerationProgress label={t("progress.fullAnalysis")} grounded />
             ) : activeArtifacts.validation ? (
               <div>
                 <SafeArtifact

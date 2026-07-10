@@ -94,6 +94,8 @@ export async function buildValidationRun(
   const prior: GenContext["prior"] = {};
   for (const a of getArtifacts(versionId)) prior[a.kind] = a.data;
 
+  const { resolveLocale } = await import("../i18n/server");
+  const locale = await resolveLocale();
   const ctx: GenContext = {
     idea: { title: idea.title, prompt: version.statement },
     prior,
@@ -102,6 +104,7 @@ export async function buildValidationRun(
     steer: opts?.steer ?? null,
     founderFit: idea.founder_fit,
     provenance: idea.provenance,
+    locale,
   };
 
   const def = GENERATORS.validation!; // always registered
@@ -153,6 +156,8 @@ export async function runGenerator(
     if (!idea) throw new Error("Idea not found");
     const prior: GenContext["prior"] = {};
     for (const a of getArtifacts(versionId)) prior[a.kind] = a.data;
+    const { resolveLocale } = await import("../i18n/server");
+    const locale = await resolveLocale();
     const ctx: GenContext = {
       idea: { title: idea.title, prompt: version.statement },
       prior,
@@ -161,6 +166,7 @@ export async function runGenerator(
       steer: opts?.steer ?? null,
       founderFit: idea.founder_fit,
       provenance: idea.provenance,
+      locale,
     };
     const fullPrompt = def.buildPrompt(ctx) + steerContext(ctx, prior[kind]);
     const { elicited, sources, model, usage } = await runScoringSamples(def, fullPrompt, 1, []);

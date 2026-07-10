@@ -1,4 +1,7 @@
+"use client";
+
 import type { Validation } from "@/lib/generators/validation";
+import { useT } from "../LocaleProvider";
 
 // Who buys & how to reach them. The honest twist vs competitor products: channels that
 // match the fetched corpus get an "evidence found here" chip — those hangouts are
@@ -24,38 +27,41 @@ export function IcpCard({
   /** Corpus communities evidence was actually fetched from (proven hangouts). */
   communities?: string[];
 }) {
+  const t = useT();
   const channels = (icp.channels ?? []).filter((c) => c.name);
   if (!icp.who && !channels.length) return null;
 
   return (
     <div>
-      <div className="mb-2.5 font-mono text-sm uppercase tracking-[0.1em] text-muted">Who buys &amp; how</div>
+      <div className="mb-2.5 font-mono text-sm uppercase tracking-[0.1em] text-muted">{t("report.whoBuys")}</div>
       <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
         {icp.who && (
           <div className="bg-panel p-4">
-            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">The buyer</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("report.theBuyer")}</div>
             <p className="mt-1 text-sm leading-relaxed text-fg/90">{icp.who}</p>
           </div>
         )}
         {icp.how_they_buy && (
           <div className="bg-panel p-4">
-            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">How they buy</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{t("report.howTheyBuy")}</div>
             <p className="mt-1 text-sm leading-relaxed text-fg/90">{icp.how_they_buy}</p>
           </div>
         )}
         {(icp.trigger_events ?? []).length > 0 && (
           <div className="bg-panel p-4">
-            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent2">Trigger moments</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent2">{t("report.triggerMoments")}</div>
             <ul className="mt-1 space-y-1">
-              {icp.trigger_events.map((t, i) => (
-                <li key={i} className="text-sm leading-snug text-fg/90">⚡ {t}</li>
+              {icp.trigger_events.map((ev, i) => (
+                <li key={i} className="text-sm leading-snug text-fg/90">⚡ {ev}</li>
               ))}
             </ul>
           </div>
         )}
         {(icp.objections ?? []).length > 0 && (
           <div className="bg-panel p-4">
-            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-warn">Objections you&apos;ll hear</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-warn">
+              {t("report.objections")}
+            </div>
             <ul className="mt-1 space-y-1">
               {icp.objections.map((o, i) => (
                 <li key={i} className="text-sm leading-snug text-fg/90">— {o}</li>

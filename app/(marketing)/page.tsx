@@ -2,35 +2,37 @@ import Link from "next/link";
 import { CampaignPriceCard } from "@/components/CampaignPriceCard";
 import { getSessionUser } from "@/lib/auth";
 import { priceCents } from "@/lib/billing";
-import { HOW_IT_WORKS_STEPS, WHAT_YOU_GET } from "@/lib/marketing-copy";
+import { checklistItems } from "@/lib/i18n/t";
+import { getTranslator } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function LandingPage() {
   const user = await getSessionUser();
-  const price = (priceCents() / 100).toFixed(0);
+  const { t } = await getTranslator();
+  const price = `$${(priceCents() / 100).toFixed(0)}`;
   const ctaHref = user ? "/studio" : "/signup";
-  const ctaLabel = user ? "Open studio →" : "Validate my idea →";
+  const ctaLabel = user ? t("nav.openStudio") : t("nav.validateCta");
+  const checklist = checklistItems(t);
 
   return (
     <div className="folio-enter">
-      {/* Hero + price card */}
       <section className="mx-auto max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16">
         <div className="grid items-start gap-10 lg:grid-cols-[1fr_minmax(0,22rem)] lg:gap-12 xl:grid-cols-[1fr_minmax(0,24rem)]">
           <div className="min-w-0">
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
-              Business validation studio
+              {t("landing.eyebrow")}
             </p>
             <h1 className="mt-4 max-w-3xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-6xl">
-              Put your business idea on the table.
-              <span className="mt-2 block text-muted">Validate it before you begin.</span>
+              {t("landing.h1a")}
+              <span className="mt-2 block text-muted">{t("landing.h1b")}</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-              Don&apos;t pour time and money into an idea that was never going to work. Validate
-              your business idea with a clear{" "}
-              <em className="text-fg/85 not-italic">GO, MAYBE, or NO-GO</em> against{" "}
-              <em className="text-fg/85 not-italic">your</em> goal, grounded in evidence, before
-              you commit.
+              {t("landing.subBefore")}{" "}
+              <em className="text-fg/85 not-italic">{t("landing.subVerdict")}</em>{" "}
+              {t("landing.subMid")}{" "}
+              <em className="text-fg/85 not-italic">{t("landing.subYour")}</em>{" "}
+              {t("landing.subAfter")}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
@@ -43,34 +45,34 @@ export default async function LandingPage() {
                 href="/pricing"
                 className="rounded-pill-pack border border-border px-5 py-3 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-fg"
               >
-                Pricing details
+                {t("landing.pricingDetails")}
               </Link>
               {!user && (
                 <Link
                   href="/login"
                   className="rounded-pill-pack border border-border px-5 py-3 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-fg"
                 >
-                  Sign in
+                  {t("nav.signIn")}
                 </Link>
               )}
             </div>
             <p className="mt-4 text-sm text-muted">
               {user ? (
                 <>
-                  Open the studio and describe an idea. Full validation is{" "}
-                  <span className="font-medium text-fg/80">${price} per idea</span>.
+                  {t("landing.paidHintBefore")}{" "}
+                  <span className="font-medium text-fg/80">
+                    {t("landing.paidHintPrice", { price })}
+                  </span>
+                  {t("landing.paidHintAfter")}
                 </>
               ) : (
                 <>
-                  <span className="font-medium text-fg/80">Account is free.</span> Unlock a full
-                  pass for <span className="font-medium text-fg/80">${price}</span> when you&apos;re
-                  ready to score that idea.
+                  <span className="font-medium text-fg/80">{t("landing.freeLead")}</span>{" "}
+                  {t("landing.freeRest", { price })}
                 </>
               )}
             </p>
-            <p className="mt-2 font-mono text-[11px] text-muted">
-              For solo founders, side projects, and first-time builders · private by default
-            </p>
+            <p className="mt-2 font-mono text-[11px] text-muted">{t("landing.whoFor")}</p>
           </div>
 
           <div className="w-full max-w-md justify-self-center lg:max-w-none lg:justify-self-end">
@@ -83,20 +85,19 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* What this service does — deliverable checklist */}
       <section className="border-t border-border bg-panel/30 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
-            What you get
+            {t("landing.whatYouGetEyebrow")}
           </p>
           <h2 className="mt-3 max-w-2xl font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            Everything in a full validation
+            {t("landing.whatYouGetTitle")}
           </h2>
           <p className="mt-2 max-w-xl text-muted">
-            Not a single vague score. A full decision package from ${price} per idea.
+            {t("landing.whatYouGetSub", { price })}
           </p>
           <ul className="mt-10 grid gap-x-10 gap-y-3 sm:grid-cols-2">
-            {WHAT_YOU_GET.map((item) => (
+            {checklist.map((item) => (
               <li
                 key={item}
                 className="flex items-start gap-3 text-sm leading-snug text-fg/90 sm:text-[15px]"
@@ -114,38 +115,42 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* How it works */}
       <section className="border-y border-border bg-panel/40 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            How it works
+            {t("landing.howTitle")}
           </h2>
-          <p className="mt-2 max-w-xl text-muted">
-            From first description to a decision you can act on, without going all-in first.
-          </p>
+          <p className="mt-2 max-w-xl text-muted">{t("landing.howSub")}</p>
           <ol className="mt-10 grid gap-6 sm:grid-cols-3">
-            {HOW_IT_WORKS_STEPS.map((s) => (
-              <li key={s.n} className="folio p-5">
+            {(
+              [
+                ["landing.how1Title", "landing.how1Body"],
+                ["landing.how2Title", "landing.how2Body"],
+                ["landing.how3Title", "landing.how3Body"],
+              ] as const
+            ).map(([titleKey, bodyKey], i) => (
+              <li key={titleKey} className="folio p-5">
                 <div className="font-mono text-[11px] font-semibold text-accent [letter-spacing:var(--tracking-eyebrow)]">
-                  {s.n}
+                  {String(i + 1).padStart(2, "0")}
                 </div>
-                <h3 className="mt-2 font-display text-lg font-bold tracking-tight">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">{s.body}</p>
+                <h3 className="mt-2 font-display text-lg font-bold tracking-tight">
+                  {t(titleKey)}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{t(bodyKey)}</p>
               </li>
             ))}
           </ol>
         </div>
       </section>
 
-      {/* Why + verdict — one combined trust strip */}
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
         <div className="folio flex flex-col gap-10 p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0 max-w-xl">
             <p className="font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
-              Why Validorian
+              {t("landing.whyEyebrow")}
             </p>
             <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              A decision you can stand behind
+              {t("landing.whyTitle")}
             </h2>
             <ul className="mt-5 space-y-3 text-sm leading-relaxed text-muted">
               <li className="flex gap-2">
@@ -153,8 +158,8 @@ export default async function LandingPage() {
                   ·
                 </span>
                 <span>
-                  <b className="font-medium text-fg/85">Scored for your goal.</b> Side hustle and
-                  venture raise aren&apos;t graded the same.
+                  <b className="font-medium text-fg/85">{t("landing.why1Title")}</b>{" "}
+                  {t("landing.why1Body")}
                 </span>
               </li>
               <li className="flex gap-2">
@@ -162,8 +167,8 @@ export default async function LandingPage() {
                   ·
                 </span>
                 <span>
-                  <b className="font-medium text-fg/85">Evidence, not vibes.</b> Demand and
-                  competition checked against real sources.
+                  <b className="font-medium text-fg/85">{t("landing.why2Title")}</b>{" "}
+                  {t("landing.why2Body")}
                 </span>
               </li>
               <li className="flex gap-2">
@@ -171,15 +176,15 @@ export default async function LandingPage() {
                   ·
                 </span>
                 <span>
-                  <b className="font-medium text-fg/85">Built to iterate.</b> One report is the
-                  start; rewrite, compare angles, re-score until it&apos;s clear.
+                  <b className="font-medium text-fg/85">{t("landing.why3Title")}</b>{" "}
+                  {t("landing.why3Body")}
                 </span>
               </li>
             </ul>
           </div>
           <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
             <p className="font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
-              The call
+              {t("landing.theCall")}
             </p>
             <div className="flex flex-wrap gap-2">
               <span className="verdict-stamp text-sm text-good">GO</span>
@@ -187,31 +192,21 @@ export default async function LandingPage() {
               <span className="verdict-stamp text-sm text-bad">NO-GO</span>
             </div>
             <p className="max-w-xs text-left text-xs leading-relaxed text-muted sm:text-right">
-              Walk away knowing whether to go ahead, pivot the angle, or stop, with a next test if
-              you continue.
+              {t("landing.theCallBody")}
             </p>
           </div>
         </div>
       </section>
 
-      {/* Final CTA */}
       <section className="border-t border-border bg-panel/40 py-16 text-center sm:py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-            Ready for a hard read?
+            {t("landing.finalTitle")}
           </h2>
           <p className="mx-auto mt-3 max-w-md text-muted">
-            {user ? (
-              <>
-                Open the studio, describe the idea, and run a full pass. ${price} unlocks that idea
-                end-to-end.
-              </>
-            ) : (
-              <>
-                Create a free account, describe the idea, then unlock a full pass for ${price} when
-                you&apos;re ready to score.
-              </>
-            )}
+            {user
+              ? t("landing.finalSubUser", { price })
+              : t("landing.finalSubGuest", { price })}
           </p>
           <Link
             href={ctaHref}
@@ -219,11 +214,7 @@ export default async function LandingPage() {
           >
             {ctaLabel}
           </Link>
-          {!user && (
-            <p className="mt-3 text-xs text-muted">
-              No subscription. Pay once per idea.
-            </p>
-          )}
+          {!user && <p className="mt-3 text-xs text-muted">{t("landing.noSub")}</p>}
         </div>
       </section>
     </div>
