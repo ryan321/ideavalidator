@@ -13,31 +13,31 @@ const WHAT_YOU_GET = [
   "Competition review",
   "Obtainable revenue estimate",
   "Risk map (what can kill it)",
-  "Buyer profile — who to sell to and where",
+  "Buyer profile: who to sell to and where",
   "Real-world test plan (who to talk to, pass/fail)",
   "Social media search (Reddit, forums, and live web signals)",
   "Evidence-backed claims with sources",
   "Iterate: rewrite the pitch and re-score",
   "Variations: try different angles side by side",
   "Multiple full reports as the idea evolves",
-  "Chat with the review — dig into scores, risks, and next steps",
+  "Chat with the review: dig into scores, risks, and next steps",
 ];
 
 const STEPS = [
   {
     n: "01",
     title: "Describe the idea",
-    body: "What you're offering, who it's for, and why now — plus your goal, so GO means the right thing for you.",
+    body: "What you're offering, who it's for, and why now, plus your goal so GO means the right thing for you.",
   },
   {
     n: "02",
     title: "Unlock & get a hard score",
-    body: "One payment opens a full pass on that idea. You get an evidence-backed GO / MAYBE / NO-GO — not a pep talk.",
+    body: "One payment opens a full pass on that idea. You get an evidence-backed GO / MAYBE / NO-GO, not a pep talk.",
   },
   {
     n: "03",
     title: "Keep working it",
-    body: "Rewrite the pitch, try a different angle, chat with the review, re-score — until the answer is clear.",
+    body: "Rewrite the pitch, try a different angle, chat with the review, and re-score until the answer is clear.",
   },
 ];
 
@@ -61,11 +61,11 @@ export default async function LandingPage() {
               <span className="mt-2 block text-muted">Validate it before you begin.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-              Most bad ideas don&apos;t fail in a pitch deck — they fail after you&apos;ve already
-              built them. Get a clear{" "}
+              Don&apos;t pour time and money into an idea that was never going to work. Validate
+              your business idea with a clear{" "}
               <em className="text-fg/85 not-italic">GO, MAYBE, or NO-GO</em> against{" "}
               <em className="text-fg/85 not-italic">your</em> goal, grounded in evidence, before
-              you burn months.
+              you commit.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
@@ -128,7 +128,7 @@ export default async function LandingPage() {
             Everything in a full validation
           </h2>
           <p className="mt-2 max-w-xl text-muted">
-            Not a single vague score — a full decision package. From ${price} per idea.
+            Not a single vague score. A full decision package from ${price} per idea.
           </p>
           <ul className="mt-10 grid gap-x-10 gap-y-3 sm:grid-cols-2">
             {WHAT_YOU_GET.map((item) => (
@@ -156,7 +156,7 @@ export default async function LandingPage() {
             How it works
           </h2>
           <p className="mt-2 max-w-xl text-muted">
-            From first description to a decision you can act on — without building first.
+            From first description to a decision you can act on, without going all-in first.
           </p>
           <ol className="mt-10 grid gap-6 sm:grid-cols-3">
             {STEPS.map((s) => (
@@ -188,7 +188,7 @@ export default async function LandingPage() {
                   ·
                 </span>
                 <span>
-                  <b className="font-medium text-fg/85">Scored for your goal</b> — side hustle and
+                  <b className="font-medium text-fg/85">Scored for your goal.</b> Side hustle and
                   venture raise aren&apos;t graded the same.
                 </span>
               </li>
@@ -197,7 +197,7 @@ export default async function LandingPage() {
                   ·
                 </span>
                 <span>
-                  <b className="font-medium text-fg/85">Evidence, not vibes</b> — demand and
+                  <b className="font-medium text-fg/85">Evidence, not vibes.</b> Demand and
                   competition checked against real sources.
                 </span>
               </li>
@@ -206,7 +206,7 @@ export default async function LandingPage() {
                   ·
                 </span>
                 <span>
-                  <b className="font-medium text-fg/85">Built to iterate</b> — one report is the
+                  <b className="font-medium text-fg/85">Built to iterate.</b> One report is the
                   start; rewrite, compare angles, re-score until it&apos;s clear.
                 </span>
               </li>
@@ -222,7 +222,7 @@ export default async function LandingPage() {
               <span className="verdict-stamp text-sm text-bad">NO-GO</span>
             </div>
             <p className="max-w-xs text-left text-xs leading-relaxed text-muted sm:text-right">
-              Walk away knowing whether to build, pivot the angle, or stop — with a next test if
+              Walk away knowing whether to go ahead, pivot the angle, or stop, with a next test if
               you continue.
             </p>
           </div>
@@ -238,8 +238,8 @@ export default async function LandingPage() {
           <p className="mx-auto mt-3 max-w-md text-muted">
             {user ? (
               <>
-                Open the studio, describe the idea, and run a full pass — ${price} unlocks that
-                idea end-to-end.
+                Open the studio, describe the idea, and run a full pass. ${price} unlocks that idea
+                end-to-end.
               </>
             ) : (
               <>
