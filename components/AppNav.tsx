@@ -60,9 +60,9 @@ export default function AppNav() {
   const list = (
     <>
       <Link
-        href="/"
+        href="/studio"
         className={`mb-1 flex items-center justify-between rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium transition ${
-          !activeId && (pathname === "/" || pathname === "")
+          pathname === "/studio" || pathname?.startsWith("/studio")
             ? "bg-accent/15 text-accent2"
             : "text-muted hover:bg-panel2 hover:text-fg"
         }`}

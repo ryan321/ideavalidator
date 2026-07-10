@@ -7,27 +7,23 @@ import { verdictBands } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
+export default async function StudioPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   const ideas = listIdeasForUser(user.id);
 
   return (
     <div className="folio-enter space-y-12">
-      {/* Hero thesis */}
       <header className="relative overflow-hidden">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
-          Private · grounded · goal-relative
+          Studio
         </p>
-        <h1 className="mt-3 max-w-2xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-5xl">
-          Put the idea on the table.
-          <span className="mt-2 block text-muted">Validate it before you begin.</span>
+        <h1 className="mt-2 max-w-2xl font-display text-3xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-4xl">
+          Your ideas
         </h1>
-        <p className="mt-4 max-w-xl text-base leading-relaxed text-muted">
-          A scored GO / MAYBE / NO-GO report against <em className="text-fg/80 not-italic">your</em> goal —
-          live evidence, real kill-tests, no pitch-deck theater.
+        <p className="mt-2 max-w-xl text-base leading-relaxed text-muted">
+          Start a new validation or open an existing one. Scores are goal-relative and grounded in evidence.
         </p>
-        <div className="rule-brass mt-8 max-w-md" />
       </header>
 
       {/* Compose surface */}

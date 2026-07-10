@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
-  if (await getSessionUser()) redirect("/");
-  return <AuthForm mode="login" />;
+export default async function SignupPage() {
+  if (await getSessionUser()) redirect("/studio");
+  return <AuthForm mode="signup" />;
 }

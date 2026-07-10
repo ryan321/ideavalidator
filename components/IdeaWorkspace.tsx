@@ -1464,7 +1464,7 @@ export default function IdeaWorkspace({
   async function remove() {
     if (!confirm("Delete this idea, all versions and artifacts?")) return;
     await fetch(`/api/ideas/${idea.id}`, { method: "DELETE" });
-    router.push("/");
+    router.push("/studio");
   }
 
   // Prefer a schema-valid Validation for typed UI (WhyThisScore, etc.); fall back to a

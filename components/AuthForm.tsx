@@ -26,7 +26,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "Something went wrong.");
-      router.push("/");
+      router.push("/studio");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
