@@ -15,29 +15,29 @@ export const STYLES: Record<
   }
 > = {
   paper: {
-    label: "Paper",
-    blurb: "Warm committee ledger — best for long reads",
-    swatches: ["#f3efe6", "#8b6914", "#1a7f4b"],
+    label: "Vellum",
+    blurb: "Ivory memo · carmine stamp · boardroom brief",
+    swatches: ["#f7f3ea", "#9b2c2c", "#1a7a4c"],
   },
   ink: {
-    label: "Ink",
-    blurb: "Dark brass desk — night red-team",
-    swatches: ["#100e0c", "#d4a017", "#3dba7a"],
+    label: "Foundry",
+    blurb: "Charcoal night · molten gold · after-hours desk",
+    swatches: ["#0e0e10", "#e2b13c", "#3ecf8e"],
   },
   slate: {
-    label: "Slate",
-    blurb: "Cool instrument panel — steel & graphite",
-    swatches: ["#0a0c11", "#5a8fcf", "#33cb8c"],
+    label: "Nocturne",
+    blurb: "Deep navy · ice blue · observatory console",
+    swatches: ["#0a1020", "#5b9fd4", "#3dcea0"],
   },
   signal: {
-    label: "Signal",
-    blurb: "Stark editorial — black, white, vermillion",
-    swatches: ["#f7f7f5", "#c43c2c", "#1a1a1a"],
+    label: "Broadsheet",
+    blurb: "Newsprint white · ink black · stop-press red",
+    swatches: ["#f4f4f0", "#d12b2b", "#111111"],
   },
   grove: {
-    label: "Grove",
-    blurb: "Soft sage — calmer daylight desk",
-    swatches: ["#eef2eb", "#3d6b4f", "#2a5a3a"],
+    label: "Library",
+    blurb: "Soft linen · forest green · quiet study",
+    swatches: ["#f2f0e9", "#2f5d50", "#1f7a4d"],
   },
 };
 
