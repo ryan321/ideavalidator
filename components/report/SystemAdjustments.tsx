@@ -1,4 +1,7 @@
+"use client";
+
 import type { SystemAdjustment } from "@/lib/generators/validation";
+import { useT } from "../LocaleProvider";
 
 // The report shows its own enforcement: every code-level rule that fired (gates,
 // clamps, lints, rewrites) renders as a visible amber note — never silent.
@@ -15,16 +18,14 @@ export function SystemAdjustments({
   /** Human-readable goal noun, e.g. "venture" / "side-hustle" — for the goal-fit-cap line. */
   goalLabel: string;
 }) {
+  const t = useT();
   if (!adjustments?.length) return null;
   return (
     <div className="rounded-xl border border-warn/40 bg-warn/5 p-4">
       <div className="mb-1 font-mono text-[13px] uppercase tracking-[0.12em] text-warn">
-        System adjustments ({adjustments.length})
+        {t("report.systemAdjustments", { n: adjustments.length })}
       </div>
-      <p className="mb-3 text-xs text-muted">
-        Code-level scoring rules that fired on this run. The model banded each criterion; these
-        gates, clamps, and lints were applied by the system afterwards.
-      </p>
+      <p className="mb-3 text-xs text-muted">{t("report.systemAdjustmentsBlurb")}</p>
       <ul className="space-y-3">
         {adjustments.map((a, i) => {
           const uncapped =
@@ -41,8 +42,10 @@ export function SystemAdjustments({
                 <span className="text-fg/90">{a.detail}</span>
                 {uncapped && (
                   <div className="mt-1 text-xs text-muted">
-                    → Would score <b className="text-fg/80">{uncapped}</b> under a goal this idea
-                    actually fits — capped for your <b className="text-fg/80">{goalLabel}</b> goal.
+                    {t("report.wouldScoreUnderGoal", {
+                      score: uncapped,
+                      goal: goalLabel,
+                    })}
                   </div>
                 )}
               </div>

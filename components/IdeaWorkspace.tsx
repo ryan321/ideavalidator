@@ -1776,7 +1776,7 @@ export default function IdeaWorkspace({
       onClick: () => openComposer("suggest"),
       alt: {
         label: t("workspaceExtra.orPrepInterviews"),
-        detail: t("workspaceExtra.orPrepInterviews"),
+        detail: t("workspaceExtra.orPrepInterviewsDetail"),
         onClick: generateKit,
       },
     });
@@ -1792,7 +1792,7 @@ export default function IdeaWorkspace({
       onClick: () => (activeAlphas.length ? exploreWedges() : openComposer("write")),
       alt: {
         label: t("workspaceExtra.orPrepInterviews"),
-        detail: "If you believe the assumption is the real issue, test it with buyers.",
+        detail: t("workspaceExtra.orPrepInterviewsDetail"),
         onClick: generateKit,
       },
     });
@@ -1804,7 +1804,7 @@ export default function IdeaWorkspace({
         ...kitMove(false),
         alt: {
           label: t("workspaceExtra.orAddContext"),
-          detail: "If the report missed founder facts, rescore before interviewing.",
+          detail: t("workspaceExtra.orAddContextDetail"),
           onClick: () => openComposer("context"),
         },
       };
@@ -2643,17 +2643,14 @@ export default function IdeaWorkspace({
                   {t("workspace.newVersion")}
                 </div>
                 <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent">
-                  creates v{versions.length + 1}
+                  {t("workspaceExtra.createsV", { n: versions.length + 1 })}
                 </span>
               </div>
               <button onClick={closeComposer} className="text-xs text-muted hover:text-fg">
-                close
+                {t("common.close")}
               </button>
             </div>
-            <p className="mb-3 text-xs text-muted">
-              Change the idea, goal, or context, then rescore. Prefer{" "}
-              <b className="font-medium text-fg/70">Ask</b> if you only want to understand this report.
-            </p>
+            <p className="mb-3 text-xs text-muted">{t("workspaceExtra.composerBlurb")}</p>
 
             {/* mode chips */}
             <div className="mb-3 flex flex-wrap gap-1.5">

@@ -31,6 +31,7 @@ export function ScoreRing({
   bands: { go: number; maybe: number };
   insufficient?: boolean;
 }) {
+  const t = useT();
   // Concentric radii (viewBox 0–120, center 60,60)
   const R_ZONE = 48; // outer: zone map
   const R_SCORE = 36; // inner: solid score
@@ -180,19 +181,19 @@ export function ScoreRing({
       {!insufficient && (
         <div
           className="mt-1.5 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide"
-          title={`NO-GO < ${bands.maybe} · MAYBE ${bands.maybe}–${bands.go - 1} · GO ≥ ${bands.go}`}
+          title={`${t("verdict.noGo")} < ${bands.maybe} · ${t("verdict.maybe")} ${bands.maybe}–${bands.go - 1} · ${t("verdict.go")} ≥ ${bands.go}`}
         >
           <span className="inline-flex items-center gap-1 text-good">
             <span className="h-1.5 w-1.5 rounded-full bg-good/80" aria-hidden />
-            Go
+            {t("verdict.go")}
           </span>
           <span className="inline-flex items-center gap-1 text-warn">
             <span className="h-1.5 w-1.5 rounded-full bg-warn/80" aria-hidden />
-            Maybe
+            {t("verdict.maybe")}
           </span>
           <span className="inline-flex items-center gap-1 text-bad">
             <span className="h-1.5 w-1.5 rounded-full bg-bad/80" aria-hidden />
-            No-go
+            {t("verdict.noGo")}
           </span>
         </div>
       )}

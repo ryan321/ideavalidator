@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, Section } from "@/components/ui";
+import type { TranslateFn } from "@/lib/i18n/t";
 import { useT } from "../LocaleProvider";
 
 type RiskCategory = "tech" | "market" | "financial";
@@ -19,11 +20,18 @@ const CATEGORY_COLOR: Record<RiskCategory, string> = {
   financial: "var(--color-bad)",
 };
 
-const CATEGORY_LABEL: Record<RiskCategory, string> = {
-  tech: "Tech",
-  market: "Market",
-  financial: "Financial",
-};
+function categoryLabel(c: RiskCategory, t: TranslateFn): string {
+  switch (c) {
+    case "tech":
+      return t("report.riskCatTech");
+    case "market":
+      return t("report.riskCatMarket");
+    case "financial":
+      return t("report.riskCatFinancial");
+    default:
+      return c;
+  }
+}
 
 const clamp = (n: number) => Math.max(1, Math.min(5, Math.round(Number.isFinite(n) ? n : 1)));
 
@@ -59,22 +67,20 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
 
   return (
     <Section title={t("report.riskMap")}>
-      <p className="mb-4 text-xs text-muted">
-        Probability x Impact. Top-right = mitigation priority.
-      </p>
+      <p className="mb-4 text-xs text-muted">{t("report.riskMatrixBlurb")}</p>
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* LEFT: heatmap */}
         <Card className="bg-panel2">
           <div className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-muted">
-            Risk Matrix
+            {t("report.riskMatrix")}
           </div>
 
           <div className="flex gap-2">
             {/* Y-axis label */}
             <div className="flex items-center">
               <span className="rotate-180 text-[10px] text-muted [writing-mode:vertical-rl]">
-                Probability ↑
+                {t("report.probabilityAxis")}
               </span>
             </div>
 
@@ -89,7 +95,7 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
                         key={key}
                         className="relative aspect-square rounded-md border border-border"
                         style={{ background: cellTint(p, i) }}
-                        title={`P${p} · I${i}`}
+                        title={t("report.riskPI", { p, i })}
                       >
                         {here.length > 0 && (
                           <div className="absolute inset-0 flex flex-wrap content-center items-center justify-center gap-0.5 p-0.5">
@@ -97,7 +103,10 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
                               <span
                                 key={idx}
                                 className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40"
-                                style={{ background: CATEGORY_COLOR[r.category] ?? "var(--color-muted)" }}
+                                style={{
+                                  background:
+                                    CATEGORY_COLOR[r.category] ?? "var(--color-muted)",
+                                }}
                                 title={r.title}
                               />
                             ))}
@@ -110,7 +119,9 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
               </div>
 
               {/* X-axis label */}
-              <div className="mt-2 text-center text-[10px] text-muted">Impact →</div>
+              <div className="mt-2 text-center text-[10px] text-muted">
+                {t("report.impactAxis")}
+              </div>
             </div>
           </div>
 
@@ -122,7 +133,7 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
                   className="h-2.5 w-2.5 rounded-full"
                   style={{ background: CATEGORY_COLOR[c] }}
                 />
-                {CATEGORY_LABEL[c]}
+                {categoryLabel(c, t)}
               </span>
             ))}
           </div>
@@ -131,11 +142,11 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
         {/* RIGHT: risk list */}
         <Card className="bg-panel2">
           <div className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-muted">
-            Risks
+            {t("report.risksList")}
           </div>
 
           {list.length === 0 ? (
-            <p className="text-sm text-muted">No risks identified.</p>
+            <p className="text-sm text-muted">{t("report.noRisks")}</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {list.map((r, idx) => {
@@ -154,14 +165,16 @@ export function RiskMatrix({ risks }: { risks: Risk[] }) {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2">
-                        <span className="font-semibold text-fg">{r?.title ?? "Untitled risk"}</span>
+                        <span className="font-semibold text-fg">
+                          {r?.title ?? t("report.untitledRisk")}
+                        </span>
                         <span className="font-mono text-xs text-muted">
-                          P{p} · I{i}
+                          {t("report.riskPI", { p, i })}
                         </span>
                       </div>
                       {r?.mitigation && (
                         <p className="mt-1 text-xs text-muted">
-                          Mitigation: {r.mitigation}
+                          {t("report.mitigation")} {r.mitigation}
                         </p>
                       )}
                     </div>

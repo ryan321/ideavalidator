@@ -1,6 +1,7 @@
 "use client";
 
-import { LEVER_MEANING, type Lever } from "@/lib/scoring";
+import type { Lever } from "@/lib/scoring";
+import { leverLabel } from "@/lib/i18n/t";
 import { useT } from "../LocaleProvider";
 
 // Shared report chips: the lever tag on a criterion (positioning | evidence |
@@ -17,34 +18,47 @@ const LEVER_STYLE: Record<Lever, string> = {
   exogenous: "border-border bg-panel2 text-muted",
 };
 
-/** The lever chip for one criterion: names the force that could move it, with the
- * LEVER_MEANING taxonomy in the tooltip. */
+/** The lever chip for one criterion: names the force that could move it (localized). */
 export function LeverChip({ lever }: { lever?: string | null }) {
+  const t = useT();
   if (!lever || !(lever in LEVER_STYLE)) return null;
   const l = lever as Lever;
+  const m = leverLabel(l, t);
+  if (!m) return null;
   return (
     <span
-      className={`inline-block shrink-0 rounded-full border px-1.5 py-px font-mono text-[9px] uppercase tracking-wide ${LEVER_STYLE[l]}`}
-      title={`Lever — ${LEVER_MEANING[l]}`}
+      className={`inline-block shrink-0 rounded-full border px-1.5 py-px font-mono text-[9px] tracking-wide ${LEVER_STYLE[l]}`}
+      title={t("report.leverPrefix", { help: m.help })}
     >
-      {l}
+      {m.label}
     </span>
   );
 }
 
 // Mom-Test evidence tiers: what the item actually SHOWS, not how nice it sounds.
-export const TIER_META: Record<1 | 2 | 3 | 4, { label: string; help: string; cls: string }> = {
-  1: { label: "T1 · money/behavior", help: "Tier 1 — money or behavior actually changed (paid, switched, built a workaround). Weighs heaviest.", cls: "border-good/40 bg-good/10 text-good" },
-  2: { label: "T2 · commitment", help: "Tier 2 — a costly commitment (time, reputation, a waitlist deposit). Weighs heavily.", cls: "border-accent2/40 bg-accent2/10 text-accent2" },
-  3: { label: "T3 · past fact", help: "Tier 3 — a specific past fact or complaint. A real but weaker signal.", cls: "border-border bg-panel2 text-muted" },
-  4: { label: "T4 · compliment", help: "Tier 4 — a compliment or hypothetical (\"I'd totally buy that\"). Weighs ≈ zero.", cls: "border-border/60 bg-transparent text-muted/60" },
+const TIER_CLS: Record<1 | 2 | 3 | 4, string> = {
+  1: "border-good/40 bg-good/10 text-good",
+  2: "border-accent2/40 bg-accent2/10 text-accent2",
+  3: "border-border bg-panel2 text-muted",
+  4: "border-border/60 bg-transparent text-muted/60",
 };
+
+function tierMeta(tier: 1 | 2 | 3 | 4, tr: ReturnType<typeof useT>) {
+  const labels = {
+    1: { label: tr("report.tier1"), help: tr("report.tier1Help") },
+    2: { label: tr("report.tier2"), help: tr("report.tier2Help") },
+    3: { label: tr("report.tier3"), help: tr("report.tier3Help") },
+    4: { label: tr("report.tier4"), help: tr("report.tier4Help") },
+  } as const;
+  return { ...labels[tier], cls: TIER_CLS[tier] };
+}
 
 /** The evidence-tier chip. Old corpora lack a tier — default to 3 so nothing crashes.
  * `compact` drops the words, showing just "T1". */
 export function TierChip({ tier, compact = false }: { tier?: 1 | 2 | 3 | 4 | null; compact?: boolean }) {
+  const tr = useT();
   const t = (tier ?? 3) as 1 | 2 | 3 | 4;
-  const m = TIER_META[t];
+  const m = tierMeta(t, tr);
   return (
     <span
       className={`inline-block shrink-0 rounded-full border px-1.5 py-px font-mono text-[9px] uppercase tracking-wide ${m.cls}`}
@@ -63,11 +77,14 @@ export function TierLegend({ className = "" }: { className?: string }) {
       <span className="font-mono text-[9px] uppercase tracking-wide text-muted/70">
         {tr("report.momTestTiers")}
       </span>
-      {([1, 2, 3, 4] as const).map((tier) => (
-        <span key={tier} className="font-mono text-[9px] text-muted" title={TIER_META[tier].help}>
-          {TIER_META[tier].label}
-        </span>
-      ))}
+      {([1, 2, 3, 4] as const).map((tier) => {
+        const m = tierMeta(tier, tr);
+        return (
+          <span key={tier} className="font-mono text-[9px] text-muted" title={m.help}>
+            {m.label}
+          </span>
+        );
+      })}
     </div>
   );
 }

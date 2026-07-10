@@ -16,7 +16,14 @@ import { RiskMatrix } from "./report/RiskMatrix";
 import { MarketSizing } from "./report/MarketSizing";
 import { SystemAdjustments } from "./report/SystemAdjustments";
 import { HowScored } from "./report/HowScored";
-import { EvidencePanel, FetchedBadge, WtpTag, relDate, sourceLabel } from "./report/EvidencePanel";
+import {
+  EvidencePanel,
+  FetchedBadge,
+  WtpTag,
+  relDate,
+  signalTagLabel,
+  sourceLabel,
+} from "./report/EvidencePanel";
 import { NextTest } from "./report/NextTest";
 import { IcpCard } from "./report/IcpCard";
 import { MoatPanel } from "./report/MoatPanel";
@@ -37,8 +44,17 @@ import {
 } from "./report/DeepReport";
 import { WhyThisScore } from "./report/WhyThisScore";
 import { ReportChapter } from "./report/ReportChapter";
-import { criterionLabel, verdictLabel } from "@/lib/i18n/t";
+import { criterionLabel, verdictLabel, type TranslateFn } from "@/lib/i18n/t";
 import { useT } from "./LocaleProvider";
+
+/** Localize common "Year 1" / "Y1" projection labels; pass other values through. */
+function formatProjectionYear(year: string | undefined, t: TranslateFn): string {
+  const raw = (year ?? "").trim();
+  if (!raw) return "—";
+  const m = raw.match(/^(?:year|yr|y)\s*(\d+)$/i) || raw.match(/^(\d+)$/);
+  if (m) return t("report.projectionYear", { n: m[1] });
+  return raw;
+}
 
 // Light structural guard for a stored kit artifact (KitSchema lives server-side with
 // the generator — its module pulls in the db, so the client checks shape, not zod).
@@ -1145,24 +1161,24 @@ export function ValidationView({
 
             {(d.market.demand_signals ?? []).length > 0 && (
               <div>
-                <div className="mb-1 font-mono text-sm uppercase tracking-[0.1em] text-muted">What people are actually saying</div>
-                <p className="mb-2.5 text-xs text-muted">
-                  Posts, reviews & issues fetched from public source APIs — every link and vote count is real, not model-asserted.
-                </p>
+                <div className="mb-1 font-mono text-sm uppercase tracking-[0.1em] text-muted">
+                  {t("report.peopleSaying")}
+                </div>
+                <p className="mb-2.5 text-xs text-muted">{t("report.peopleSayingBlurb")}</p>
                 <div className="space-y-2">
                   {d.market.demand_signals!.map((s, i) => (
                     <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-3">
                       <div className="flex flex-wrap items-center gap-2">
                         {s.tag && (
                           <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent2">
-                            {s.tag}
+                            {signalTagLabel(s.tag, t)}
                           </span>
                         )}
                         {s.wtp_signal && <WtpTag />}
                         <span className="ml-auto flex items-center gap-2">
                           {s.url && s.source ? (
                             <a href={s.url} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent2 hover:underline">
-                              {sourceLabel({ source: s.source, community: s.community })} ↗
+                              {sourceLabel({ source: s.source, community: s.community }, t)} ↗
                             </a>
                           ) : null}
                           {s.source && <FetchedBadge source={s.source} />}
@@ -1172,8 +1188,14 @@ export function ValidationView({
                       {(s.score != null || s.num_comments != null || !!s.created_utc) && (
                         <div className="mt-1.5 font-mono text-[11px] text-muted">
                           {s.score != null ? `▲${s.score}` : ""}
-                          {s.num_comments != null ? ` · ${s.num_comments} comments` : ""}
-                          {s.created_utc ? ` · ${relDate(s.created_utc)}` : ""}
+                          {s.num_comments != null
+                            ? ` · ${
+                                s.num_comments === 1
+                                  ? t("report.commentsOne")
+                                  : t("report.comments", { n: s.num_comments })
+                              }`
+                            : ""}
+                          {s.created_utc ? ` · ${relDate(s.created_utc, t)}` : ""}
                         </div>
                       )}
                     </div>
@@ -1224,7 +1246,9 @@ export function ValidationView({
                   <tbody>
                     {d.financials.projections.map((p, i) => (
                       <tr key={i} className="border-b border-border/60 last:border-0">
-                        <td className="px-3 py-2 align-top font-mono text-accent2">{p.year}</td>
+                        <td className="px-3 py-2 align-top font-mono text-accent2">
+                          {formatProjectionYear(p.year, t)}
+                        </td>
                         <td className="px-3 py-2 align-top font-mono font-bold">{p.revenue}</td>
                         <td className="px-3 py-2 align-top text-muted">{p.customers}</td>
                         <td className="px-3 py-2 align-top text-xs text-muted">{p.note}</td>

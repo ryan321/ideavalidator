@@ -13,6 +13,8 @@ export {
   checklistItems,
   verdictLabel,
   criterionLabel,
+  signalCategoryLabel,
+  leverLabel,
   type MessageKey,
   type TranslateFn,
 } from "./t";

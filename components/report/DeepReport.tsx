@@ -245,33 +245,43 @@ export function AuditPanel({ audit, print = false }: { audit?: Audit; print?: bo
  * model found, and whether a real differentiated insight escapes the graveyard. A match
  * is not a fail; it demands a differentiated insight (else demand + Moat band low). */
 export function TarpitCallout({ tarpit }: { tarpit?: Validation["tarpit"] }) {
+  const t = useT();
   if (!tarpit?.matched) return null;
   const insight = tarpit.differentiated_insight?.trim();
   const hasEscape = insight && !/^none( found)?$|^n\/?a$/i.test(insight);
+  // Split blurb around {pattern} so the pattern stays bold.
+  const blurb = t("report.tarpitBlurb", { pattern: "\u0000" });
+  const [before, after] = blurb.split("\u0000");
   return (
     <div className="rounded-xl border border-warn/40 bg-warn/5 p-4">
       <div className="mb-1 flex items-center gap-2 font-mono text-[13px] uppercase tracking-[0.12em] text-warn">
         <span aria-hidden>⚠</span>
-        Known tarpit pattern
+        {t("report.knownTarpit")}
       </div>
       <p className="text-sm leading-snug text-fg/90">
-        This matches a well-known idea trap: <b className="text-warn">{tarpit.pattern}</b>. Looks easy,
-        everyone builds it, distribution and retention kill most attempts — so it isn&apos;t an
-        auto-fail, but it must clear a differentiated-insight bar or the demand and moat criteria band
-        low.
+        {before}
+        <b className="text-warn">{tarpit.pattern}</b>
+        {after}
       </p>
       {tarpit.prior_attempts && (
         <div className="mt-2.5">
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Prior attempts</div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+            {t("report.priorAttempts")}
+          </div>
           <p className="mt-0.5 text-sm leading-relaxed text-fg/85">{tarpit.prior_attempts}</p>
         </div>
       )}
       <div className="mt-2.5">
         <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-          Differentiated insight {hasEscape ? "· the escape hatch" : "· the ask"}
+          {hasEscape
+            ? t("report.differentiatedInsightEscape")
+            : t("report.differentiatedInsightAsk")}
         </div>
-        <p className="mt-0.5 text-sm leading-relaxed" style={{ color: hasEscape ? "var(--color-fg)" : "var(--color-bad)" }}>
-          {hasEscape ? insight : "None found — without a real reason this attempt escapes, the pattern's graveyard applies."}
+        <p
+          className="mt-0.5 text-sm leading-relaxed"
+          style={{ color: hasEscape ? "var(--color-fg)" : "var(--color-bad)" }}
+        >
+          {hasEscape ? insight : t("report.noEscapeFound")}
         </p>
       </div>
     </div>
@@ -281,14 +291,14 @@ export function TarpitCallout({ tarpit }: { tarpit?: Validation["tarpit"] }) {
 /** "Solution in search of a problem" flag — the pitch started from a technology with no
  * named sufferer or concrete pain; Problem-Solution Fit was capped at C. */
 export function SispFlag({ sisp }: { sisp?: boolean }) {
+  const t = useT();
   if (!sisp) return null;
   return (
     <div className="rounded-r-lg border-l-2 border-warn/50 bg-warn/5 px-4 py-3 text-sm">
-      <span className="font-mono text-[13px] uppercase tracking-wide text-warn">Solution in search of a problem · </span>
-      <span className="text-fg/90">
-        This reads as a technology/solution with no named sufferer or concrete pain. Problem-Solution
-        Fit is capped at C until a real, hurting customer is identified.
+      <span className="font-mono text-[13px] uppercase tracking-wide text-warn">
+        {t("report.sispTitle")}{" "}
       </span>
+      <span className="text-fg/90">{t("report.sispBlurb")}</span>
     </div>
   );
 }
@@ -298,20 +308,21 @@ export function SispFlag({ sisp }: { sisp?: boolean }) {
 /** A tiny report-header tag: "founder lived the problem" (organic) or "from
  * brainstorming" (whiteboard). Neutral/absent when provenance is null (unasked). */
 export function ProvenanceTag({ provenance }: { provenance?: "organic" | "whiteboard" | null }) {
+  const t = useT();
   if (provenance !== "organic" && provenance !== "whiteboard") return null;
   const organic = provenance === "organic";
   const c = organic ? "var(--color-good)" : "var(--color-muted)";
   return (
     <span
       className="shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide"
-      title={
-        organic
-          ? "The founder said this came from a problem they personally hit — an insider who lived the pain, which lends credibility to firsthand demand claims and raises Founder Fit."
-          : "The founder said this came from brainstorming — no lived experience of the pain, so the insider bonus is withheld and market risk is elevated."
-      }
-      style={{ color: c, borderColor: `color-mix(in srgb, ${c} 40%, transparent)`, background: `color-mix(in srgb, ${c} 8%, transparent)` }}
+      title={organic ? t("report.founderLived") : t("report.fromBrainstorming")}
+      style={{
+        color: c,
+        borderColor: `color-mix(in srgb, ${c} 40%, transparent)`,
+        background: `color-mix(in srgb, ${c} 8%, transparent)`,
+      }}
     >
-      {organic ? "◆ founder lived the problem" : "○ from brainstorming"}
+      {organic ? t("report.founderLived") : t("report.fromBrainstorming")}
     </span>
   );
 }

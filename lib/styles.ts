@@ -313,7 +313,9 @@ export const STYLES: Record<
   }
 > = {
   studio: {
-    label: "Studio",
+    // Display name only — id stays "studio" for data-style / storage compatibility.
+    // Avoid "Studio" so it isn't confused with the product Studio (idea workspace).
+    label: "Canvas",
     blurb: "Geometric sans · cool white · indigo",
     swatches: ["#f6f7f9", "#3b5bdb", "#0f9f6e"],
   },

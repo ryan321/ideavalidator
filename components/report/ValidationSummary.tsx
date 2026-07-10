@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Card } from "@/components/ui";
+import { signalCategoryLabel } from "@/lib/i18n/t";
 import { useT } from "../LocaleProvider";
 
 type Signal = { text: string; category: string };
@@ -13,9 +14,10 @@ function SignalList({
   items: Signal[];
   startIndex?: number;
 }) {
+  const t = useT();
   const safe = Array.isArray(items) ? items : [];
   if (safe.length === 0) {
-    return <p className="text-xs italic text-muted">None identified.</p>;
+    return <p className="text-xs italic text-muted">{t("report.noneIdentified")}</p>;
   }
   return (
     <ul className="space-y-2.5">
@@ -32,8 +34,8 @@ function SignalList({
             </span>
             <span className="flex-1 text-fg/90">{it?.text}</span>
             {it?.category ? (
-              <span className="mt-0.5 shrink-0 rounded-full border border-border bg-panel2 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
-                {it.category}
+              <span className="mt-0.5 shrink-0 rounded-full border border-border bg-panel2 px-2 py-0.5 text-[10px] font-medium tracking-wide text-muted">
+                {signalCategoryLabel(it.category, t)}
               </span>
             ) : null}
           </li>
@@ -58,8 +60,8 @@ function Subsection({
     tone === "good"
       ? "text-good"
       : tone === "bad"
-      ? "text-bad"
-      : "text-warn";
+        ? "text-bad"
+        : "text-warn";
   return (
     <div>
       <div className="mb-2 flex items-center gap-2">
@@ -130,10 +132,10 @@ export function ValidationSummary({
     <section className="mb-6">
       <div className="mb-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Validation Summary
+          {t("report.validationSummary")}
         </h3>
         <p className="mt-0.5 text-sm text-muted">
-          Synthetic score, rationale and key signals.
+          {t("report.validationSummaryBlurb")}
         </p>
       </div>
 
@@ -144,13 +146,17 @@ export function ValidationSummary({
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-widest text-good/80">
-                  Reasons to move
+                  {t("report.reasonsToMove")}
                 </div>
                 <h4 className="mt-0.5 text-base font-semibold text-fg">
-                  Go Signals
+                  {t("report.goSignals")}
                 </h4>
               </div>
-              <CountPill count={goTotal} noun="signals" tone="good" />
+              <CountPill
+                count={goTotal}
+                noun={t("report.signalsNoun")}
+                tone="good"
+              />
             </div>
 
             <div className="space-y-5">
@@ -179,13 +185,17 @@ export function ValidationSummary({
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-widest text-bad/80">
-                  Reasons to pause
+                  {t("report.reasonsToPause")}
                 </div>
                 <h4 className="mt-0.5 text-base font-semibold text-fg">
-                  Stop Signals
+                  {t("report.stopSignals")}
                 </h4>
               </div>
-              <CountPill count={stopTotal} noun="risks" tone="bad" />
+              <CountPill
+                count={stopTotal}
+                noun={t("report.risksNoun")}
+                tone="bad"
+              />
             </div>
 
             <div className="space-y-5">

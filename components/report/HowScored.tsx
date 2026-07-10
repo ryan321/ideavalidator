@@ -81,7 +81,8 @@ export function HowScored({
           <p className="mb-2 max-w-3xl text-xs leading-relaxed text-muted">
             The same weighted score clears a different bar depending on what you&apos;re going for.
             This report is judged against{" "}
-            <b className="text-fg/80">{GOAL_LABELS[g]}</b> (GO ≥ {bands.go}, MAYBE ≥ {bands.maybe}).
+            <b className="text-fg/80">{GOAL_LABELS[g]}</b> ({t("verdict.go")} ≥ {bands.go},{" "}
+            {t("verdict.maybe")} ≥ {bands.maybe}).
             Change the goal when creating a variant (or via Edit goal) and the next run uses that
             goal&apos;s line; older versions keep the bar they were scored under.
           </p>
@@ -90,9 +91,9 @@ export function HowScored({
               <thead>
                 <tr className="border-b border-border bg-panel2/60 font-mono text-[10px] uppercase tracking-wide text-muted">
                   <th className="px-3 py-2 font-medium">Goal</th>
-                  <th className="px-3 py-2 font-medium text-good">GO ≥</th>
-                  <th className="px-3 py-2 font-medium text-warn">MAYBE ≥</th>
-                  <th className="px-3 py-2 font-medium text-bad">NO-GO &lt;</th>
+                  <th className="px-3 py-2 font-medium text-good">{t("verdict.go")} ≥</th>
+                  <th className="px-3 py-2 font-medium text-warn">{t("verdict.maybe")} ≥</th>
+                  <th className="px-3 py-2 font-medium text-bad">{t("verdict.noGo")} &lt;</th>
                 </tr>
               </thead>
               <tbody>

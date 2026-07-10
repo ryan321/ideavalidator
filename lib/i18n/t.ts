@@ -111,3 +111,67 @@ export function criterionLabel(
   const key = CRITERION_KEYS[n];
   return key ? t(key) : n;
 }
+
+/** Signal / risk category codes stored in English (MARKET, DEMAND, …). */
+const CATEGORY_KEYS: Record<string, MessageKey> = {
+  MARKET: "report.catMarket",
+  DEMAND: "report.catDemand",
+  TECH: "report.catTech",
+  REVENUE: "report.catRevenue",
+  EXECUTION: "report.catExecution",
+  DEFENSIBILITY: "report.catDefensibility",
+  GTM: "report.catGtm",
+  FIT: "report.catFit",
+  FINANCIAL: "report.catFinancial",
+};
+
+/**
+ * Localized label for go/stop signal category badges.
+ * Normalizes "Market", "market", "MARKET" → same key.
+ */
+export function signalCategoryLabel(
+  category: string | null | undefined,
+  t: TranslateFn
+): string {
+  const raw = (category ?? "").trim();
+  if (!raw) return "";
+  const key = raw.toUpperCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  // also accept single-token without spaces
+  const compact = key.replace(/\s+/g, "");
+  const mk =
+    CATEGORY_KEYS[key] ??
+    CATEGORY_KEYS[compact] ??
+    (compact === "DEFENSIBILITY" ? CATEGORY_KEYS.DEFENSIBILITY : undefined);
+  return mk ? t(mk) : raw;
+}
+
+/** Lever machine codes → localized chip labels. */
+export function leverLabel(
+  lever: string | null | undefined,
+  t: TranslateFn
+): { label: string; help: string } | null {
+  switch ((lever ?? "").toLowerCase()) {
+    case "positioning":
+      return {
+        label: t("report.leverPositioning"),
+        help: t("report.leverPositioningHelp"),
+      };
+    case "evidence":
+      return {
+        label: t("report.leverEvidence"),
+        help: t("report.leverEvidenceHelp"),
+      };
+    case "execution":
+      return {
+        label: t("report.leverExecution"),
+        help: t("report.leverExecutionHelp"),
+      };
+    case "exogenous":
+      return {
+        label: t("report.leverExogenous"),
+        help: t("report.leverExogenousHelp"),
+      };
+    default:
+      return null;
+  }
+}

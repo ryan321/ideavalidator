@@ -1,4 +1,7 @@
+"use client";
+
 import type { Validation } from "@/lib/generators/validation";
+import { useT } from "../LocaleProvider";
 import { TierChip, TierLegend } from "./chips";
 
 // The claims ledger from the sycophancy-firewall pre-pass, rendered inside the
@@ -15,14 +18,24 @@ function ClaimRow({ c }: { c: Claim }) {
   return (
     <li className={`flex items-start gap-2 leading-snug ${deprecated ? "opacity-60" : ""}`}>
       <TierChip tier={c.tier} compact />
-      <span className={`text-sm ${deprecated ? "text-muted line-through decoration-muted/40" : "text-fg/90"}`}>
+      <span
+        className={`text-sm ${deprecated ? "text-muted line-through decoration-muted/40" : "text-fg/90"}`}
+      >
         {c.text}
       </span>
     </li>
   );
 }
 
-function ClaimGroup({ title, hint, claims }: { title: string; hint: string; claims: Claim[] }) {
+function ClaimGroup({
+  title,
+  hint,
+  claims,
+}: {
+  title: string;
+  hint: string;
+  claims: Claim[];
+}) {
   if (!claims.length) return null;
   return (
     <div>
@@ -38,6 +51,7 @@ function ClaimGroup({ title, hint, claims }: { title: string; hint: string; clai
 }
 
 export function ClaimsLedger({ claims }: { claims: Claim[] }) {
+  const t = useT();
   if (!claims?.length) return null;
   const selfFacts = claims.filter((c) => c.kind === "self_fact");
   const assumptions = claims.filter((c) => c.kind === "market_assumption");
@@ -47,15 +61,15 @@ export function ClaimsLedger({ claims }: { claims: Claim[] }) {
       <div className="grid gap-5 sm:grid-cols-2 sm:divide-x sm:divide-border">
         <div className="sm:pr-5">
           <ClaimGroup
-            title="Self-facts · authoritative"
-            hint="About the founder's own skills, network, capital, intent — taken as true."
+            title={t("report.selfFacts")}
+            hint={t("report.selfFactsHint")}
             claims={selfFacts}
           />
         </div>
         <div className="sm:pl-5">
           <ClaimGroup
-            title="Market assumptions · must be tested"
-            hint="About customers, competitors, willingness to pay — corroborated against evidence, never trusted on assertion."
+            title={t("report.marketAssumptions")}
+            hint={t("report.marketAssumptionsHint")}
             claims={assumptions}
           />
         </div>
