@@ -5,6 +5,7 @@ import {
   GATES,
   GOAL_WEIGHTS,
   MEASURED_SCORE_SD,
+  VERDICT_BANDS,
   criterionWeight,
   forecastToBand,
   normalizeGoal,
@@ -23,6 +24,9 @@ const GOAL_LABELS: Record<GoalBucket, string> = {
   venture: "Venture-scale",
   unsure: "Not sure yet",
 };
+
+// Display order: easiest bar → hardest (matches how founders tend to compare goals).
+const GOAL_ORDER: GoalBucket[] = ["side_hustle", "lifestyle", "unsure", "venture"];
 
 export function HowScored({
   goal,
@@ -65,15 +69,63 @@ export function HowScored({
           These constants are the exact ones the scorer runs on.
         </p>
 
-        {/* per-goal verdict bands */}
+        {/* per-goal verdict bands — full table so a 66 vs 72 GO line is self-explanatory */}
         <div>
           <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
-            Verdict bands · {GOAL_LABELS[g]}
+            Verdict bands by goal
           </div>
-          <div className="flex flex-wrap gap-2 font-mono text-xs">
-            <span className="rounded-md border border-good/30 bg-good/10 px-2 py-1 text-good">GO ≥ {bands.go}</span>
-            <span className="rounded-md border border-warn/30 bg-warn/10 px-2 py-1 text-warn">MAYBE ≥ {bands.maybe}</span>
-            <span className="rounded-md border border-bad/30 bg-bad/10 px-2 py-1 text-bad">NO-GO &lt; {bands.maybe}</span>
+          <p className="mb-2 max-w-3xl text-xs leading-relaxed text-muted">
+            The same weighted score clears a different bar depending on what you&apos;re going for.
+            This report is judged against{" "}
+            <b className="text-fg/80">{GOAL_LABELS[g]}</b> (GO ≥ {bands.go}, MAYBE ≥ {bands.maybe}).
+            Change the goal when creating a variant (or via Edit goal) and the next run uses that
+            goal&apos;s line; older versions keep the bar they were scored under.
+          </p>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[20rem] text-left text-xs">
+              <thead>
+                <tr className="border-b border-border bg-panel2/60 font-mono text-[10px] uppercase tracking-wide text-muted">
+                  <th className="px-3 py-2 font-medium">Goal</th>
+                  <th className="px-3 py-2 font-medium text-good">GO ≥</th>
+                  <th className="px-3 py-2 font-medium text-warn">MAYBE ≥</th>
+                  <th className="px-3 py-2 font-medium text-bad">NO-GO &lt;</th>
+                </tr>
+              </thead>
+              <tbody>
+                {GOAL_ORDER.map((key) => {
+                  const b = VERDICT_BANDS[key];
+                  const active = key === g;
+                  return (
+                    <tr
+                      key={key}
+                      className={`border-b border-border/60 last:border-0 ${
+                        active ? "bg-accent/10 text-fg" : "text-muted"
+                      }`}
+                    >
+                      <td className="px-3 py-2">
+                        {GOAL_LABELS[key]}
+                        {active && (
+                          <span className="ml-2 rounded-full border border-accent/40 bg-accent/15 px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-accent">
+                            this report
+                          </span>
+                        )}
+                      </td>
+                      <td className={`px-3 py-2 font-mono tabular-nums ${active ? "text-good" : ""}`}>
+                        {b.go}
+                      </td>
+                      <td className={`px-3 py-2 font-mono tabular-nums ${active ? "text-warn" : ""}`}>
+                        {b.maybe}
+                      </td>
+                      <td className={`px-3 py-2 font-mono tabular-nums ${active ? "text-bad" : ""}`}>
+                        {b.maybe}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2 font-mono text-xs">
             <span className="rounded-md border border-border bg-panel2 px-2 py-1 text-muted">
               INSUFFICIENT EVIDENCE · confidence &lt; {GATES.insufficientEvidenceConfidence}
             </span>

@@ -152,7 +152,7 @@ export default function NewIdeaForm() {
           disabled={busy || prompt.trim().length < 8}
           className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
-          {busy ? "Creating…" : "Validate idea →"}
+          {busy ? "Starting…" : "Validate idea →"}
         </button>
       </div>
     </form>

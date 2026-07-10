@@ -2,8 +2,8 @@ import { generateText } from "../ai/client";
 import { addMessage, getArtifacts, getIdea, getMessages, getVersion, logUsage } from "../db";
 
 /**
- * Answer a founder's question about a version's analysis, grounded in the
- * artifacts already generated for it. Persists the Q&A to the chat thread.
+ * Conversational Q&A about a version's analysis. Grounded in already-generated
+ * artifacts; does NOT re-score or re-run validation. Persists the thread.
  */
 export async function answerQuestion(
   versionId: string,
@@ -18,29 +18,42 @@ export async function answerQuestion(
     .join("\n\n")
     .slice(0, 60000);
 
-  const history = getMessages(versionId)
-    .slice(-8)
-    .map((m) => `${m.role === "user" ? "Founder" : "Analyst"}: ${m.text}`)
-    .join("\n");
+  // Prior turns only (before this question). Cap so context stays lean.
+  const prior = getMessages(versionId)
+    .slice(-12)
+    .map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.text,
+    }));
 
   addMessage(versionId, "user", question);
+
+  const goalLine = `Founder's goal: ${idea?.goal ?? "unsure"}${
+    idea?.goal_detail ? ` (${idea.goal_detail})` : ""
+  }`;
+
+  const system =
+    `You are a sharp product analyst chatting with the founder about a validation report you already wrote. ` +
+    `This is a conversation — answer their message directly, in chat style.\n\n` +
+    `RULES:\n` +
+    `- Answer the question they asked. Do NOT produce a new validation report, re-score criteria, rewrite the verdict, or re-run the analysis.\n` +
+    `- Cite specific figures, competitors, scores, and reasoning that appear IN the report below when relevant.\n` +
+    `- If the answer isn't in the report, say so plainly, then give a short reasoned take and flag it as your take — not as a new formal analysis.\n` +
+    `- Keep replies tight: a few short paragraphs or bullets. No executive summary, no full scorecard, no "here's a re-evaluation".\n` +
+    `- Use prior turns for context; don't restate the whole report or re-introduce yourself every time.\n` +
+    `- If they share new facts (skills, network, constraints), acknowledge them and discuss implications — do not pretend you re-validated the idea.\n\n` +
+    `Idea: "${idea?.title ?? ""}" — ${version.statement}\n` +
+    `${goalLine}\n\n` +
+    `=== VALIDATION REPORT (read-only context — do not regenerate) ===\n` +
+    `${analysis || "(no analysis generated yet)"}`;
 
   const { text, usage, model } = await generateText({
     role: "writing",
     grounded: false,
-    maxTokens: 1200,
-    system:
-      "You are the analyst who produced the idea analysis below. Answer the founder's questions about it " +
-      "concisely and specifically, citing the actual figures, competitors, scores, and reasoning IN the " +
-      "analysis. If the answer isn't in the analysis, say so plainly — you may then reason about it, but " +
-      "flag that as your take. Don't restate the whole report; answer the question directly.",
-    prompt: `Idea: "${idea?.title ?? ""}" — ${version.statement}
-Founder's goal: ${idea?.goal ?? "unsure"}${idea?.goal_detail ? ` (${idea.goal_detail})` : ""}
-
-=== THE ANALYSIS (the validation report) ===
-${analysis || "(no analysis generated yet)"}
-
-${history ? `=== CONVERSATION SO FAR ===\n${history}\n\n` : ""}Founder's question: ${question}`,
+    maxTokens: 900,
+    temperature: 0.5,
+    system,
+    messages: [...prior, { role: "user", content: question }],
   });
 
   addMessage(versionId, "assistant", text);

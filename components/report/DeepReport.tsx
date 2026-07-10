@@ -1,5 +1,6 @@
 import type { Audit, CoveClaim, Validation } from "@/lib/generators/validation";
 import { criterionTone } from "@/lib/scoring";
+import { MarkdownText } from "../MarkdownText";
 
 // Wave 3 deep-mode + audit report surfaces. These render ONLY when the artifact was
 // produced by the deep pipeline (d.mode === "deep") or carries an audit block —
@@ -29,82 +30,6 @@ export function ModeBadge({ mode }: { mode?: "standard" | "deep" }) {
 
 // ---- bull / bear memos -------------------------------------------------------
 
-// The memos come back as light markdown (## headings, **bold**, [text](url) links,
-// - bullets, --- rules). Render just those inline forms — no dependency, no raw
-// asterisks/hashes leaking into the report.
-function inlineMd(text: string, keyBase: string): React.ReactNode[] {
-  const out: React.ReactNode[] = [];
-  const re = /\*\*(.+?)\*\*|\[([^\]]+)\]\(([^)]+)\)/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  let k = 0;
-  while ((m = re.exec(text))) {
-    if (m.index > last) out.push(text.slice(last, m.index));
-    if (m[1] != null) {
-      out.push(<strong key={`${keyBase}-b${k++}`} className="font-semibold text-fg">{m[1]}</strong>);
-    } else {
-      out.push(
-        <a key={`${keyBase}-a${k++}`} href={m[3]} className="text-accent underline decoration-dotted underline-offset-2">{m[2]}</a>
-      );
-    }
-    last = re.lastIndex;
-  }
-  if (last < text.length) out.push(text.slice(last));
-  return out;
-}
-
-function MemoText({ text }: { text: string }) {
-  const lines = text.replace(/\r/g, "").split("\n");
-  const blocks: React.ReactNode[] = [];
-  let i = 0;
-  let key = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if (!line.trim()) { i++; continue; }
-    const h = line.match(/^(#{1,3})\s+(.*)$/);
-    if (h) {
-      const lvl = h[1].length;
-      blocks.push(
-        <p key={key++} className={`font-mono uppercase tracking-wide text-fg ${lvl === 1 ? "mt-1 text-[12px]" : "mt-3 text-[11px] text-muted"}`}>
-          {inlineMd(h[2], `h${key}`)}
-        </p>
-      );
-      i++;
-      continue;
-    }
-    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) {
-      blocks.push(<hr key={key++} className="my-3 border-border" />);
-      i++;
-      continue;
-    }
-    if (/^\s*[-*]\s+/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*[-*]\s+/, ""));
-        i++;
-      }
-      blocks.push(
-        <ul key={key++} className="ml-4 list-disc space-y-1">
-          {items.map((it, j) => <li key={j}>{inlineMd(it, `li${key}-${j}`)}</li>)}
-        </ul>
-      );
-      continue;
-    }
-    const para: string[] = [];
-    while (
-      i < lines.length &&
-      lines[i].trim() &&
-      !/^#{1,3}\s/.test(lines[i]) &&
-      !/^\s*[-*]\s+/.test(lines[i]) &&
-      !/^(-{3,}|\*{3,}|_{3,})$/.test(lines[i].trim())
-    ) {
-      para.push(lines[i]);
-      i++;
-    }
-    blocks.push(<p key={key++}>{inlineMd(para.join(" "), `p${key}`)}</p>);
-  }
-  return <div className="space-y-2.5 text-sm leading-relaxed text-fg/90">{blocks}</div>;
-}
 
 /** The two adversarial memos, framed as "we argued both sides, then judged on
  * evidence". Rendered as a two-column disclosure (bull green / bear red). */
@@ -137,7 +62,7 @@ export function DeepMemos({
               <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-good">
                 ↑ Bull case
               </div>
-              <MemoText text={bull} />
+              <MarkdownText text={bull} />
             </div>
           )}
           {bear && (
@@ -145,7 +70,7 @@ export function DeepMemos({
               <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-bad">
                 ↓ Bear case
               </div>
-              <MemoText text={bear} />
+              <MarkdownText text={bear} />
             </div>
           )}
         </div>

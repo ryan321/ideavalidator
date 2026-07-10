@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Artifact, ArtifactKind, Idea, Version } from "@/lib/db";
 import type { GeneratorMeta } from "@/lib/generators";
@@ -13,6 +14,7 @@ import { SourcesList, ValidationView } from "./artifacts";
 import { ArenaBoard } from "./ArenaBoard";
 import { DecisionCard } from "./DecisionCard";
 import { AnglesPicker } from "./AnglesPicker";
+import { MarkdownText } from "./MarkdownText";
 import { CriteriaDeltaTable, type DeltaVersion } from "./report/CriteriaDeltaTable";
 import type { ZodType } from "zod";
 import { ValidationSchema, type Validation } from "@/lib/generators/validation";
@@ -125,6 +127,52 @@ const GOAL_OPTIONS = [
 const goalLabel = (k: string | null) =>
   GOAL_OPTIONS.find((o) => o.key === k)?.label ?? "Not set";
 
+/** Goal chips + detail — shared by variant-creation panels (manual, AI, re-validate). */
+function VariantGoalFields({
+  goalDraft,
+  setGoalDraft,
+  goalDetailDraft,
+  setGoalDetailDraft,
+  className = "",
+}: {
+  goalDraft: string;
+  setGoalDraft: (g: string) => void;
+  goalDetailDraft: string;
+  setGoalDetailDraft: (g: string) => void;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <div className="mb-1 text-xs font-medium text-muted">
+        Goal for this version{" "}
+        <span className="font-normal text-muted/70">— changes how the next score is judged</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {GOAL_OPTIONS.map((o) => (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => setGoalDraft(o.key)}
+            className={`rounded-md border px-2 py-1 text-xs transition ${
+              goalDraft === o.key
+                ? "border-accent bg-accent/15 text-accent"
+                : "border-border text-muted hover:text-fg"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <input
+        value={goalDetailDraft}
+        onChange={(e) => setGoalDetailDraft(e.target.value)}
+        placeholder="Optional: time, effort & budget — e.g. “nights & weekends, bootstrap only”"
+        className="mt-1.5 w-full rounded-md border border-border bg-panel px-2 py-1.5 text-sm outline-none placeholder:text-muted focus:border-accent"
+      />
+    </div>
+  );
+}
+
 // One row of a wedge-tournament result: the variant version + what it scored on the
 // SAME pinned corpus as every other entrant (fair comparison), or the error if its
 // validation failed (a failed entrant never sinks the tournament).
@@ -170,11 +218,54 @@ function DropMenu({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const MENU_W = 256; // w-64
+
+  const place = () => {
+    const btn = btnRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const gap = 4;
+    const menuH = menuRef.current?.offsetHeight ?? items.length * 56;
+    const spaceBelow = window.innerHeight - r.bottom - gap;
+    const spaceAbove = r.top - gap;
+    const openUp = spaceBelow < menuH && spaceAbove > spaceBelow;
+    let left =
+      align === "right" ? r.right - MENU_W : r.left;
+    left = Math.max(8, Math.min(left, window.innerWidth - MENU_W - 8));
+    const top = openUp
+      ? Math.max(8, r.top - gap - menuH)
+      : Math.min(r.bottom + gap, window.innerHeight - 8);
+    setPos({ top, left, width: MENU_W });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    place();
+    // Second pass once the menu is measured so flip-above is accurate.
+    requestAnimationFrame(place);
+    const onReposition = () => place();
+    window.addEventListener("resize", onReposition);
+    // Capture scroll on any ancestor — fixed menus stay put otherwise.
+    window.addEventListener("scroll", onReposition, true);
+    return () => {
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- place reads live DOM; re-run on open/align only
+  }, [open, align, items.length]);
+
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -186,46 +277,62 @@ function DropMenu({
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
   const toneCls =
     tone === "accent"
       ? "border-accent/30 text-accent hover:bg-accent/10"
       : tone === "accent2"
         ? "border-accent2/30 text-accent2 hover:bg-accent2/10"
         : "border-border text-muted hover:text-fg";
+
+  const menu =
+    open &&
+    pos &&
+    typeof document !== "undefined" &&
+    createPortal(
+      <div
+        ref={menuRef}
+        role="menu"
+        style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 80 }}
+        className="overflow-hidden rounded-lg border border-border bg-panel shadow-xl shadow-black/40"
+      >
+        {items.map((it, i) => (
+          <button
+            key={i}
+            type="button"
+            role="menuitem"
+            disabled={it.disabled}
+            onClick={() => {
+              setOpen(false);
+              it.onClick();
+            }}
+            className={`flex w-full flex-col items-start gap-0.5 border-b border-border/60 px-3 py-2 text-left transition last:border-0 disabled:opacity-40 ${
+              it.danger ? "text-bad hover:bg-bad/10" : "hover:bg-panel2"
+            }`}
+          >
+            <span className="text-sm font-medium">{it.label}</span>
+            {it.hint && <span className="text-xs text-muted">{it.hint}</span>}
+          </button>
+        ))}
+      </div>,
+      document.body
+    );
+
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={btnRef}
         type="button"
         disabled={disabled}
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition disabled:opacity-50 ${toneCls}`}
       >
         {trigger}
         {caret && <span className={`text-[10px] transition ${open ? "rotate-180" : ""}`}>▾</span>}
       </button>
-      {open && (
-        <div
-          className={`absolute z-20 mt-1 w-64 overflow-hidden rounded-lg border border-border bg-panel shadow-xl shadow-black/40 ${align === "right" ? "right-0" : "left-0"}`}
-        >
-          {items.map((it, i) => (
-            <button
-              key={i}
-              type="button"
-              disabled={it.disabled}
-              onClick={() => {
-                setOpen(false);
-                it.onClick();
-              }}
-              className={`flex w-full flex-col items-start gap-0.5 border-b border-border/60 px-3 py-2 text-left transition last:border-0 disabled:opacity-40 ${
-                it.danger ? "text-bad hover:bg-bad/10" : "hover:bg-panel2"
-              }`}
-            >
-              <span className="text-sm font-medium">{it.label}</span>
-              {it.hint && <span className="text-xs text-muted">{it.hint}</span>}
-            </button>
-          ))}
-        </div>
-      )}
+      {menu}
     </div>
   );
 }
@@ -321,6 +428,8 @@ export default function IdeaWorkspace({
   const [chatMessages, setChatMessages] = useState<{ role: string; text: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Changing stage via the left nav (URL) should close any transient panels that
   // were opened on the previous stage.
@@ -345,12 +454,20 @@ export default function IdeaWorkspace({
     } catch {
       /* ignore */
     }
+    requestAnimationFrame(() => chatInputRef.current?.focus());
   }
+
+  // Keep the thread scrolled to the latest message / thinking indicator.
+  useEffect(() => {
+    if (!chatting) return;
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [chatMessages, chatLoading, chatting]);
 
   async function sendQuestion() {
     const q = chatInput.trim();
     if (!q || chatLoading) return;
     setChatInput("");
+    if (chatInputRef.current) chatInputRef.current.style.height = "auto";
     setChatMessages((p) => [...p, { role: "user", text: q }]);
     setChatLoading(true);
     try {
@@ -370,6 +487,7 @@ export default function IdeaWorkspace({
       ]);
     } finally {
       setChatLoading(false);
+      requestAnimationFrame(() => chatInputRef.current?.focus());
     }
   }
   const [goalBucket, setGoalBucket] = useState(idea.goal ?? "unsure");
@@ -388,15 +506,28 @@ export default function IdeaWorkspace({
     setEditingGoal(true);
   }
 
+  /** Seed goal drafts from the committed idea values (call when opening a variant editor). */
+  function resetGoalDrafts() {
+    setGoalDraft(goalBucket);
+    setGoalDetailDraft(goalDetail);
+  }
+
+  /** Persist goal drafts if they differ from the committed idea. Used when saving a variant. */
+  async function persistGoalIfChanged(): Promise<void> {
+    if (goalDraft === goalBucket && (goalDetailDraft || "") === (goalDetail || "")) return;
+    const res = await fetch(`/api/ideas/${idea.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal: goalDraft, goalDetail: goalDetailDraft }),
+    });
+    if (!res.ok) throw new Error("Could not save goal");
+    setGoalBucket(goalDraft);
+    setGoalDetail(goalDetailDraft);
+  }
+
   async function saveGoal() {
     try {
-      await fetch(`/api/ideas/${idea.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal: goalDraft, goalDetail: goalDetailDraft }),
-      });
-      setGoalBucket(goalDraft);
-      setGoalDetail(goalDetailDraft);
+      await persistGoalIfChanged();
       setEditingGoal(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save goal");
@@ -608,6 +739,10 @@ export default function IdeaWorkspace({
     setTimeout(tick, 2500);
   }
 
+  // Fire validation once when the idea has never been scored (e.g. just created from
+  // "Validate idea →" on the home form). Avoids a second screen of duplicate Validate CTAs.
+  const autoValidateStarted = useRef(false);
+
   // On mount, resume any job that's still running on the server (e.g. you navigated
   // away and came back), so the progress + result show up without re-running.
   useEffect(() => {
@@ -618,6 +753,46 @@ export default function IdeaWorkspace({
         if (Array.isArray(j.runningJobs))
           for (const job of j.runningJobs) pollJob(job.version_id, job.kind as ArtifactKind);
         if (j.billing) setBilling(j.billing);
+
+        // No stored validation + no job already running → start the grounded pass now.
+        const activeId =
+          versionsProp[versionsProp.length - 1]?.id ?? activeVersionId;
+        const hasStoredValidation = !!(
+          artifacts[activeId]?.validation ||
+          artifactsByVersion[activeId]?.some((a) => a.kind === "validation")
+        );
+        const validationRunning = Array.isArray(j.runningJobs)
+          ? j.runningJobs.some(
+              (job: { version_id: string; kind: string }) =>
+                job.kind === "validation" && job.version_id === activeId
+            )
+          : false;
+        const paywalled = !!(j.billing?.enabled && !j.billing?.paid);
+        if (
+          !autoValidateStarted.current &&
+          !hasStoredValidation &&
+          !validationRunning &&
+          !paywalled &&
+          activeId
+        ) {
+          autoValidateStarted.current = true;
+          setError(null);
+          fetch(`/api/generate/validation`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ versionId: activeId, background: true, deep: false }),
+          })
+            .then(async (res) => {
+              const body = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(body.error ?? "Could not start the analysis");
+              if (mountedRef.current) pollJob(activeId, "validation");
+            })
+            .catch((e) => {
+              if (mountedRef.current)
+                setError(e instanceof Error ? e.message : "Could not start the analysis");
+              autoValidateStarted.current = false; // allow manual retry
+            });
+        }
       })
       .catch(() => {});
 
@@ -706,6 +881,7 @@ export default function IdeaWorkspace({
     if (text.length < 4) return;
     setError(null);
     try {
+      await persistGoalIfChanged();
       const v = await createVersionFrom(
         activeVersion.statement,
         "context",
@@ -748,12 +924,17 @@ export default function IdeaWorkspace({
   // --- manual refine ----------------------------------------------------------
   function startManual() {
     setProposal(null);
+    setResponding(false);
+    setEditingGoal(false);
     setDraft(activeVersion.statement);
+    resetGoalDrafts();
     setEditing(true);
   }
   async function saveManual() {
     if (draft.trim().length < 8) return;
+    setError(null);
     try {
+      await persistGoalIfChanged();
       const v = await createVersionFrom(draft.trim(), "manual", activeVersionId);
       setEditing(false);
       switchVersion(v.id);
@@ -765,6 +946,9 @@ export default function IdeaWorkspace({
   // --- AI suggest -------------------------------------------------------------
   async function suggest() {
     setEditing(false);
+    setResponding(false);
+    setEditingGoal(false);
+    resetGoalDrafts();
     setSuggesting(true);
     setError(null);
     try {
@@ -782,7 +966,9 @@ export default function IdeaWorkspace({
   }
   async function acceptProposal() {
     if (!proposal) return;
+    setError(null);
     try {
+      await persistGoalIfChanged();
       const v = await createVersionFrom(
         proposalDraft.trim() || proposal.statement,
         "ai",
@@ -1517,22 +1703,24 @@ export default function IdeaWorkspace({
                   disabled={anyBusy}
                   items={[
                     {
-                      label: "Respond to the validator",
-                      hint: "Push back or add context, then re-validate.",
+                      label: "Chat about this analysis",
+                      hint: "Conversational Q&A — does not re-score.",
+                      onClick: () => {
+                        setResponding(false);
+                        openChat();
+                      },
+                    },
+                    {
+                      label: "Respond & re-validate",
+                      hint: "Push back or add context, then run a new version.",
                       onClick: () => {
                         setProposal(null);
                         setEditing(false);
                         setChatting(false);
+                        setEditingGoal(false);
+                        resetGoalDrafts();
                         setResponseDraft("");
                         setResponding(true);
-                      },
-                    },
-                    {
-                      label: "Ask about this analysis",
-                      hint: "Q&A grounded in the research.",
-                      onClick: () => {
-                        setResponding(false);
-                        openChat();
                       },
                     },
                   ]}
@@ -1601,6 +1789,13 @@ export default function IdeaWorkspace({
                         rows={3}
                         className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
                       />
+                      <VariantGoalFields
+                        className="mt-3"
+                        goalDraft={goalDraft}
+                        setGoalDraft={setGoalDraft}
+                        goalDetailDraft={goalDetailDraft}
+                        setGoalDetailDraft={setGoalDetailDraft}
+                      />
                       <div className="mt-2 flex gap-2">
                         <button
                           onClick={saveManual}
@@ -1615,28 +1810,13 @@ export default function IdeaWorkspace({
                       </div>
                     </div>
                   )}
-                  {editingGoal && (
+                  {editingGoal && !editing && (
                     <div className="rounded-lg border border-border bg-panel2 p-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        {GOAL_OPTIONS.map((o) => (
-                          <button
-                            key={o.key}
-                            onClick={() => setGoalDraft(o.key)}
-                            className={`rounded-md border px-2 py-1 text-xs ${
-                              goalDraft === o.key
-                                ? "border-accent bg-accent/15 text-accent"
-                                : "border-border text-muted hover:text-fg"
-                            }`}
-                          >
-                            {o.label}
-                          </button>
-                        ))}
-                      </div>
-                      <input
-                        value={goalDetailDraft}
-                        onChange={(e) => setGoalDetailDraft(e.target.value)}
-                        placeholder="time, effort & budget"
-                        className="mt-1.5 w-full rounded-md border border-border bg-panel px-2 py-1 text-sm outline-none focus:border-accent"
+                      <VariantGoalFields
+                        goalDraft={goalDraft}
+                        setGoalDraft={setGoalDraft}
+                        goalDetailDraft={goalDetailDraft}
+                        setGoalDetailDraft={setGoalDetailDraft}
                       />
                       <div className="mt-1.5 flex items-center gap-2">
                         <button onClick={saveGoal} className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-white">
@@ -1653,17 +1833,23 @@ export default function IdeaWorkspace({
             }
           />
         ) : (
-          /* not yet validated — simple idea card + validate */
+          /* not yet validated — idea + ONE path (auto-start usually already running) */
           <div className="mb-5 rounded-xl border border-border bg-panel/50 p-4">
             <h1 className="text-base font-semibold">{idea.title}</h1>
             <p className="mt-1 text-sm text-muted line-clamp-3">{activeVersion.statement}</p>
-            <button
-              onClick={() => runValidate()}
-              disabled={anyBusy || locked}
-              className="mt-3 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              Validate this idea →
-            </button>
+            {busy.has(bk(activeVersionId, "validation")) ? (
+              <p className="mt-3 font-mono text-xs uppercase tracking-wide text-accent2">
+                Starting grounded analysis…
+              </p>
+            ) : (
+              <button
+                onClick={() => runValidate()}
+                disabled={anyBusy || locked}
+                className="mt-3 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {locked ? "Unlock to validate →" : "Validate this idea →"}
+              </button>
+            )}
           </div>
         )}
 
@@ -1874,54 +2060,75 @@ export default function IdeaWorkspace({
           </div>
         )}
 
-        {/* ask-about-this chat */}
+        {/* chat about the analysis (Q&A — does not re-validate) */}
         {chatting && (
           <div className="mb-5 rounded-xl border border-accent2/40 bg-accent2/5 p-4">
             <div className="mb-1 flex items-center justify-between">
-              <div className="text-sm font-semibold text-accent2">❓ Ask about this analysis</div>
+              <div className="text-sm font-semibold text-accent2">💬 Chat about this analysis</div>
               <button onClick={() => setChatting(false)} className="text-xs text-muted hover:text-fg">
                 close
               </button>
             </div>
             <p className="mb-2 text-xs text-muted">
-              Ask anything about the research &amp; analysis for v{activeVersion.n} — competitors, the
-              revenue math, risks, the score. Answers are grounded in what&apos;s been generated.
+              Talk through the research for v{activeVersion.n} — scores, competitors, risks, next moves.
+              Grounded in what&apos;s already generated; this does <b className="font-medium text-fg/70">not</b>{" "}
+              re-run validation. Use &ldquo;Respond &amp; re-validate&rdquo; if you want a new scored version.
             </p>
             <div className="max-h-80 space-y-3 overflow-auto rounded-lg bg-bg/40 p-3">
               {chatMessages.length === 0 && (
                 <p className="text-xs text-muted">
-                  No questions yet — e.g. “Why only Moderate demand?” or “What&apos;s the fastest path to first revenue?”
+                  Say anything — e.g. “Why only Moderate demand?” or “What’s the fastest path to first revenue?”
                 </p>
               )}
               {chatMessages.map((m, i) => (
                 <div key={i} className={m.role === "user" ? "text-right" : ""}>
                   <div
-                    className={`inline-block max-w-[85%] whitespace-pre-wrap rounded-lg px-3 py-2 text-left text-sm leading-relaxed ${
-                      m.role === "user" ? "bg-accent text-white" : "bg-panel2 text-fg/90"
+                    className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-left text-sm leading-relaxed ${
+                      m.role === "user"
+                        ? "whitespace-pre-wrap bg-accent text-white"
+                        : "bg-panel2 text-fg/90"
                     }`}
                   >
-                    {m.text}
+                    {m.role === "assistant" ? (
+                      <MarkdownText
+                        text={m.text}
+                        className="space-y-2 text-sm leading-relaxed text-fg/90 [&_strong]:text-fg"
+                      />
+                    ) : (
+                      m.text
+                    )}
                   </div>
                 </div>
               ))}
               {chatLoading && <div className="animate-pulse text-xs text-muted">thinking…</div>}
+              <div ref={chatEndRef} />
             </div>
-            <div className="mt-2 flex gap-2">
-              <input
+            <div className="mt-2 flex items-end gap-2">
+              <textarea
+                ref={chatInputRef}
                 value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") sendQuestion();
+                rows={2}
+                onChange={(e) => {
+                  setChatInput(e.target.value);
+                  const el = e.target;
+                  el.style.height = "auto";
+                  el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
                 }}
-                placeholder="Ask a question…"
-                className="flex-1 rounded-lg border border-border bg-panel2 px-3 py-2 text-sm outline-none focus:border-accent2"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendQuestion();
+                  }
+                }}
+                placeholder="Message… (Shift+Enter for newline)"
+                className="max-h-32 min-h-[2.5rem] flex-1 resize-none overflow-y-auto rounded-lg border border-border bg-panel2 px-3 py-2 text-sm outline-none focus:border-accent2"
               />
               <button
                 onClick={sendQuestion}
                 disabled={chatLoading || !chatInput.trim()}
-                className="rounded-lg bg-accent2 px-4 py-2 text-sm font-medium text-bg disabled:opacity-50"
+                className="shrink-0 rounded-lg bg-accent2 px-4 py-2 text-sm font-medium text-bg disabled:opacity-50"
               >
-                Ask
+                Send
               </button>
             </div>
           </div>
@@ -1931,13 +2138,14 @@ export default function IdeaWorkspace({
         {responding && (
           <div className="mb-5 rounded-xl border border-accent2/40 bg-accent2/5 p-4">
             <div className="mb-1 text-sm font-semibold text-accent2">
-              💬 Respond to the validator
+              ⟳ Respond &amp; re-validate
             </div>
             <p className="mb-2 text-xs text-muted">
-              Push back on what it got wrong, add context, or answer its questions. Facts about
-              yourself (skills, network, capital, time) are taken as authoritative; claims about
-              customers, competitors, or the market get verified against the evidence — not taken
-              on faith.
+              Push back on what it got wrong, add context, or answer its questions — then run a{" "}
+              <b className="font-medium text-fg/70">new scored version</b>. Facts about yourself
+              (skills, network, capital, time) are taken as authoritative; claims about customers,
+              competitors, or the market get verified against the evidence — not taken on faith.
+              Prefer chat if you only want to discuss the current report.
             </p>
             {activeQuestions.length > 0 && (
               <div className="mb-2 rounded-lg border border-border bg-panel2 p-3">
@@ -1967,6 +2175,13 @@ export default function IdeaWorkspace({
               placeholder={`e.g. "The competitors you listed (X, Y) are CLI tools for individual developers — my product is a team workspace, 'Jira for AI-agent intent management'. Re-evaluate competition with that in mind."`}
               className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent2"
             />
+            <VariantGoalFields
+              className="mt-3"
+              goalDraft={goalDraft}
+              setGoalDraft={setGoalDraft}
+              goalDetailDraft={goalDetailDraft}
+              setGoalDetailDraft={setGoalDetailDraft}
+            />
             <div className="mt-3 flex gap-2">
               <button
                 onClick={respondToValidator}
@@ -1995,6 +2210,13 @@ export default function IdeaWorkspace({
             <p className="mt-2 text-xs text-muted">
               <b className="text-fg/80">Why:</b> {proposal.rationale} <span className="text-fg/60">{proposal.expected_effect}</span>
             </p>
+            <VariantGoalFields
+              className="mt-3"
+              goalDraft={goalDraft}
+              setGoalDraft={setGoalDraft}
+              goalDetailDraft={goalDetailDraft}
+              setGoalDetailDraft={setGoalDetailDraft}
+            />
             <ul className="mt-2 space-y-1">
               {proposal.changes.map((c, i) => (
                 <li key={i} className="text-xs text-muted">
@@ -2146,22 +2368,7 @@ export default function IdeaWorkspace({
                   </span>
                 </div>
               </div>
-            ) : (
-              <div className="grid place-items-center rounded-xl border border-dashed border-border bg-panel/50 py-16 text-center">
-                <div className="max-w-sm">
-                  <div className="text-sm text-muted">
-                    One grounded pass scores the idea and works out the market, money, and plan.
-                  </div>
-                  <button
-                    onClick={() => runValidate()}
-                    disabled={anyBusy || locked}
-                    className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                  >
-                    Validate this idea 🌐
-                  </button>
-                </div>
-              </div>
-            )}
+            ) : null}
 
             {/* edges to test — derived from the verdict */}
             {activeArtifacts.validation && activeAlphas.length > 0 && (

@@ -29,7 +29,7 @@ export default function AppNav() {
           !activeId ? "bg-panel2 text-fg" : "text-muted hover:text-fg"
         }`}
       >
-        Ideas
+        Your Ideas
         <span className="ml-auto font-mono text-xs text-muted">{ideas.length}</span>
       </Link>
 

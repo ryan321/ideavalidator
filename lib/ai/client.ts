@@ -196,18 +196,32 @@ export async function generateStructured<T>(
 export async function generateText(opts: {
   role?: ModelRole;
   system: string;
-  prompt: string;
+  /** Single-turn user prompt. Ignored when `messages` is provided. */
+  prompt?: string;
+  /**
+   * Multi-turn conversation (user/assistant turns only). When set, these are
+   * sent as chat messages after the system message instead of a single prompt.
+   */
+  messages?: Array<{ role: "user" | "assistant"; content: string }>;
   grounded?: boolean;
   maxTokens?: number;
+  temperature?: number;
 }): Promise<{ text: string; usage: Usage; model: string }> {
   const model = resolveModel(opts.role ?? "writing");
+  const chatMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+    { role: "system", content: opts.system },
+  ];
+  if (opts.messages?.length) {
+    for (const m of opts.messages) chatMessages.push({ role: m.role, content: m.content });
+  } else if (opts.prompt) {
+    chatMessages.push({ role: "user", content: opts.prompt });
+  } else {
+    throw new Error("generateText requires prompt or messages");
+  }
   const body: Record<string, unknown> = {
     model,
-    messages: [
-      { role: "system", content: opts.system },
-      { role: "user", content: opts.prompt },
-    ],
-    temperature: 0.4,
+    messages: chatMessages,
+    temperature: opts.temperature ?? 0.4,
     max_tokens: opts.maxTokens ?? 1200,
     usage: { include: true },
   };
