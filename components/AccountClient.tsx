@@ -86,6 +86,8 @@ export function AccountClient({
 
       {msg && (
         <div
+          role="status"
+          aria-live={msg.tone === "err" ? "assertive" : "polite"}
           className={`rounded-lg border px-3 py-2 text-sm ${
             msg.tone === "ok"
               ? "border-good/30 bg-good/10 text-good"

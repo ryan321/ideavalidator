@@ -205,6 +205,7 @@ function DropMenu({
   align = "left",
   caret = true,
   disabled,
+  label,
 }: {
   trigger: React.ReactNode;
   items: MenuItem[];
@@ -212,7 +213,10 @@ function DropMenu({
   align?: "left" | "right";
   caret?: boolean;
   disabled?: boolean;
+  /** Accessible name when the visible trigger is icon-only. */
+  label?: string;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -264,7 +268,10 @@ function DropMenu({
       setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        btnRef.current?.focus();
+      }
     };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
@@ -289,6 +296,7 @@ function DropMenu({
       <div
         ref={menuRef}
         role="menu"
+        aria-label={label ?? t("common.moreActions")}
         style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 80 }}
         className="overflow-hidden rounded-xl border border-border bg-panel shadow-2xl shadow-[#1a1612]/12"
       >
@@ -301,6 +309,7 @@ function DropMenu({
             onClick={() => {
               setOpen(false);
               it.onClick();
+              btnRef.current?.focus();
             }}
             className={`flex w-full flex-col items-start gap-0.5 border-b border-border/60 px-3 py-2 text-left transition last:border-0 disabled:opacity-40 ${
               it.danger ? "text-bad hover:bg-bad/10" : "hover:bg-panel2"
@@ -322,11 +331,16 @@ function DropMenu({
         disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={label}
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition disabled:opacity-50 ${toneCls}`}
       >
         {trigger}
-        {caret && <span className={`text-[10px] transition ${open ? "rotate-180" : ""}`}>▾</span>}
+        {caret && (
+          <span className={`text-[10px] transition ${open ? "rotate-180" : ""}`} aria-hidden>
+            ▾
+          </span>
+        )}
       </button>
       {menu}
     </div>
@@ -2124,6 +2138,7 @@ export default function IdeaWorkspace({
                 <div className="ml-auto">
                   <DropMenu
                     trigger={<span aria-hidden className="px-0.5 text-base leading-none">⋯</span>}
+                    label={t("common.moreActions")}
                     align="right"
                     caret={false}
                     items={[

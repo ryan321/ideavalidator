@@ -54,8 +54,12 @@ export function ReportChapter({
     >
       <details className="group" open={defaultOpen}>
         <summary
-          className="flex cursor-pointer list-none items-start gap-3 px-3.5 py-3.5 transition select-none group-open:bg-panel2/30 hover:bg-panel2/55 sm:items-center sm:px-4"
-          title={hint ? `${title} — ${hint}. Click to expand or collapse.` : `Click to expand or collapse ${title}`}
+          className="flex cursor-pointer list-none items-start gap-3 px-3.5 py-3.5 transition select-none group-open:bg-panel2/30 hover:bg-panel2/55 sm:items-center sm:px-4 [&::-webkit-details-marker]:hidden"
+          title={
+            hint
+              ? `${title} — ${hint}. ${t("common.expand")} / ${t("common.collapse")}.`
+              : `${title}. ${t("common.expand")} / ${t("common.collapse")}.`
+          }
         >
           {/* chevron — primary affordance */}
           <span

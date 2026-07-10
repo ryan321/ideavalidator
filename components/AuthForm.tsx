@@ -15,6 +15,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [busy, setBusy] = useState(false);
 
   const isSignup = mode === "signup";
+  const formId = isSignup ? "signup" : "login";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,39 +50,58 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           {isSignup ? t("auth.signupBlurb") : t("auth.loginBlurb")}
         </p>
 
-        <form onSubmit={submit} className="mt-6 space-y-3">
+        <form onSubmit={submit} className="mt-6 space-y-3" noValidate={false}>
           {isSignup && (
+            <div>
+              <label htmlFor={`${formId}-name`} className="sr-only">
+                {t("a11y.name")}
+              </label>
+              <input
+                id={`${formId}-name`}
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("auth.nameOptional")}
+                autoComplete="name"
+                className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+              />
+            </div>
+          )}
+          <div>
+            <label htmlFor={`${formId}-email`} className="sr-only">
+              {t("a11y.email")}
+            </label>
             <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("auth.nameOptional")}
-              autoComplete="name"
+              id={`${formId}-email`}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={t("auth.emailPlaceholder")}
+              autoComplete="email"
+              required
               className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
             />
-          )}
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={t("auth.emailPlaceholder")}
-            autoComplete="email"
-            required
-            className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={isSignup ? t("auth.passwordSignup") : t("auth.password")}
-            autoComplete={isSignup ? "new-password" : "current-password"}
-            required
-            minLength={isSignup ? 8 : undefined}
-            className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
-          />
+          </div>
+          <div>
+            <label htmlFor={`${formId}-password`} className="sr-only">
+              {t("a11y.password")}
+            </label>
+            <input
+              id={`${formId}-password`}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={isSignup ? t("auth.passwordSignup") : t("auth.password")}
+              autoComplete={isSignup ? "new-password" : "current-password"}
+              required
+              minLength={isSignup ? 8 : undefined}
+              className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+            />
+          </div>
           {error && (
             <div
               role="alert"
+              aria-live="assertive"
               className="rounded-xl border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad"
             >
               {error}
@@ -90,9 +110,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <button
             type="submit"
             disabled={busy}
+            aria-busy={busy}
             className="w-full rounded-full bg-accent py-2.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2 disabled:opacity-50"
           >
-            {busy ? "…" : isSignup ? t("auth.submitSignup") : t("auth.submitLogin")}
+            {busy
+              ? t("common.loading")
+              : isSignup
+                ? t("auth.submitSignup")
+                : t("auth.submitLogin")}
           </button>
         </form>
 

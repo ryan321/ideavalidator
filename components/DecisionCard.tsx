@@ -145,7 +145,10 @@ export function DecisionCard({
   const summaryLong = summary.length > 280 || summary.split(/\n+/).length > 2;
 
   return (
-    <section className="folio folio-enter mb-6 overflow-hidden" aria-label="Decision">
+    <section
+      className="folio folio-enter mb-6 overflow-hidden"
+      aria-label={t("a11y.decisionSurface")}
+    >
       {/* 1 · Stamp + ring + revenue — the memo masthead */}
       <div
         className="relative grid gap-5 border-b border-border/70 px-5 py-6 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:px-7 sm:py-7"
@@ -299,14 +302,22 @@ export function DecisionCard({
             <PrimaryTag
               {...(primary.href
                 ? { href: primary.href }
-                : { type: "button" as const, onClick: primary.onClick, disabled: primaryDisabled })}
+                : {
+                    type: "button" as const,
+                    onClick: primary.onClick,
+                    disabled: primaryDisabled,
+                    "aria-busy": primaryBusy || undefined,
+                  })}
               className="inline-flex items-center gap-2 rounded-pill-pack bg-accent px-4 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-50"
               title={primaryHint ?? undefined}
             >
               {primaryBusy && (
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent" />
+                <span
+                  className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent"
+                  aria-hidden
+                />
               )}
-              {primary.label}
+              {primaryBusy ? t("a11y.working") : primary.label}
               {!primaryBusy && <span aria-hidden>→</span>}
             </PrimaryTag>
             {secondary}
@@ -321,9 +332,13 @@ export function DecisionCard({
           <button
             type="button"
             onClick={() => setIdeaOpen((o) => !o)}
+            aria-expanded={ideaExpanded}
+            aria-label={
+              ideaExpanded ? t("a11y.hideIdeaDetails") : t("a11y.showIdeaDetails")
+            }
             className="flex w-full items-start gap-2 text-left"
           >
-            <span className="mt-0.5 font-mono text-xs text-muted transition">
+            <span className="mt-0.5 font-mono text-xs text-muted transition" aria-hidden>
               {ideaExpanded ? "▾" : "▸"}
             </span>
             <div className="min-w-0 flex-1">

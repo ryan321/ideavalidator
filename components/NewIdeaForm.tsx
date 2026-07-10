@@ -59,46 +59,69 @@ export default function NewIdeaForm() {
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <textarea
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        placeholder={t("studio.promptPlaceholder")}
-        rows={4}
-        className="w-full resize-none rounded-xl border border-border bg-bg/40 px-4 py-3.5 text-base leading-relaxed outline-none placeholder:text-muted/70 focus:border-accent"
-      />
-
       <div>
-        <div className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">
+        <label htmlFor="new-idea-prompt" className="sr-only">
+          {t("a11y.ideaPrompt")}
+        </label>
+        <textarea
+          id="new-idea-prompt"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder={t("studio.promptPlaceholder")}
+          rows={4}
+          required
+          minLength={8}
+          className="w-full resize-none rounded-xl border border-border bg-bg/40 px-4 py-3.5 text-base leading-relaxed outline-none placeholder:text-muted/70 focus:border-accent"
+        />
+      </div>
+
+      <fieldset>
+        <legend className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted">
           {t("studio.goalLabel")}
+        </legend>
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label={t("a11y.goalGroup")}
+        >
+          {goalOptions.map((o) => {
+            const selected = goal === o.key;
+            return (
+              <button
+                key={o.key}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setGoal(o.key)}
+                className={`rounded-full border px-3.5 py-1.5 text-sm transition ${
+                  selected
+                    ? "border-accent bg-accent/20 font-medium text-accent2"
+                    : "border-border text-muted hover:border-accent/30 hover:text-fg"
+                }`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {goalOptions.map((o) => (
-            <button
-              key={o.key}
-              type="button"
-              onClick={() => setGoal(o.key)}
-              className={`rounded-full border px-3.5 py-1.5 text-sm transition ${
-                goal === o.key
-                  ? "border-accent bg-accent/20 font-medium text-accent2"
-                  : "border-border text-muted hover:border-accent/30 hover:text-fg"
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
+        <label htmlFor="new-idea-goal-detail" className="sr-only">
+          {t("a11y.goalDetail")}
+        </label>
         <input
+          id="new-idea-goal-detail"
           value={goalDetail}
           onChange={(e) => setGoalDetail(e.target.value)}
           placeholder={t("studio.goalDetailPlaceholder")}
           className="mt-2.5 w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none placeholder:text-muted/70 focus:border-accent"
         />
-      </div>
+      </fieldset>
 
       <div>
         <button
           type="button"
           onClick={() => setShowMore((s) => !s)}
+          aria-expanded={showMore}
+          aria-controls="founder-context-fields"
           className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted transition hover:text-accent2"
         >
           {showMore ? t("studio.founderContextHide") : t("studio.founderContextShow")}{" "}
@@ -107,7 +130,10 @@ export default function NewIdeaForm() {
           </span>
         </button>
         {showMore && (
-          <div className="mt-3 space-y-2.5 rounded-xl border border-border/80 bg-bg/30 p-3.5">
+          <div
+            id="founder-context-fields"
+            className="mt-3 space-y-2.5 rounded-xl border border-border/80 bg-bg/30 p-3.5"
+          >
             {(
               [
                 {
@@ -130,48 +156,71 @@ export default function NewIdeaForm() {
                 },
               ] as const
             ).map((row) => (
-              <div key={row.label} className="flex flex-wrap items-center gap-2">
-                <span className="w-44 shrink-0 text-sm text-muted">{row.label}</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {row.opts.map((o) => (
-                    <button
-                      key={o}
-                      type="button"
-                      onClick={() => row.set(row.value === o ? "" : o)}
-                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                        row.value === o
-                          ? "border-accent bg-accent/20 text-accent2"
-                          : "border-border text-muted hover:text-fg"
-                      }`}
-                    >
-                      {o}
-                    </button>
-                  ))}
+              <div
+                key={row.label}
+                className="flex flex-wrap items-center gap-2"
+                role="group"
+                aria-label={row.label}
+              >
+                <span className="w-44 shrink-0 text-sm text-muted" id={`ctx-${row.label}`}>
+                  {row.label}
+                </span>
+                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-labelledby={`ctx-${row.label}`}>
+                  {row.opts.map((o) => {
+                    const selected = row.value === o;
+                    return (
+                      <button
+                        key={o}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => row.set(selected ? "" : o)}
+                        className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                          selected
+                            ? "border-accent bg-accent/20 text-accent2"
+                            : "border-border text-muted hover:text-fg"
+                        }`}
+                      >
+                        {o}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-44 shrink-0 text-sm text-muted">{t("studio.whereFrom")}</span>
-              <div className="flex flex-wrap gap-1.5">
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="group"
+              aria-label={t("studio.whereFrom")}
+            >
+              <span className="w-44 shrink-0 text-sm text-muted" id="ctx-where">
+                {t("studio.whereFrom")}
+              </span>
+              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-labelledby="ctx-where">
                 {(
                   [
                     { key: "organic", label: t("studio.problemIHit") },
                     { key: "whiteboard", label: t("studio.brainstorming") },
                   ] as const
-                ).map((o) => (
-                  <button
-                    key={o.key}
-                    type="button"
-                    onClick={() => setProvenance(provenance === o.key ? "" : o.key)}
-                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                      provenance === o.key
-                        ? "border-accent bg-accent/20 text-accent2"
-                        : "border-border text-muted hover:text-fg"
-                    }`}
-                  >
-                    {o.label}
-                  </button>
-                ))}
+                ).map((o) => {
+                  const selected = provenance === o.key;
+                  return (
+                    <button
+                      key={o.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setProvenance(selected ? "" : o.key)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                        selected
+                          ? "border-accent bg-accent/20 text-accent2"
+                          : "border-border text-muted hover:text-fg"
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -181,6 +230,7 @@ export default function NewIdeaForm() {
       {error && (
         <div
           role="alert"
+          aria-live="assertive"
           className="rounded-xl border border-bad/35 bg-bad/10 px-3 py-2 text-sm text-bad"
         >
           {error}
@@ -192,6 +242,7 @@ export default function NewIdeaForm() {
         <button
           type="submit"
           disabled={busy || prompt.trim().length < 8}
+          aria-busy={busy}
           className="rounded-pill-pack bg-accent px-6 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-45"
         >
           {busy ? t("studio.starting") : t("studio.validateIdea")}

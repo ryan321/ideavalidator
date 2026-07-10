@@ -56,7 +56,7 @@ export async function HelpDocBody({ blocks }: { blocks: HelpBlock[] }) {
                 <thead>
                   <tr className="border-b border-border bg-panel2/80 font-mono text-[10px] uppercase tracking-wide text-muted">
                     {b.headers.map((h) => (
-                      <th key={h} className="px-3 py-2 font-medium">
+                      <th key={h} scope="col" className="px-3 py-2 font-medium">
                         {h}
                       </th>
                     ))}

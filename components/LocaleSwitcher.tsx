@@ -79,7 +79,10 @@ export function LocaleSwitcher({ className = "" }: { className?: string }) {
       setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        btnRef.current?.focus();
+      }
     };
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
@@ -112,6 +115,7 @@ export function LocaleSwitcher({ className = "" }: { className?: string }) {
     createPortal(
       <div
         ref={menuRef}
+        id="locale-switcher-list"
         role="listbox"
         aria-label={t("nav.language")}
         className="fixed z-[90] flex w-[13.75rem] flex-col overflow-hidden rounded-xl border border-border bg-panel shadow-xl"
@@ -171,6 +175,8 @@ export function LocaleSwitcher({ className = "" }: { className?: string }) {
       document.body
     );
 
+  const listId = "locale-switcher-list";
+
   return (
     <>
       <button
@@ -179,12 +185,13 @@ export function LocaleSwitcher({ className = "" }: { className?: string }) {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listId : undefined}
         aria-label={`${t("nav.language")}: ${LOCALE_LABELS[locale]}`}
         title={LOCALE_LABELS[locale]}
         className={`inline-flex items-center gap-1.5 rounded-pill-pack border border-border px-2.5 py-1.5 text-muted transition hover:border-accent/40 hover:text-fg ${className}`}
       >
         <GlobeIcon className="h-3.5 w-3.5 shrink-0" />
-        <span className="font-mono text-[11px] font-medium uppercase tracking-wide">
+        <span className="font-mono text-[11px] font-medium uppercase tracking-wide" aria-hidden>
           {LOCALE_SHORT[locale]}
         </span>
       </button>

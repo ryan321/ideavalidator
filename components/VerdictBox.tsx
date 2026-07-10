@@ -94,10 +94,22 @@ export function ScoreRing({
   const zoneMaybe = "color-mix(in srgb, var(--color-warn) 20%, transparent)";
   const zoneGo = "color-mix(in srgb, var(--color-good) 18%, transparent)";
 
+  const ringLabel = insufficient
+    ? t("a11y.scoreRingInsufficient", { score: Math.round(score) })
+    : t("a11y.scoreRing", {
+        score: Math.round(score),
+        maybe: bands.maybe,
+        go: bands.go,
+      });
+
   return (
     <div className="mx-auto flex w-[148px] flex-col items-center">
-      <div className="relative h-[132px] w-[132px]">
-        <svg viewBox="0 0 120 120" className="h-full w-full overflow-visible">
+      <div
+        className="relative h-[132px] w-[132px]"
+        role="img"
+        aria-label={ringLabel}
+      >
+        <svg viewBox="0 0 120 120" className="h-full w-full overflow-visible" aria-hidden>
           {/* ── outer: zone map ─────────────────────────────────────────── */}
           <circle
             cx="60"
@@ -167,7 +179,10 @@ export function ScoreRing({
           />
         </svg>
 
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+          aria-hidden
+        >
           <div
             className="font-mono text-3xl font-bold leading-none tabular-nums"
             style={{ color }}
@@ -181,6 +196,7 @@ export function ScoreRing({
       {!insufficient && (
         <div
           className="mt-1.5 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide"
+          aria-hidden
           title={`${t("verdict.noGo")} < ${bands.maybe} · ${t("verdict.maybe")} ${bands.maybe}–${bands.go - 1} · ${t("verdict.go")} ≥ ${bands.go}`}
         >
           <span className="inline-flex items-center gap-1 text-good">

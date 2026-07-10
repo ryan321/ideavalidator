@@ -44,18 +44,35 @@ export function HelpSearch({
         className="w-full rounded-xl border border-border bg-panel px-4 py-3 text-sm text-fg shadow-sm outline-none placeholder:text-muted focus:border-accent/50"
       />
       {searching && (
-        <ul className="mt-2 max-h-72 overflow-auto rounded-xl border border-border bg-panel py-1 shadow-lg">
+        <ul
+          className="mt-2 max-h-72 overflow-auto rounded-xl border border-border bg-panel py-1 shadow-lg"
+          role="listbox"
+          aria-label={t("a11y.helpResults")}
+        >
           {hits.length === 0 ? (
-            <li className="px-4 py-3 text-sm text-muted">{emptyLabel}</li>
+            <li className="px-4 py-3 text-sm text-muted" role="option" aria-selected={false}>
+              {emptyLabel}
+            </li>
           ) : (
             hits.map((a) => (
-              <Hit key={a.slug} article={a} sectionTitle={
-                catalog.sections.find((s) => s.id === a.section)?.title ?? ""
-              } />
+              <Hit
+                key={a.slug}
+                article={a}
+                sectionTitle={
+                  catalog.sections.find((s) => s.id === a.section)?.title ?? ""
+                }
+              />
             ))
           )}
         </ul>
       )}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {searching
+          ? hits.length === 0
+            ? emptyLabel
+            : `${hits.length}`
+          : ""}
+      </div>
       {!searching && (
         <p className="mt-2 font-mono text-[10px] uppercase tracking-wide text-muted">
           {t("help.searchHint")}
@@ -73,7 +90,7 @@ function Hit({
   sectionTitle: string;
 }) {
   return (
-    <li>
+    <li role="option">
       <Link
         href={`/help/${article.slug}`}
         className="block px-4 py-2.5 transition hover:bg-panel2"

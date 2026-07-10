@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { SkipToContent } from "@/components/SkipToContent";
 import { StylePicker } from "@/components/StylePicker";
 import { getSessionUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
@@ -10,9 +11,14 @@ export default async function MarketingLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen flex-col">
+      <SkipToContent />
       <header className="no-print sticky top-0 z-40 border-b border-border bg-[var(--color-header)] backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/" className="group flex shrink-0 items-center gap-2.5">
+          <Link
+            href="/"
+            className="group flex shrink-0 items-center gap-2.5"
+            aria-label={t("a11y.home")}
+          >
             <span
               className="inline-grid h-8 w-8 place-items-center rounded-[var(--radius-control)] bg-accent text-on-accent"
               aria-hidden
@@ -35,7 +41,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
             </span>
           </Link>
 
-          <nav className="ml-auto flex items-center gap-2">
+          <nav className="ml-auto flex items-center gap-2" aria-label={t("a11y.mainNav")}>
             <Link
               href="/pricing"
               className="rounded-pill-pack border border-transparent px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
@@ -79,14 +85,19 @@ export default async function MarketingLayout({ children }: { children: React.Re
         </div>
       </header>
 
-      <main className="min-w-0 flex-1">{children}</main>
+      <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 outline-none">
+        {children}
+      </main>
 
       <footer className="no-print border-t border-border/70 py-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
             {t("brand.footerMarketing")}
           </div>
-          <div className="flex flex-wrap gap-4 font-mono text-[11px] text-muted">
+          <nav
+            className="flex flex-wrap gap-4 font-mono text-[11px] text-muted"
+            aria-label={t("a11y.footerNav")}
+          >
             <Link href="/help" className="hover:text-fg">
               {t("help.nav")}
             </Link>
@@ -108,7 +119,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
             <a href="https://validorian.com" className="hover:text-fg">
               validorian.com
             </a>
-          </div>
+          </nav>
         </div>
       </footer>
     </div>
