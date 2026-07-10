@@ -16,7 +16,9 @@ export const pt = {
     openStudio: "Abrir estúdio →",
     account: "Conta",
     createAccount: "Criar conta",
-    language: "Idioma"
+    language: "Idioma",
+    languageSearch: "Buscar idiomas…",
+    languageNoMatch: "Nenhum idioma correspondente"
   },
   brand: {
     name: "Validorian",
@@ -24,6 +26,49 @@ export const pt = {
     footerMarketing: "Validorian · estúdio de validação de negócios",
     footerApp: "Validorian · pontuações fundamentadas · evidência real"
   },
+  contact: {
+    nav: "Contato",
+    title: "Contato",
+    body: "Dúvidas sobre Validorian, cobrança ou sua conta? Envie um e-mail e retornamos.",
+    emailCta: "Enviar e-mail para {email}",
+  },
+  support: {
+    nav: "Suporte",
+    title: "Suporte",
+    body: "Precisa de ajuda com um relatório, campanha ou o estúdio? Fale com a equipe por e-mail.",
+    emailCta: "Enviar e-mail para {email}",
+  },
+  help: {
+    nav: "Ajuda",
+    eyebrow: "Documentação",
+    hubTitle: "Central de ajuda",
+    hubSub: "Como o Validorian pontua ideias, como campanhas funcionam e como usar o estúdio.",
+    startCta: "Comece pelo básico →",
+    emailCta: "Enviar e-mail para {email}",
+    topics: "Tópicos",
+    topicsTitle: "Navegar por assunto",
+    articles: "artigos",
+    allDocs: "Biblioteca",
+    allDocsTitle: "Todos os guias",
+    prev: "Anterior",
+    next: "Próximo",
+    stillStuck: "Ainda travado?",
+    stillStuckBody: "Envie e-mail à equipe—inclua o e-mail da conta e o título da ideia se puder.",
+    moreInHelp: "Mais na Ajuda",
+    searchPlaceholder: "Buscar na ajuda…",
+    searchEmpty: "Nenhum guia correspondente",
+    searchHint: "Tente: campanhas, GO, chat, re-score",
+    faq: "FAQ",
+    faqTitle: "Perguntas comuns",
+    popular: "Popular",
+    popularTitle: "Guias mais abertos",
+    note: "Nota",
+    learnCampaigns: "Como as campanhas funcionam →",
+    cantRunLink: "Por que não consigo rodar outra análise? →",
+    iterateLink: "Iterar sem gastar rodadas →",
+  },
+
+
   landing: {
     eyebrow: "Estúdio de validação de negócios",
     h1a: "Coloque sua ideia de negócio na mesa.",

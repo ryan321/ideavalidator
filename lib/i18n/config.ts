@@ -35,6 +35,47 @@ export const LOCALE_NATIVE_NAMES: Record<Locale, string> = {
   ar: "Arabic",
 };
 
+/**
+ * Extra search tokens for the language picker (English names, endonyms, aliases).
+ * Matching is case-insensitive and substring-based.
+ */
+export const LOCALE_SEARCH_ALIASES: Record<Locale, string[]> = {
+  en: ["english", "en", "inglés", "anglais"],
+  es: ["spanish", "español", "espanol", "castellano", "es"],
+  pt: ["portuguese", "português", "portugues", "brasil", "brazil", "pt", "pt-br"],
+  fr: ["french", "français", "francais", "fr"],
+  de: ["german", "deutsch", "de", "allemand"],
+  ja: ["japanese", "日本語", "nihongo", "ja", "jp"],
+  ko: ["korean", "한국어", "hangul", "hangugeo", "ko", "kr"],
+  zh: [
+    "chinese",
+    "中文",
+    "简体中文",
+    "simplified chinese",
+    "mandarin",
+    "zh",
+    "zh-cn",
+    "cn",
+  ],
+  hi: ["hindi", "हिन्दी", "हिंदी", "hi", "india"],
+  ar: ["arabic", "العربية", "عربي", "ar", "العربيه"],
+};
+
+/** True if query matches label, code, English name, or aliases for this locale. */
+export function localeMatchesSearch(code: Locale, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    code,
+    LOCALE_LABELS[code],
+    LOCALE_NATIVE_NAMES[code],
+    ...(LOCALE_SEARCH_ALIASES[code] ?? []),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(q);
+}
+
 export function isLocale(v: string | null | undefined): v is Locale {
   return !!v && (LOCALES as readonly string[]).includes(v);
 }

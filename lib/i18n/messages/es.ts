@@ -16,7 +16,9 @@ export const es = {
     openStudio: "Abrir estudio →",
     account: "Cuenta",
     createAccount: "Crear cuenta",
-    language: "Idioma"
+    language: "Idioma",
+    languageSearch: "Buscar idiomas…",
+    languageNoMatch: "Ningún idioma coincide"
   },
   brand: {
     name: "Validorian",
@@ -24,6 +26,49 @@ export const es = {
     footerMarketing: "Validorian · estudio de validación de negocios",
     footerApp: "Validorian · puntuaciones fundamentadas · evidencia real"
   },
+  contact: {
+    nav: "Contacto",
+    title: "Contacto",
+    body: "¿Preguntas sobre Validorian, facturación o tu cuenta? Escríbenos y te responderemos.",
+    emailCta: "Escribir a {email}",
+  },
+  support: {
+    nav: "Soporte",
+    title: "Soporte",
+    body: "¿Necesitas ayuda con un informe, una campaña o algo en el estudio? Escríbenos al equipo.",
+    emailCta: "Escribir a {email}",
+  },
+  help: {
+    nav: "Ayuda",
+    eyebrow: "Documentación",
+    hubTitle: "Centro de ayuda",
+    hubSub: "Cómo Validorian puntúa ideas, cómo funcionan las campañas y cómo sacar partido al estudio.",
+    startCta: "Empieza por lo básico →",
+    emailCta: "Escribir a {email}",
+    topics: "Temas",
+    topicsTitle: "Explorar por tema",
+    articles: "artículos",
+    allDocs: "Biblioteca",
+    allDocsTitle: "Todas las guías",
+    prev: "Anterior",
+    next: "Siguiente",
+    stillStuck: "¿Sigues atascado?",
+    stillStuckBody: "Escribe al equipo—incluye el email de tu cuenta y el título de la idea si puedes.",
+    moreInHelp: "Más en Ayuda",
+    searchPlaceholder: "Buscar en la ayuda…",
+    searchEmpty: "No hay guías que coincidan",
+    searchHint: "Prueba: campañas, GO, chat, re-score",
+    faq: "FAQ",
+    faqTitle: "Preguntas frecuentes",
+    popular: "Popular",
+    popularTitle: "Guías más abiertas",
+    note: "Nota",
+    learnCampaigns: "Cómo funcionan las campañas →",
+    cantRunLink: "¿Por qué no puedo lanzar otro análisis? →",
+    iterateLink: "Iterar sin gastar informes →",
+  },
+
+
   landing: {
     eyebrow: "Estudio de validación de negocios",
     h1a: "Pon tu idea de negocio sobre la mesa.",

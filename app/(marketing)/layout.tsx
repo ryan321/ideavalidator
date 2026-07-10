@@ -43,12 +43,20 @@ export default async function MarketingLayout({ children }: { children: React.Re
               {t("nav.pricing")}
             </Link>
             {user ? (
-              <Link
-                href="/studio"
-                className="rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
-              >
-                {t("nav.openStudio")}
-              </Link>
+              <>
+                <Link
+                  href="/help"
+                  className="rounded-pill-pack border border-transparent px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
+                >
+                  {t("help.nav")}
+                </Link>
+                <Link
+                  href="/studio"
+                  className="rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
+                >
+                  {t("nav.openStudio")}
+                </Link>
+              </>
             ) : (
               <>
                 <Link
@@ -79,8 +87,17 @@ export default async function MarketingLayout({ children }: { children: React.Re
             {t("brand.footerMarketing")}
           </div>
           <div className="flex flex-wrap gap-4 font-mono text-[11px] text-muted">
+            <Link href="/help" className="hover:text-fg">
+              {t("help.nav")}
+            </Link>
             <Link href="/pricing" className="hover:text-fg">
               {t("nav.pricing")}
+            </Link>
+            <Link href="/contact" className="hover:text-fg">
+              {t("contact.nav")}
+            </Link>
+            <Link href="/support" className="hover:text-fg">
+              {t("support.nav")}
             </Link>
             <Link href="/login" className="hover:text-fg">
               {t("nav.signIn")}

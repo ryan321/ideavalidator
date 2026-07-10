@@ -3004,6 +3004,13 @@ export default function IdeaWorkspace({
                       <a href="/pricing" className="text-accent hover:underline">
                         {t("workspace.pricingDetails")}
                       </a>
+                      {" · "}
+                      <a
+                        href="/help/campaigns-and-pricing"
+                        className="text-accent hover:underline"
+                      >
+                        {t("help.learnCampaigns")}
+                      </a>
                     </p>
                   </div>
                   <button
@@ -3030,7 +3037,13 @@ export default function IdeaWorkspace({
                       {t("workspace.usedReports", { n: billing!.runCap })}
                     </div>
                     <p className="mt-1 text-sm leading-relaxed text-muted">
-                      {t("workspace.usedBody")}
+                      {t("workspace.usedBody")}{" "}
+                      <a
+                        href="/help/cant-run-analysis"
+                        className="text-accent hover:underline"
+                      >
+                        {t("help.cantRunLink")}
+                      </a>
                     </p>
                   </div>
                   <a
@@ -3051,7 +3064,13 @@ export default function IdeaWorkspace({
                     ? t("workspace.reportsRemaining", { n: remaining })
                     : t("workspace.reportsRemainingPlural", { n: remaining })}
                 </span>
-                <span className="text-muted">{t("workspace.remainingHint")}</span>
+                <span className="text-muted">{t("workspace.remainingHint")}</span>{" "}
+                <a
+                  href="/help/iterate"
+                  className="font-medium text-accent hover:underline"
+                >
+                  {t("help.iterateLink")}
+                </a>
               </div>
             )}
 
@@ -3093,6 +3112,16 @@ export default function IdeaWorkspace({
                     <span className="text-fg/65">{t("workspace.meterComplete")}</span>
                   ) : null}
                 </span>
+                <a
+                  href={
+                    exhausted
+                      ? "/help/cant-run-analysis"
+                      : "/help/campaigns-and-pricing"
+                  }
+                  className="text-[11px] text-muted underline-offset-2 hover:text-accent hover:underline"
+                >
+                  {exhausted ? t("help.cantRunLink") : t("help.learnCampaigns")}
+                </a>
                 {/* progress through included analyses */}
                 <div className="flex h-1.5 max-w-[7rem] flex-1 gap-0.5 overflow-hidden rounded-full">
                   {Array.from({ length: billing.runCap }, (_, i) => (

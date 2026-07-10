@@ -41,6 +41,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="ml-auto flex items-center gap-2">
             <div id="mobile-nav-slot" className="contents sm:hidden" />
             <Link
+              href="/help"
+              className="rounded-pill-pack border border-transparent px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
+            >
+              {t("help.nav")}
+            </Link>
+            <Link
               href="/pricing"
               className="rounded-pill-pack border border-transparent px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
             >
@@ -65,8 +71,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       <footer className="no-print border-t border-border/70 py-4 text-center font-mono text-[10px] uppercase text-muted [letter-spacing:var(--tracking-eyebrow)]">
         {t("brand.footerApp")} ·{" "}
+        <Link href="/help" className="hover:text-fg">
+          {t("help.nav")}
+        </Link>
+        {" · "}
         <Link href="/pricing" className="hover:text-fg">
           {t("nav.pricing")}
+        </Link>
+        {" · "}
+        <Link href="/support" className="hover:text-fg">
+          {t("support.nav")}
         </Link>
       </footer>
     </div>
