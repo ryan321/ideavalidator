@@ -17,11 +17,21 @@ const LOCALE_SHORT: Record<Locale, string> = {
   pt: "PT",
   fr: "FR",
   de: "DE",
+  it: "IT",
+  nl: "NL",
+  pl: "PL",
   ja: "JA",
   ko: "KO",
-  zh: "中文",
+  zh: "简",
+  zht: "繁",
   hi: "HI",
+  id: "ID",
+  vi: "VI",
+  th: "TH",
+  tr: "TR",
   ar: "AR",
+  he: "HE",
+  uk: "UK",
 };
 
 function GlobeIcon({ className = "" }: { className?: string }) {

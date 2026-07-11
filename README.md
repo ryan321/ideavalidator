@@ -115,6 +115,10 @@ spend OpenRouter credit and require `--yes`.
 
 ## Notes
 
+- Accounts are email + password (scrypt-hashed, server-side sessions). Forgotten passwords
+  are reset via an emailed link sent with [Resend](https://resend.com) — set `RESEND_API_KEY`
+  (and a verified `EMAIL_FROM` in production). Without a key, reset links are printed to the
+  server console instead, so local dev needs no email setup.
 - Data lives in `data/ideavalidator.db` (gitignored). Delete it to reset.
 - Cost depends on the models you route to; the grounded validation pass calls the web-search
   plugin (10 results) and costs the most. Evidence queries/ranking use the cheap writing model.

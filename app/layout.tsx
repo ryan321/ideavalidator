@@ -14,6 +14,7 @@ import {
 } from "next/font/google";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { StyleProvider } from "@/components/StyleProvider";
+import { isRtlLocale, localeLangTag } from "@/lib/i18n/config";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { createTranslator } from "@/lib/i18n/t";
 import { STYLE_STORAGE_KEY, STYLE_TOKENS } from "@/lib/styles";
@@ -105,9 +106,9 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getRequestLocale();
-  const dir = locale === "ar" ? "rtl" : "ltr";
+  const dir = isRtlLocale(locale) ? "rtl" : "ltr";
   return (
-    <html lang={locale} dir={dir} className={`${fontVars} h-full antialiased`} suppressHydrationWarning>
+    <html lang={localeLangTag(locale)} dir={dir} className={`${fontVars} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: styleBootScript }} />
       </head>

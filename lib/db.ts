@@ -143,6 +143,17 @@ function init(): Database.Database {
     );
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
   `);
+  // Password resets mirror the session-token model: the emailed link carries a random
+  // token; ONLY its sha256 lands here, so a db leak never exposes a usable reset link.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      token_hash    TEXT PRIMARY KEY,
+      user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at    TEXT NOT NULL,
+      expires_at    TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
+  `);
   addColumn(db, "ideas", "user_id", "TEXT"); // NULL = legacy/local; else users.id
   addColumn(db, "api_keys", "user_id", "TEXT"); // NULL = CLI-minted; else the owning user
 
@@ -459,7 +470,8 @@ export function deleteUser(id: string): void {
       deleteIdea(row.id);
     }
     db.prepare("DELETE FROM api_keys WHERE user_id = ?").run(id);
-    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(id);
+    deleteSessionsForUser(id);
+    deletePasswordResetsForUser(id);
     db.prepare("DELETE FROM users WHERE id = ?").run(id);
   });
   tx();
@@ -487,6 +499,42 @@ export function getUserBySessionHash(tokenHash: string): User | undefined {
 
 export function deleteSession(tokenHash: string): void {
   db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash);
+}
+
+/** Kill every session a user has (password reset, account deletion). */
+export function deleteSessionsForUser(userId: string): void {
+  db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+}
+
+// ---- password resets (email link) ---------------------------------------------
+
+/** Persist a reset request (only the token's sha256 is stored). One active reset per
+ * user — a fresh request invalidates any earlier link. */
+export function createPasswordReset(tokenHash: string, userId: string, expiresAt: string): void {
+  const tx = db.transaction(() => {
+    db.prepare("DELETE FROM password_resets WHERE user_id = ?").run(userId);
+    db.prepare(
+      "INSERT INTO password_resets (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)"
+    ).run(tokenHash, userId, new Date().toISOString(), expiresAt);
+  });
+  tx();
+}
+
+/** The user behind a reset token hash, if the reset exists and hasn't expired. */
+export function getPasswordResetUserId(tokenHash: string): string | undefined {
+  const row = db
+    .prepare("SELECT user_id, expires_at FROM password_resets WHERE token_hash = ?")
+    .get(tokenHash) as { user_id: string; expires_at: string } | undefined;
+  if (!row) return undefined;
+  if (Date.parse(row.expires_at) < Date.now()) {
+    db.prepare("DELETE FROM password_resets WHERE token_hash = ?").run(tokenHash); // reap expired
+    return undefined;
+  }
+  return row.user_id;
+}
+
+export function deletePasswordResetsForUser(userId: string): void {
+  db.prepare("DELETE FROM password_resets WHERE user_id = ?").run(userId);
 }
 
 // ---- user-scoped idea access (web tenancy) ------------------------------------

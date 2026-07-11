@@ -4,11 +4,21 @@ import { es } from "./es";
 import { pt } from "./pt";
 import { fr } from "./fr";
 import { de } from "./de";
+import { it } from "./it";
+import { nl } from "./nl";
+import { pl } from "./pl";
 import { ja } from "./ja";
 import { ko } from "./ko";
 import { zh } from "./zh";
+import { zht } from "./zht";
 import { hi } from "./hi";
+import { id } from "./id";
+import { vi } from "./vi";
+import { th } from "./th";
+import { tr } from "./tr";
 import { ar } from "./ar";
+import { he } from "./he";
+import { uk } from "./uk";
 
 /**
  * Locale catalogs. Missing keys fall back to English via deepMerge in getMessages.
@@ -19,11 +29,21 @@ const catalogs: Record<Locale, MessageTree | Partial<MessageTree>> = {
   pt,
   fr,
   de,
+  it,
+  nl,
+  pl,
   ja,
   ko,
   zh,
+  zht,
   hi,
+  id,
+  vi,
+  th,
+  tr,
   ar,
+  he,
+  uk,
 };
 
 export function getMessages(locale: Locale): MessageTree {

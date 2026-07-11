@@ -98,6 +98,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
             />
           </div>
+          {!isSignup && (
+            <p className="text-end text-xs">
+              <Link href="/forgot" className="font-medium text-accent2 hover:underline">
+                {t("auth.forgotPassword")}
+              </Link>
+            </p>
+          )}
           {error && (
             <div
               role="alert"

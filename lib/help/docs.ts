@@ -10,11 +10,21 @@ import { helpEs } from "./content/es";
 import { helpPt } from "./content/pt";
 import { helpFr } from "./content/fr";
 import { helpDe } from "./content/de";
+import { helpIt } from "./content/it";
+import { helpNl } from "./content/nl";
+import { helpPl } from "./content/pl";
 import { helpJa } from "./content/ja";
 import { helpKo } from "./content/ko";
 import { helpZh } from "./content/zh";
+import { helpZht } from "./content/zht";
 import { helpHi } from "./content/hi";
+import { helpId } from "./content/id";
+import { helpVi } from "./content/vi";
+import { helpTh } from "./content/th";
+import { helpTr } from "./content/tr";
 import { helpAr } from "./content/ar";
+import { helpHe } from "./content/he";
+import { helpUk } from "./content/uk";
 import type {
   HelpArticle,
   HelpBlock,
@@ -39,11 +49,21 @@ const CATALOGS: Record<Locale, HelpCatalog> = {
   pt: helpPt,
   fr: helpFr,
   de: helpDe,
+  it: helpIt,
+  nl: helpNl,
+  pl: helpPl,
   ja: helpJa,
   ko: helpKo,
   zh: helpZh,
+  zht: helpZht,
   hi: helpHi,
+  id: helpId,
+  vi: helpVi,
+  th: helpTh,
+  tr: helpTr,
   ar: helpAr,
+  he: helpHe,
+  uk: helpUk,
 };
 
 /** Hub "popular" row (slugs, order) — locale-independent. */
