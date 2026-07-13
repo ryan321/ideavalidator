@@ -158,6 +158,7 @@ export const en = {
     anchor:
       "Avoid pouring months and money into the wrong thing — {price} is a small price next to a failed launch.",
     haveAccount: "Already have an account?",
+    ideaError: "Make sure you fill in your full idea",
   },
 
   // Landing "two ways to find out" section (the expensive gamble vs. the $29 way). Own

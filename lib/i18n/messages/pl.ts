@@ -887,6 +887,7 @@ export const pl = {
     riskReversal: "If a report ever fails to generate, you’re not charged — and if a score reads wrong, email me and I’ll make it right.",
     anchor: "Building the wrong idea costs months of nights and weekends. A hard read costs {price}, once.",
     haveAccount: "Already have an account?",
+    ideaError: "Make sure you fill in your full idea",
   },
   // TODO(i18n): English placeholder — translate oauth.* (Google sign-in).
   oauth: {

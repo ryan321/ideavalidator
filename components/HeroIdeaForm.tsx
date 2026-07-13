@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useT } from "./LocaleProvider";
@@ -11,16 +11,28 @@ import { useT } from "./LocaleProvider";
 // after sign-up, so the idea they invested in carries straight through.
 export const DRAFT_IDEA_KEY = "iv_draft_idea";
 
+const MIN_IDEA = 8;
+
 export function HeroIdeaForm({ signedIn, price }: { signedIn: boolean; price: string }) {
   const router = useRouter();
   const t = useT();
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
-  const ready = prompt.trim().length >= 8;
+  const [tried, setTried] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const ready = prompt.trim().length >= MIN_IDEA;
+  // Only nag AFTER they've clicked with too little — never gray the button out.
+  const showHint = tried && !ready;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!ready || busy) return;
+    if (busy) return;
+    if (!ready) {
+      setTried(true);
+      textareaRef.current?.focus();
+      return;
+    }
     setBusy(true);
     try {
       localStorage.setItem(DRAFT_IDEA_KEY, prompt.trim());
@@ -36,19 +48,23 @@ export function HeroIdeaForm({ signedIn, price }: { signedIn: boolean; price: st
         {t("a11y.ideaPrompt")}
       </label>
       <textarea
+        ref={textareaRef}
         id="hero-idea"
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         placeholder={t("convert.ideaPlaceholder")}
         rows={3}
-        className="w-full resize-none rounded-2xl border border-border bg-bg/50 px-4 py-3.5 text-base leading-relaxed shadow-sm outline-none placeholder:text-muted/70 focus:border-accent"
+        aria-invalid={showHint}
+        aria-describedby={showHint ? "hero-idea-hint" : undefined}
+        className={`w-full resize-none rounded-2xl border bg-bg/50 px-4 py-3.5 text-base leading-relaxed shadow-sm outline-none placeholder:text-muted/70 focus:border-accent ${
+          showHint ? "border-warn/60" : "border-border"
+        }`}
       />
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <button
           type="submit"
-          disabled={!ready || busy}
           aria-busy={busy}
-          className="rounded-pill-pack bg-accent px-6 py-3 font-display text-base font-bold text-on-accent transition hover:bg-accent2 disabled:opacity-45"
+          className="rounded-pill-pack bg-accent px-6 py-3 font-display text-base font-bold text-on-accent transition hover:bg-accent2"
         >
           {busy ? t("convert.ideaCtaBusy") : t("convert.ideaCta")}
         </button>
@@ -61,6 +77,15 @@ export function HeroIdeaForm({ signedIn, price }: { signedIn: boolean; price: st
           </span>
         )}
       </div>
+      {showHint && (
+        <div
+          id="hero-idea-hint"
+          role="alert"
+          className="mt-2 w-fit rounded-lg border border-warn/40 bg-warn/10 px-3 py-1.5 text-sm font-medium text-warn"
+        >
+          {t("convert.ideaError")}
+        </div>
+      )}
       <p className="mt-3 max-w-xl text-xs leading-relaxed text-muted">
         {t("convert.ideaHint", { price })}
       </p>
