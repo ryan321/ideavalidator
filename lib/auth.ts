@@ -36,6 +36,21 @@ export async function startSession(userId: string): Promise<void> {
   });
 }
 
+/** Create a session and set the cookie ON a given response — for handlers that return a
+ * redirect (e.g. the OAuth callback), where mutating the async cookie store is unreliable. */
+export function issueSessionCookie(res: NextResponse, userId: string): void {
+  const token = crypto.randomBytes(32).toString("hex");
+  const expires = new Date(Date.now() + MAX_AGE_S * 1000);
+  createSession(hashToken(token), userId, expires.toISOString());
+  res.cookies.set(COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: MAX_AGE_S,
+  });
+}
+
 /** Destroy the current session and clear the cookie. */
 export async function endSession(): Promise<void> {
   const store = await cookies();

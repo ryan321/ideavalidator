@@ -126,6 +126,10 @@ spend OpenRouter credit and require `--yes`.
   are reset via an emailed link sent with [Resend](https://resend.com) — set `RESEND_API_KEY`
   (and a verified `EMAIL_FROM` in production). Without a key, reset links are printed to the
   server console instead, so local dev needs no email setup.
+- Optional **Sign in with Google**: set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (OAuth
+  "Web application" client, redirect URI `<origin>/api/auth/google/callback`). Unset ⇒ the
+  button is hidden and email/password is the only path. Google accounts are created with no
+  usable password; they can set one later via the reset flow.
 - Data lives in `data/ideavalidator.db` (gitignored). Delete it to reset.
 - Cost depends on the models you route to; the grounded validation pass calls the web-search
   plugin (10 results) and costs the most. Evidence queries/ranking use the cheap writing model.

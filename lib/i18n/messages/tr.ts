@@ -886,4 +886,12 @@ export const tr = {
     anchor: "Building the wrong idea costs months of nights and weekends. A hard read costs {price}, once.",
     haveAccount: "Already have an account?",
   },
+  // TODO(i18n): English placeholder — translate oauth.* (Google sign-in).
+  oauth: {
+    continueWithGoogle: "Continue with Google",
+    or: "or",
+    errorFailed: "Google sign-in didn’t complete. Try again, or use your email and password.",
+    errorUnverified: "That Google account’s email isn’t verified, so we can’t sign you in with it.",
+    errorUnavailable: "Google sign-in isn’t set up right now. Use your email and password.",
+  },
 } satisfies MessageTree;

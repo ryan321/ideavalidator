@@ -159,6 +159,16 @@ export const en = {
       "Building the wrong idea costs months of nights and weekends. A hard read costs {price}, once.",
     haveAccount: "Already have an account?",
   },
+
+  // Google sign-in. Own top-level section so the other catalogs carry it as an English
+  // placeholder until translated.
+  oauth: {
+    continueWithGoogle: "Continue with Google",
+    or: "or",
+    errorFailed: "Google sign-in didn't complete. Try again, or use your email and password.",
+    errorUnverified: "That Google account's email isn't verified, so we can't sign you in with it.",
+    errorUnavailable: "Google sign-in isn't set up right now. Use your email and password.",
+  },
   checklist: {
     item1: "GO / MAYBE / NO-GO scored against your goal",
     item2: "Demand analysis (how badly people want this)",

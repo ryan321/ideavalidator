@@ -156,6 +156,8 @@ function init(): Database.Database {
   `);
   addColumn(db, "ideas", "user_id", "TEXT"); // NULL = legacy/local; else users.id
   addColumn(db, "api_keys", "user_id", "TEXT"); // NULL = CLI-minted; else the owning user
+  // Google OAuth: the stable Google account id (`sub`). NULL for password-only accounts.
+  addColumn(db, "users", "google_id", "TEXT");
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
   addColumn(db, "artifacts", "cost", "REAL");
@@ -278,6 +280,8 @@ export type User = {
   password_hash: string;
   name: string | null;
   created_at: string;
+  /** Google account id (`sub`) when this account can sign in with Google; else null. */
+  google_id: string | null;
 };
 
 export type IdeaSummary = Idea & {
@@ -437,18 +441,34 @@ export function incrementCampaignRuns(id: string): void {
 
 // ---- users + sessions (web accounts) ------------------------------------------
 
-export function createUser(email: string, passwordHash: string, name: string | null): User {
+export function createUser(
+  email: string,
+  passwordHash: string,
+  name: string | null,
+  googleId: string | null = null
+): User {
   const user: User = {
     id: crypto.randomUUID(),
     email: email.toLowerCase(),
     password_hash: passwordHash,
     name,
     created_at: new Date().toISOString(),
+    google_id: googleId,
   };
   db.prepare(
-    "INSERT INTO users (id, email, password_hash, name, created_at) VALUES (@id, @email, @password_hash, @name, @created_at)"
+    "INSERT INTO users (id, email, password_hash, name, created_at, google_id) VALUES (@id, @email, @password_hash, @name, @created_at, @google_id)"
   ).run(user);
   return user;
+}
+
+/** Look up an account by its linked Google id (`sub`). */
+export function getUserByGoogleId(googleId: string): User | undefined {
+  return db.prepare("SELECT * FROM users WHERE google_id = ?").get(googleId) as User | undefined;
+}
+
+/** Link a Google account id to an existing (e.g. email/password) user. */
+export function linkGoogleId(id: string, googleId: string): void {
+  db.prepare("UPDATE users SET google_id = ? WHERE id = ?").run(googleId, id);
 }
 
 export function getUserByEmail(email: string): User | undefined {
