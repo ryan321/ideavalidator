@@ -135,9 +135,30 @@ export default async function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-auto border-t border-border/70 pt-4 font-mono text-[11px] leading-relaxed text-muted">
-                {t("twoWays.badCost")}
-              </p>
+              <div className="mt-auto grid grid-cols-2 gap-4 border-t border-border/70 pt-5">
+                <div>
+                  <div className="font-mono text-[10px] uppercase tracking-wide text-muted">
+                    {t("twoWays.moneyLabel")}
+                  </div>
+                  <div className="mt-1 font-display text-2xl font-extrabold tracking-tight text-fg/75">
+                    {t("twoWays.badMoney")}
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-warn/15">
+                    <div className="h-full w-[90%] rounded-full bg-warn/60" />
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[10px] uppercase tracking-wide text-muted">
+                    {t("twoWays.timeLabel")}
+                  </div>
+                  <div className="mt-1 font-display text-2xl font-extrabold tracking-tight text-fg/75">
+                    {t("twoWays.badTime")}
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-warn/15">
+                    <div className="h-full w-[85%] rounded-full bg-warn/60" />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* vs */}
@@ -171,9 +192,30 @@ export default async function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-auto border-t border-accent/25 pt-4 font-mono text-[11px] font-medium leading-relaxed text-accent2">
-                {t("twoWays.goodCost", { price })}
-              </p>
+              <div className="mt-auto grid grid-cols-2 gap-4 border-t border-accent/25 pt-5">
+                <div>
+                  <div className="font-mono text-[10px] uppercase tracking-wide text-accent">
+                    {t("twoWays.moneyLabel")}
+                  </div>
+                  <div className="mt-1 font-display text-2xl font-extrabold tracking-tight text-accent2">
+                    {t("twoWays.goodMoney", { price })}
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-accent/15">
+                    <div className="h-full w-[8%] rounded-full bg-accent" />
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[10px] uppercase tracking-wide text-accent">
+                    {t("twoWays.timeLabel")}
+                  </div>
+                  <div className="mt-1 font-display text-2xl font-extrabold tracking-tight text-accent2">
+                    {t("twoWays.goodTime")}
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-accent/15">
+                    <div className="h-full w-[10%] rounded-full bg-accent" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

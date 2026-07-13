@@ -913,5 +913,11 @@ export const vi = {
     goodStep3: "Refine, re-score, and compare versions until it’s sharp",
     goodStep4: "Know whether it’ll work — before you build a thing",
     goodCost: "{price} · about ten minutes · a clear answer you can act on",
+    moneyLabel: "Money",
+    timeLabel: "Time",
+    badMoney: "$1,000s",
+    badTime: "Months",
+    goodMoney: "{price}",
+    goodTime: "~10 min",
   },
 } satisfies MessageTree;
