@@ -859,4 +859,24 @@ export const id = {
     resetExpires: "Tautan ini kedaluwarsa dalam 60 menit.",
     resetIgnore: "Jika kamu tidak memintanya, abaikan saja email ini.",
   },
+
+  // TODO(i18n): English placeholder — translate compare.* (landing comparison table).
+  compare: {
+    eyebrow: "How we compare",
+    title: "Everything checked, not just the easy parts",
+    sub: "Most idea tools hand you an encouraging score. Validorian gives you a decision you can defend — every check, on every idea.",
+    other: "Other services",
+    us: "Validorian",
+    foot: "No tiers, no upsell — every idea gets the full package.",
+    yes: "Included",
+    no: "Not included",
+    row1: "A clear GO / MAYBE / NO-GO verdict",
+    row2: "Backed by real, clickable evidence — not AI guesses",
+    row3: "An honest NO-GO when the idea won’t hold up",
+    row4: "Willingness-to-pay read from real buyer signals",
+    row5: "A one-week kill-test to disprove it cheaply",
+    row6: "Cross-checked by a second AI model family",
+    row7: "Iterate and re-score as the idea changes",
+    row8: "One flat price — no subscription",
+  },
 } satisfies MessageTree;

@@ -15,6 +15,45 @@ export default async function LandingPage() {
   const ctaLabel = user ? t("nav.openStudio") : t("nav.validateCta");
   const checklist = checklistItems(t);
 
+  // Comparison rows: Validorian checks every one; "other services" only the
+  // table-stakes (a verdict, iterating) and miss the differentiators.
+  const compareRows: { label: string; other: boolean }[] = [
+    { label: t("compare.row1"), other: true },
+    { label: t("compare.row2"), other: false },
+    { label: t("compare.row3"), other: false },
+    { label: t("compare.row4"), other: false },
+    { label: t("compare.row5"), other: false },
+    { label: t("compare.row6"), other: false },
+    { label: t("compare.row7"), other: true },
+    { label: t("compare.row8"), other: false },
+  ];
+  // One comparison cell's mark. "strong" = the highlighted Validorian column;
+  // "weak" = a plain yes; "no" = a muted cross. sr-only text carries meaning.
+  const mark = (kind: "strong" | "weak" | "no") =>
+    kind === "no" ? (
+      <>
+        <span
+          aria-hidden
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-fg/[0.05] text-[11px] font-bold text-fg/30"
+        >
+          ✗
+        </span>
+        <span className="sr-only">{t("compare.no")}</span>
+      </>
+    ) : (
+      <>
+        <span
+          aria-hidden
+          className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-sm font-bold ${
+            kind === "strong" ? "bg-accent text-on-accent" : "bg-fg/10 text-fg/60"
+          }`}
+        >
+          ✓
+        </span>
+        <span className="sr-only">{t("compare.yes")}</span>
+      </>
+    );
+
   return (
     <div className="folio-enter">
       <section className="mx-auto max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16">
@@ -195,6 +234,66 @@ export default async function LandingPage() {
               {t("landing.theCallBody")}
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="border-t border-border bg-panel/30 py-16 sm:py-20">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
+            {t("compare.eyebrow")}
+          </p>
+          <h2 className="mt-3 max-w-2xl font-display text-2xl font-bold tracking-tight sm:text-3xl">
+            {t("compare.title")}
+          </h2>
+          <p className="mt-2 max-w-xl text-muted">{t("compare.sub")}</p>
+
+          <div className="mt-10 overflow-hidden rounded-[var(--radius-card)] border border-border bg-panel">
+            <table className="w-full border-collapse text-left align-middle">
+              <caption className="sr-only">{t("compare.title")}</caption>
+              <colgroup>
+                <col />
+                <col className="w-20 sm:w-36" />
+                <col className="w-20 sm:w-40" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className="px-4 py-4 sm:px-6" />
+                  <th
+                    scope="col"
+                    className="px-2 py-4 text-center font-mono text-[11px] font-medium uppercase text-muted [letter-spacing:var(--tracking-eyebrow)] sm:px-4"
+                  >
+                    {t("compare.other")}
+                  </th>
+                  <th scope="col" className="bg-accent/10 px-2 py-4 text-center sm:px-4">
+                    <span className="inline-flex rounded-pill-pack bg-accent px-3 py-1 font-display text-xs font-bold text-on-accent sm:text-sm">
+                      {t("compare.us")}
+                    </span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {compareRows.map((row, i) => (
+                  <tr key={i} className="border-b border-border/70 last:border-b-0">
+                    <th
+                      scope="row"
+                      className="px-4 py-3.5 text-left text-sm font-medium leading-snug text-fg/90 sm:px-6 sm:text-[15px]"
+                    >
+                      {row.label}
+                    </th>
+                    <td className="px-2 py-3.5 text-center align-middle sm:px-4">
+                      {mark(row.other ? "weak" : "no")}
+                    </td>
+                    <td className="bg-accent/5 px-2 py-3.5 text-center align-middle sm:px-4">
+                      {mark("strong")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-4 text-center font-mono text-[11px] text-muted sm:text-left">
+            {t("compare.foot")}
+          </p>
         </div>
       </section>
 
