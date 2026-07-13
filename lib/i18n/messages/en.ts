@@ -160,6 +160,29 @@ export const en = {
     haveAccount: "Already have an account?",
   },
 
+  // Landing "two ways to find out" section (the expensive gamble vs. the $29 way). Own
+  // top-level section so the other catalogs carry it as an English placeholder.
+  twoWays: {
+    eyebrow: "Before you build",
+    title: "Two ways to find out if your idea works",
+    sub: "One costs months and real money. The other costs {price} and about ten minutes.",
+    vs: "vs",
+    badTag: "The gamble",
+    badTitle: "Build it, then hope",
+    badStep1: "Sink months of nights and weekends into building it",
+    badStep2: "Spend real money on design, development, and ads",
+    badStep3: "Launch it to the world",
+    badStep4: "Hear crickets — turns out no one wanted it",
+    badCost: "Months of your life · thousands of dollars · and you find out the hard way",
+    goodTag: "The {price} way",
+    goodTitle: "Validate it first",
+    goodStep1: "Describe your idea in a couple of minutes",
+    goodStep2: "Get an evidence-backed GO / MAYBE / NO-GO",
+    goodStep3: "Refine, re-score, and compare versions until it's sharp",
+    goodStep4: "Know whether it'll work — before you build a thing",
+    goodCost: "{price} · about ten minutes · a clear answer you can act on",
+  },
+
   // Google sign-in. Own top-level section so the other catalogs carry it as an English
   // placeholder until translated.
   oauth: {

@@ -97,6 +97,88 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* Two ways to find out: the expensive gamble vs. the $29 way */}
+      <section className="border-t border-border py-16 sm:py-20">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
+            {t("twoWays.eyebrow")}
+          </p>
+          <h2 className="mt-3 max-w-2xl font-display text-2xl font-bold tracking-tight sm:text-3xl">
+            {t("twoWays.title")}
+          </h2>
+          <p className="mt-2 max-w-xl text-muted">{t("twoWays.sub", { price })}</p>
+
+          <div className="mt-10 grid gap-5 md:grid-cols-[1fr_auto_1fr]">
+            {/* The gamble */}
+            <div className="flex h-full flex-col rounded-[var(--radius-card)] border border-border bg-panel/60 p-6 sm:p-7">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+                {t("twoWays.badTag")}
+              </p>
+              <h3 className="mt-2 font-display text-lg font-bold tracking-tight text-fg/80">
+                {t("twoWays.badTitle")}
+              </h3>
+              <ul className="mt-5 space-y-3">
+                {[
+                  t("twoWays.badStep1"),
+                  t("twoWays.badStep2"),
+                  t("twoWays.badStep3"),
+                  t("twoWays.badStep4"),
+                ].map((step, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm leading-snug text-muted">
+                    <span
+                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-fg/[0.06] text-[11px] font-bold text-fg/35"
+                      aria-hidden
+                    >
+                      ✗
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-auto border-t border-border/70 pt-4 font-mono text-[11px] leading-relaxed text-muted">
+                {t("twoWays.badCost")}
+              </p>
+            </div>
+
+            {/* vs */}
+            <div className="flex items-center justify-center font-mono text-xs font-semibold uppercase tracking-wide text-muted">
+              {t("twoWays.vs")}
+            </div>
+
+            {/* The $29 way (highlighted) */}
+            <div className="flex h-full flex-col rounded-[var(--radius-card)] border border-accent/40 bg-accent/[0.06] p-6 shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_18%,transparent)] sm:p-7">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+                {t("twoWays.goodTag", { price })}
+              </p>
+              <h3 className="mt-2 font-display text-lg font-bold tracking-tight text-fg">
+                {t("twoWays.goodTitle")}
+              </h3>
+              <ul className="mt-5 space-y-3">
+                {[
+                  t("twoWays.goodStep1"),
+                  t("twoWays.goodStep2"),
+                  t("twoWays.goodStep3"),
+                  t("twoWays.goodStep4"),
+                ].map((step, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm leading-snug text-fg/90">
+                    <span
+                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-on-accent"
+                      aria-hidden
+                    >
+                      ✓
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-auto border-t border-accent/25 pt-4 font-mono text-[11px] font-medium leading-relaxed text-accent2">
+                {t("twoWays.goodCost", { price })}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="border-t border-border bg-panel/30 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
