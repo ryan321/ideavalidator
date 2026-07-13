@@ -15,17 +15,20 @@ export default async function LandingPage() {
   const ctaLabel = user ? t("nav.openStudio") : t("nav.validateCta");
   const checklist = checklistItems(t);
 
-  // Comparison rows: Validorian checks every one; "other services" only the
-  // table-stakes (a verdict, iterating) and miss the differentiators.
+  // Comparison rows: Validorian checks every one; "other services" get the
+  // table-stakes (a verdict, market sizing) but miss the differentiators —
+  // goal-relative scoring, an honest NO-GO, real WTP signals, the kill-test,
+  // and the iterate / chat / arena loop that keeps sharpening the idea.
   const compareRows: { label: string; other: boolean }[] = [
     { label: t("compare.row1"), other: true },
-    { label: t("compare.row2"), other: false },
+    { label: t("compare.row2"), other: true },
     { label: t("compare.row3"), other: false },
     { label: t("compare.row4"), other: false },
     { label: t("compare.row5"), other: false },
     { label: t("compare.row6"), other: false },
-    { label: t("compare.row7"), other: true },
+    { label: t("compare.row7"), other: false },
     { label: t("compare.row8"), other: false },
+    { label: t("compare.row9"), other: false },
   ];
   // One comparison cell's mark. "strong" = the highlighted Validorian column;
   // "weak" = a plain yes; "no" = a muted cross. sr-only text carries meaning.
