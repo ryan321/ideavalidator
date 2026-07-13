@@ -870,7 +870,7 @@ appNav: {
     vs: "vs",
     badTag: "The gamble",
     badTitle: "Build it, then hope",
-    badStep1: "Sink months of nights and weekends into building it",
+    badStep1: "Pour months of work into building it",
     badStep2: "Spend real money on design, development, and ads",
     badStep3: "Launch it to the world",
     badStep4: "Hear crickets — turns out no one wanted it",

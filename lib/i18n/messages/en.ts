@@ -71,7 +71,7 @@ export const en = {
   landing: {
     eyebrow: "Business validation studio",
     h1a: "Know if your idea is worth building.",
-    h1b: "A scored GO / MAYBE / NO-GO on your business idea — before you spend a weekend or a dollar on it.",
+    h1b: "A scored GO / MAYBE / NO-GO on your business idea — before you sink months and real money into building it.",
     // Emphasis on GO / MAYBE / NO-GO and "your" is applied in the page markup.
     subBefore:
       "Don't pour time and money into an idea that was never going to work. Validate your business idea with a clear",
@@ -85,7 +85,7 @@ export const en = {
     paidHintBefore: "Open the studio and describe an idea. Full validation is",
     paidHintPrice: "{price} per idea",
     paidHintAfter: ".",
-    whoFor: "For solo founders, side projects, and first-time builders · private by default",
+    whoFor: "For any business idea — a weekend side project or a company you'll raise for · private by default",
     whatYouGetEyebrow: "What you get",
     whatYouGetTitle: "Everything in a full validation",
     whatYouGetSub: "Not a single vague score. A full decision package from {price} per idea.",
@@ -169,7 +169,7 @@ export const en = {
     vs: "vs",
     badTag: "The gamble",
     badTitle: "Build it, then hope",
-    badStep1: "Sink months of nights and weekends into building it",
+    badStep1: "Pour months of work into building it",
     badStep2: "Spend real money on design, development, and ads",
     badStep3: "Launch it to the world",
     badStep4: "Hear crickets — turns out no one wanted it",
