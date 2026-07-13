@@ -6,7 +6,7 @@ import { searchYouTube, youtubeConfigured } from "./youtube";
 import { searchAppStore } from "./appstore";
 import { searchStackExchange } from "./stackexchange";
 import { searchGitHub } from "./github";
-import { searchWeb, webConfigured } from "./web";
+import { searchWeb, searchWebReviews, webConfigured } from "./web";
 import { dedupeAndRank } from "./rank";
 import { SOURCE_META, sourceName } from "./sources";
 import type { EvidenceCorpus, EvidenceSource, RawEvidenceItem } from "./types";
@@ -55,11 +55,22 @@ export async function collectEvidence(versionId: string): Promise<EvidenceCorpus
   // rate-limited ones (YouTube 100u/search, App Store, GitHub 10 req/min unauth, Web/Exa)
   // take only the top few.
   const heavyQueries = queries.slice(0, 3);
+  // The review lane (Exa over G2/Capterra/Trustpilot/… ) is the primary replacement for
+  // Reddit's demand read, but it's an EXTRA Exa call per query, so bound it to the top two.
+  const reviewQueries = queries.slice(0, 2);
   const tasks: Promise<{ items: RawEvidenceItem[]; errors: string[] }>[] = [];
   for (const q of queries) {
     if (enabled.has("hn")) tasks.push(searchHn(q));
     if (enabled.has("reddit")) tasks.push(searchReddit(q));
     if (enabled.has("stackexchange")) tasks.push(searchStackExchange(q));
+  }
+  // Web review lane FIRST: targeted at the review/complaint marketplaces (see web.ts) — the
+  // behavioral demand/WTP signal Reddit used to carry, for buyers who never touch HN. Enqueued
+  // AHEAD of the broad lane so that when Exa returns the same review-site URL in both lanes,
+  // the URL dedupe (first-writer-wins in dedupeAndRank) keeps the review lane's WTP-tuned quote
+  // rather than the broad lane's generic one.
+  for (const q of reviewQueries) {
+    if (enabled.has("web")) tasks.push(searchWebReviews(q));
   }
   for (const q of heavyQueries) {
     if (enabled.has("youtube")) tasks.push(searchYouTube(q));
@@ -171,7 +182,7 @@ function itemLine(i: { id: string; source: string; community?: string; kind: str
  * so a model-invented link can never render).
  */
 export function evidencePromptBlock(corpus: EvidenceCorpus): string {
-  const header = `\n\n=== EVIDENCE — real posts/reviews we fetched from public sources (Reddit, Hacker News, App Store reviews, Stack Overflow, GitHub issues, YouTube, Product Hunt) (queries: ${corpus.queries.join("; ")}) ===`;
+  const header = `\n\n=== EVIDENCE — real posts/reviews we fetched from public sources (Hacker News, Stack Overflow, GitHub issues, App Store reviews, review sites like G2/Capterra/Trustpilot, and the wider web) (queries: ${corpus.queries.join("; ")}) ===`;
   const body = corpus.items.length
     ? corpus.items.map(itemLine).join("\n\n")
     : "(no relevant posts were found for this idea)";

@@ -72,6 +72,7 @@ Write 4-8 search queries that would surface real people talking about this probl
 - pain-phrase queries (how people describe the problem, e.g. "how do I …", "is there a tool for …" reduced to core terms)
 - competitor / alternative queries (e.g. "<category> alternative")
 - willingness-to-pay queries (e.g. "pay for <category> tool")
+- review / comparison queries (e.g. "<category> reviews", "best <category> for <who>", "<category> vs <competitor>", "is <category> worth it") — these surface review-site and buyer-decision content, the strongest demand read for non-technical buyers.
 
 Set "audience_online": would this idea's BUYER realistically discuss this problem on Reddit or Hacker News?
 - "high": developers, founders, tech-savvy consumers, hobbyists — HN/Reddit natives.
@@ -82,7 +83,7 @@ Set "sources": choose which SPECIALIZED sources to search (Hacker News is ALWAYS
 - "stackexchange": developers hitting technical/programming problems — dev tools, APIs, libraries, data, infra.
 - "github": software / developer-tool ideas — existing open-source solutions and feature requests/issues (also competitor discovery).
 - "appstore": ideas that ship (or compete with) a mobile/desktop APP — real user reviews expose unmet needs. Include for most consumer apps and app-shaped SaaS; omit for pure offline/services ideas.
-- "web": the widest net — review sites (G2, Capterra, Trustpilot), blogs, news, niche forums, competitor pages, Product Hunt launches, and general web discussion of the problem. Include for ALMOST ANY idea; especially important when the buyer is offline/non-technical (audience_online "low"), where review sites and industry sources carry the demand read.
+- "web": the widest net AND the primary demand read now that Reddit is not searched. Runs two lanes — a broad catch-all (blogs, news, niche forums, competitor pages) and a targeted review-site pass (G2, Capterra, Trustpilot, GetApp, TrustRadius, Product Hunt). Include for virtually EVERY idea; it is essential when the buyer is offline/non-technical (audience_online "low"/"medium"), where review sites and industry sources — not HN/Reddit — carry the demand and willingness-to-pay signal.
 
 Return JSON: {"queries": ["...", "..."], "audience_online": "high"|"medium"|"low", "sources": ["stackexchange", "github", ...]}`,
   });
@@ -92,11 +93,16 @@ Return JSON: {"queries": ["...", "..."], "audience_online": "high"|"medium"|"low
     .filter(Boolean)
     .map((q) => q.split(/\s+/).slice(0, 6).join(" "))
     .slice(0, 8);
-  // baseline (reddit + hn) is always on; the model routes the conditional set. A missing/
-  // malformed selection falls back to all conditional sources (broad, ranker-filtered).
+  // baseline (hn) is always on; the model routes the conditional set. A missing/malformed
+  // selection falls back to all conditional sources (broad, ranker-filtered).
   const selected = data.sources ?? [...CONDITIONAL_SOURCES];
-  const sources: EvidenceSource[] = [...BASELINE_SOURCES, ...new Set(selected)];
-  return { queries, audience_online: data.audience_online, sources, usage, model };
+  const sources = new Set<EvidenceSource>([...BASELINE_SOURCES, ...selected]);
+  // Web/Exa is the primary demand read now that Reddit is parked. For any buyer who isn't a
+  // pure HN/SO native, review sites and industry sources carry the signal HN can't — so force
+  // web on unless the model is confident the audience lives on HN/Reddit (audience_online
+  // "high"). Keyless-skip logic downstream still flags it if EXA_API_KEY is absent.
+  if (data.audience_online !== "high") sources.add("web");
+  return { queries, audience_online: data.audience_online, sources: [...sources], usage, model };
 }
 
 // If the query LLM fails we still collect: fall back to naive keyword queries

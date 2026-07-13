@@ -7,8 +7,9 @@ is clear.
 
 Everything runs on your machine and is stored in a local SQLite file. AI runs through
 [OpenRouter](https://openrouter.ai/) (one key → Claude / GPT / Gemini / Grok), with live web-search
-grounding. Demand evidence is **fetched, not asserted**: the app searches the Hacker News and
-Reddit APIs itself, so every quote, link, and vote count in the report is verifiably real.
+grounding. Demand evidence is **fetched, not asserted**: the app searches Hacker News, Stack
+Overflow, GitHub, App Store reviews, and the wider web (via Exa) itself, so every quote, link,
+and vote count in the report is verifiably real.
 
 ## Stack
 
@@ -27,13 +28,15 @@ Add your OpenRouter key to `.env.local`:
 OPENROUTER_API_KEY=sk-or-...    # https://openrouter.ai/keys
 ```
 
-Optional — connect Reddit for the evidence pipeline (without it, evidence comes from Hacker News
-only and the report shows a "Reddit not connected" hint). Create a free "script" app at
-<https://www.reddit.com/prefs/apps> and add:
+Optional — connect **Web search (Exa)** for the evidence pipeline. It's the primary demand read:
+a broad catch-all lane plus a targeted review-site lane (G2/Capterra/Trustpilot/…) that surfaces
+what real buyers pay for and complain about — the signal that matters most for non-technical /
+offline buyers. Without it, evidence comes from the keyless sources (Hacker News, Stack Overflow,
+GitHub, App Store) and the report shows a "Web not connected" hint. Get a key at
+<https://dashboard.exa.ai> and add:
 
 ```
-REDDIT_CLIENT_ID=...
-REDDIT_CLIENT_SECRET=...
+EXA_API_KEY=...
 ```
 
 Optional — override the per-role models (defaults are sensible; paste current slugs from
@@ -53,7 +56,7 @@ npm run dev      # http://localhost:3000
 
 1. Describe an idea on the home page → creates an idea (version 1) and opens its workspace.
 2. **Validate** — one comprehensive grounded pass: the app fetches an evidence corpus (real
-   Reddit/HN posts, each tiered by what it actually shows — T1 money/behavior … T4 compliment),
+   posts and reviews, each tiered by what it actually shows — T1 money/behavior … T4 compliment),
    the model bands 10 criteria goal-NEUTRALLY against a frozen anchor panel, and the system maps
    bands to scores, weights them for your goal, and applies non-compensatory gates (a fatal flaw
    can kill the verdict; see docs/EVALUATION.md). The report leads with the **kill-test** — the
@@ -79,9 +82,12 @@ npm run dev      # http://localhost:3000
 Before each validation, `lib/evidence/` builds a corpus for the version:
 
 - a fast model turns the idea statement into 4–8 keyword queries (pain phrases, competitor
-  alternatives, willingness-to-pay phrases);
-- the queries fan out to the HN Algolia API and the Reddit search API (OAuth client-credentials,
-  skipped gracefully when creds are absent);
+  alternatives, willingness-to-pay phrases, review/comparison queries) and **routes the
+  sources** that fit this idea's buyer;
+- the queries fan out in parallel to the selected sources — Hacker News (always), Stack
+  Overflow, GitHub issues, App Store reviews, and the web via Exa (a broad catch-all lane plus
+  a targeted review-site lane over G2/Capterra/Trustpilot/… — the demand read for buyers who
+  don't hang out on HN). Each source is skipped gracefully when its key is absent;
 - results are deduped, relevance-ranked (one fast-model batch call), flagged for
   willingness-to-pay language, and stored per version as numbered items `[E1..En]`.
 
@@ -94,7 +100,8 @@ refresh button, and model-synthesized figures (TAM/SAM/SOM, trends, competitors)
 ## How it works
 
 - `lib/ai/` — OpenRouter client (structured output + web-grounding), per-role model routing.
-- `lib/evidence/` — query generation, HN + Reddit search, dedupe/rank, corpus types.
+- `lib/evidence/` — query generation + source routing, per-source search (HN, Stack Overflow,
+  GitHub, App Store, two-lane Exa web), dedupe/rank, corpus types.
 - `lib/generators/` — the validation generator (prompt + Zod schema), `refine.ts` (statement
   refinement, fed a corpus digest), `ask.ts` (Q&A about the analysis).
 - `lib/db.ts` — SQLite: ideas → versions → artifacts + evidence (both keyed by version).
