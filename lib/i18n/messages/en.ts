@@ -156,7 +156,7 @@ export const en = {
     riskReversal:
       "If a report ever fails to generate, you're not charged — and if a score reads wrong, email me and I'll make it right.",
     anchor:
-      "Building the wrong idea costs months of nights and weekends. A hard read costs {price}, once.",
+      "Avoid pouring months and money into the wrong thing — {price} is a small price next to a failed launch.",
     haveAccount: "Already have an account?",
   },
 

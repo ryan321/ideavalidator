@@ -72,7 +72,10 @@ export default async function LandingPage() {
             <p className="mt-5 max-w-xl text-lg font-medium leading-relaxed text-fg/80 sm:text-xl">
               {t("landing.h1b")}
             </p>
-            <div className="mt-5 flex flex-wrap items-center gap-2" aria-hidden>
+            <p className="mt-5 max-w-xl border-l-2 border-accent/50 pl-4 text-base leading-relaxed text-fg/85">
+              {t("convert.anchor", { price })}
+            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-2" aria-hidden>
               <span className="verdict-stamp text-sm text-good">{t("verdict.go")}</span>
               <span className="verdict-stamp text-sm text-warn">{t("verdict.maybe")}</span>
               <span className="verdict-stamp text-sm text-bad">{t("verdict.noGo")}</span>

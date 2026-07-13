@@ -32,9 +32,6 @@ export async function CampaignPriceCard({
         </span>
         <span className="text-sm text-muted">{t("priceCard.oneTime")}</span>
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-muted">
-        {t("convert.anchor", { price: `$${price}` })}
-      </p>
       <p className="mt-4 text-sm leading-relaxed text-muted">
         <span className="font-medium text-fg/85">
           {t("priceCard.includedLead", { reports })}
