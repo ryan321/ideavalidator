@@ -98,7 +98,7 @@ export default async function LandingPage() {
       </section>
 
       {/* Two ways to find out: the expensive gamble vs. the $29 way */}
-      <section className="border-t border-border py-16 sm:py-20">
+      <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
             {t("twoWays.eyebrow")}
@@ -221,7 +221,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="border-t border-border bg-panel/30 py-16 sm:py-20">
+      <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
             {t("landing.whatYouGetEyebrow")}
@@ -251,7 +251,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="border-y border-border bg-panel/40 py-16 sm:py-20">
+      <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             {t("landing.howTitle")}
@@ -334,7 +334,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="border-t border-border bg-panel/30 py-16 sm:py-20">
+      <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
             {t("compare.eyebrow")}
@@ -394,8 +394,8 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="border-t border-border bg-panel/40 py-16 text-center sm:py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+        <div className="folio mx-auto max-w-3xl px-6 py-12 text-center sm:px-10 sm:py-14">
           <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
             {t("landing.finalTitle")}
           </h2>
