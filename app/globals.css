@@ -310,30 +310,16 @@ html[data-style="signal"] .verdict-stamp {
   box-shadow: 2px 2px 0 color-mix(in srgb, currentColor 14%, transparent);
 }
 
-/* Brand lockup visibility — all of it lives here, not in Tailwind display
-   utilities, so the responsive + pack-scheme rules can't collide across CSS
-   layers). Below the sm breakpoint the header shows the symbol-only mark (the
-   full wordmark is too wide for a phone nav); at sm+ it shows the full logo.
-   The full logo ships a dark-text variant (default, light packs) and a
-   light-text variant for the dark packs (ink/slate) — same no-JS-safe
-   data-style pattern as the pack tokens above, so an unset data-style (SSR
-   before the boot script, = studio/light) shows the light-pack variant and
-   there is no flash. The blue symbol reads on any background, so it needs no
-   scheme variant. */
-.brand-logo--light,
-.brand-logo--dark {
-  display: none;
-}
-.brand-mark {
-  display: block;
-}
+/* Brand lockup: dark-pack wordmark flip. The responsive + default visibility
+   (symbol-only mark below sm, full logo at sm+, dark variant hidden) live on
+   the elements as Tailwind utilities in BrandLogo.tsx, so they are always
+   present and the logo can never render as a duplicate. These two rules only
+   FLIP the light-text ↔ dark-text wordmark on the dark packs (ink/slate) at
+   sm+, off <html data-style> — no JS, no flash (an unset data-style at SSR is
+   a light pack, which the utilities already handle). Unlayered, so they win
+   over the Tailwind `hidden`/`sm:block` utilities they override. The blue
+   symbol reads on any background, so it has no variant. */
 @media (min-width: 40rem) {
-  .brand-mark {
-    display: none;
-  }
-  .brand-logo--light {
-    display: block;
-  }
   html[data-style="ink"] .brand-logo--light,
   html[data-style="slate"] .brand-logo--light {
     display: none;
