@@ -13,7 +13,7 @@ export const DRAFT_IDEA_KEY = "iv_draft_idea";
 
 const MIN_IDEA = 8;
 
-export function HeroIdeaForm({ signedIn, price }: { signedIn: boolean; price: string }) {
+export function HeroIdeaForm({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
   const t = useT();
   const [prompt, setPrompt] = useState("");
@@ -95,9 +95,6 @@ export function HeroIdeaForm({ signedIn, price }: { signedIn: boolean; price: st
           {t("convert.ideaError")}
         </div>
       )}
-      <p className="mt-3 max-w-xl text-xs leading-relaxed text-muted">
-        {t("convert.ideaHint", { price })}
-      </p>
     </form>
   );
 }
