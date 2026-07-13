@@ -4,6 +4,28 @@ import { hasWtpSignal } from "./queries";
 // Reddit's official API via OAuth2 client-credentials (a free "script" app —
 // create one at https://www.reddit.com/prefs/apps). Optional: when the creds
 // are absent we skip Reddit gracefully and the UI shows how to connect it.
+//
+// ── Keyless alternative (captured, deliberately NOT implemented) ──────────────
+// There is a way to pull Reddit with no API key at all, used by the MIT-licensed
+// last30days-skill (github.com/mvanhorn/last30days-skill). Reddit's *.json
+// endpoints (search.json, comments.json — the ones this file's OAuth path hits)
+// now 403/429 keyless, but the web app's own surfaces still serve 200 with just a
+// browser User-Agent:
+//   • RSS/Atom discovery — https://www.reddit.com/search.rss?q=…&sort=relevance&t=month
+//     and /r/{sub}/{top,hot,new}.rss . Titles/authors/dates/permalinks, but NO score.
+//   • Score + comment count — the shreddit listing partial
+//     /svc/shreddit/community-more-posts/{sort}/?name={sub}&t=month returns HTML whose
+//     <shreddit-post> element start-tags carry score / comment-count / permalink attrs
+//     (regex them out). This is the ONLY keyless source of live upvote counts.
+//   • Comments — /svc/shreddit/comments/r/{sub}/t3_{id}?sort=top ⇒ <shreddit-comment> tags.
+//   • Score backfill for RSS-only posts — the free arctic-shift archive
+//     https://arctic-shift.photon-reddit.com/api/posts/ids?ids={base36,…} .
+// Fuse the lanes, browser UA + a shared token-bucket limiter (~5 req/s) to avoid a block.
+//
+// We did NOT build this on purpose. Reddit 403s the API *intentionally*; scraping
+// the web surfaces to power a paid product (validorian.com) is a ToS/legal exposure,
+// not a technical one — the same reason Reddit is parked in .env.example. Revisit only
+// if commercial approval lands, in which case prefer the sanctioned API over the above.
 
 const TIMEOUT_MS = 8000;
 const USER_AGENT = "validorian/1.0 (https://validorian.com)";
