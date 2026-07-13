@@ -32,6 +32,9 @@ export async function CampaignPriceCard({
         </span>
         <span className="text-sm text-muted">{t("priceCard.oneTime")}</span>
       </div>
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        {t("convert.anchor", { price: `$${price}` })}
+      </p>
       <p className="mt-4 text-sm leading-relaxed text-muted">
         <span className="font-medium text-fg/85">
           {t("priceCard.includedLead", { reports })}
@@ -64,7 +67,13 @@ export async function CampaignPriceCard({
       >
         {ctaLabel}
       </Link>
-      <p className="mt-3 text-xs leading-relaxed text-muted">
+      <p className="mt-3 flex gap-1.5 text-xs leading-relaxed text-muted">
+        <span className="text-good" aria-hidden>
+          ✓
+        </span>
+        <span>{t("convert.riskReversal")}</span>
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-muted">
         {t("priceCard.unlockNote", { price: `$${price}` })}
         {detailsHref ? (
           <>

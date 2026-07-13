@@ -855,7 +855,7 @@ export const th = {
     eyebrow: "How we compare",
     title: "A decision you can defend — then keep sharpening",
     sub: "Most tools hand you a fast, encouraging score and stop there. Validorian gives you a verdict you can act on, then the tools to refine, question, and compare the idea until the answer is clear.",
-    other: "Other services",
+    other: "Typical AI idea-scorers",
     us: "Validorian",
     foot: "Every idea gets the whole toolkit — refine it, chat with the review, and pit every version against the last.",
     yes: "Included",
@@ -869,5 +869,16 @@ export const th = {
     row7: "Refine the idea and re-score it as a new version",
     row8: "Chat with your review to dig into any score",
     row9: "Compare every version side-by-side in one arena",
+  },
+  // TODO(i18n): English placeholder — translate convert.* (landing hero conversion copy).
+  convert: {
+    ideaPlaceholder: "In a sentence or two: what’s the idea, and who is it for?",
+    ideaCta: "Start free — score my idea →",
+    ideaCtaBusy: "Starting…",
+    ideaHint: "No account needed to start typing. It’s free to describe your idea and set your goal — {price} unlocks the full scored verdict and every tool on that idea.",
+    honestNo: "The rare validator built to tell you no — and even a NO-GO hands you the sharper pivot and the next test to run. You never leave empty-handed.",
+    riskReversal: "If a report ever fails to generate, you’re not charged — and if a score reads wrong, email me and I’ll make it right.",
+    anchor: "Building the wrong idea costs months of nights and weekends. A hard read costs {price}, once.",
+    haveAccount: "Already have an account?",
   },
 } satisfies MessageTree;

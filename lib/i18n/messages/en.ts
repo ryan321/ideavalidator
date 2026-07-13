@@ -12,7 +12,7 @@ export const en = {
   nav: {
     pricing: "Pricing",
     signIn: "Sign in",
-    validateCta: "Validate my idea →",
+    validateCta: "Start free →",
     openStudio: "Open studio →",
     account: "Account",
     createAccount: "Create account",
@@ -70,8 +70,8 @@ export const en = {
   },
   landing: {
     eyebrow: "Business validation studio",
-    h1a: "Put your business idea on the table.",
-    h1b: "Validate it before you begin.",
+    h1a: "Know if your idea is worth building.",
+    h1b: "A scored GO / MAYBE / NO-GO on your business idea — before you spend a weekend or a dollar on it.",
     // Emphasis on GO / MAYBE / NO-GO and "your" is applied in the page markup.
     subBefore:
       "Don't pour time and money into an idea that was never going to work. Validate your business idea with a clear",
@@ -81,7 +81,7 @@ export const en = {
     subAfter: "goal, grounded in evidence, before you commit.",
     pricingDetails: "Pricing details",
     freeLead: "Account is free.",
-    freeRest: "Unlock a full pass for {price} when you're ready to score that idea.",
+    freeRest: "Unlock a full scored report for {price} when you're ready to score that idea.",
     paidHintBefore: "Open the studio and describe an idea. Full validation is",
     paidHintPrice: "{price} per idea",
     paidHintAfter: ".",
@@ -96,7 +96,7 @@ export const en = {
       "What you're offering, who it's for, and why now, plus your goal so GO means the right thing for you.",
     how2Title: "Unlock & get a hard score",
     how2Body:
-      "One payment opens a full pass on that idea. You get an evidence-backed GO / MAYBE / NO-GO, not a pep talk.",
+      "One payment opens a full scored report on that idea. You get an evidence-backed GO / MAYBE / NO-GO, not a pep talk.",
     how3Title: "Keep working it",
     how3Body:
       "Rewrite the pitch, try a different angle, chat with the review, and re-score until the answer is clear.",
@@ -113,9 +113,9 @@ export const en = {
       "Walk away knowing whether to go ahead, pivot the angle, or stop, with a next test if you continue.",
     finalTitle: "Ready for a hard read?",
     finalSubGuest:
-      "Create a free account, describe the idea, then unlock a full pass for {price} when you're ready to score.",
+      "Create a free account, describe the idea, then unlock a full scored report for {price} when you're ready to score.",
     finalSubUser:
-      "Open the studio, describe the idea, and run a full pass. {price} unlocks that idea end-to-end.",
+      "Open the studio, describe the idea, and run a full scored report. {price} unlocks that idea end-to-end.",
     noSub: "No subscription. Pay once per idea.",
   },
 
@@ -127,7 +127,7 @@ export const en = {
     eyebrow: "How we compare",
     title: "A decision you can defend — then keep sharpening",
     sub: "Most tools hand you a fast, encouraging score and stop there. Validorian gives you a verdict you can act on, then the tools to refine, question, and compare the idea until the answer is clear.",
-    other: "Other services",
+    other: "Typical AI idea-scorers",
     us: "Validorian",
     foot: "Every idea gets the whole toolkit — refine it, chat with the review, and pit every version against the last.",
     yes: "Included",
@@ -142,6 +142,23 @@ export const en = {
     row8: "Chat with your review to dig into any score",
     row9: "Compare every version side-by-side in one arena",
   },
+
+  // Value-first hero capture + conversion copy (landing). Own top-level section so the
+  // other catalogs carry it as an English placeholder until translated.
+  convert: {
+    ideaPlaceholder: "In a sentence or two: what's the idea, and who is it for?",
+    ideaCta: "Start free — score my idea →",
+    ideaCtaBusy: "Starting…",
+    ideaHint:
+      "No account needed to start typing. It's free to describe your idea and set your goal — {price} unlocks the full scored verdict and every tool on that idea.",
+    honestNo:
+      "The rare validator built to tell you no — and even a NO-GO hands you the sharper pivot and the next test to run. You never leave empty-handed.",
+    riskReversal:
+      "If a report ever fails to generate, you're not charged — and if a score reads wrong, email me and I'll make it right.",
+    anchor:
+      "Building the wrong idea costs months of nights and weekends. A hard read costs {price}, once.",
+    haveAccount: "Already have an account?",
+  },
   checklist: {
     item1: "GO / MAYBE / NO-GO scored against your goal",
     item2: "Demand analysis (how badly people want this)",
@@ -151,7 +168,7 @@ export const en = {
     item6: "Risk map (what can kill it)",
     item7: "Buyer profile: who to sell to and where",
     item8: "Real-world test plan (who to talk to, pass/fail)",
-    item9: "Social media search (Reddit, forums, and live web signals)",
+    item9: "Community & review search (forums, review sites, live web signals)",
     item10: "Evidence-backed claims with sources",
     item11: "Iterate: rewrite the pitch and re-score",
     item12: "Variations: try different angles side by side",
@@ -186,11 +203,12 @@ export const en = {
   priceCard: {
     perIdea: "Per idea",
     oneTime: "one-time · that idea",
-    includedLead: "{reports} full scored reports included",
-    includedRest: ", plus chat with the review and tools while you work that idea.",
+    includedLead: "One idea, fully validated.",
+    includedRest:
+      " Score it, rewrite the pitch, branch new angles, and re-score as it evolves — plus unlimited chat with the review.",
     bullet1: "GO / MAYBE / NO-GO scored against your goal",
-    bullet2: "Re-score, variations, and iterate as the idea changes",
-    bullet3: "Chat with the review, not metered like credits",
+    bullet2: "Rewrite, branch new angles, and re-score as the idea changes",
+    bullet3: "Unlimited chat with the review — never metered like credits",
     unlockNote: "Account is free. Unlock this idea for {price} when you run a full score.",
     details: "Full pricing details →",
   },
@@ -415,7 +433,7 @@ export const en = {
     fullCampaign: "Full campaign",
     pressureTest: "Pressure-test this idea end-to-end — ${price}",
     unlockBodyBefore:
-      "One price for a full pass on this idea: a grounded score, room to re-score when the framing changes, compare angles, a practical buyer test, and competitor context.",
+      "One price for a full scored report on this idea: a grounded score, room to re-score when the framing changes, compare angles, a practical buyer test, and competitor context.",
     unlockReports: "{n} full scored reports included",
     unlockBodyAfter: ", plus unlimited questions — so you never pay per chat.",
     pricingDetails: "Pricing details",

@@ -1,13 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "./LocaleProvider";
+import { DRAFT_IDEA_KEY } from "./HeroIdeaForm";
 
 export default function NewIdeaForm() {
   const router = useRouter();
   const t = useT();
   const [prompt, setPrompt] = useState("");
+
+  // Pick up an idea the visitor typed on the landing page before signing up
+  // (see HeroIdeaForm). Consume it once so a refresh doesn't refill a cleared box.
+  useEffect(() => {
+    try {
+      const draft = localStorage.getItem(DRAFT_IDEA_KEY);
+      if (draft) {
+        localStorage.removeItem(DRAFT_IDEA_KEY);
+        setPrompt((cur) => cur || draft);
+      }
+    } catch {
+      // storage unavailable — nothing to restore.
+    }
+  }, []);
   const [goal, setGoal] = useState("unsure");
   const [goalDetail, setGoalDetail] = useState("");
   const [insider, setInsider] = useState("");

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CampaignPriceCard } from "@/components/CampaignPriceCard";
+import { HeroIdeaForm } from "@/components/HeroIdeaForm";
 import { getSessionUser } from "@/lib/auth";
 import { priceCents } from "@/lib/billing";
 import { checklistItems } from "@/lib/i18n/t";
@@ -65,56 +66,22 @@ export default async function LandingPage() {
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
               {t("landing.eyebrow")}
             </p>
-            <h1 className="mt-4 max-w-3xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-6xl">
+            <h1 className="mt-4 max-w-2xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-6xl">
               {t("landing.h1a")}
-              <span className="mt-2 block text-muted">{t("landing.h1b")}</span>
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-              {t("landing.subBefore")}{" "}
-              <em className="text-fg/85 not-italic">{t("landing.subVerdict")}</em>{" "}
-              {t("landing.subMid")}{" "}
-              <em className="text-fg/85 not-italic">{t("landing.subYour")}</em>{" "}
-              {t("landing.subAfter")}
+            <p className="mt-5 max-w-xl text-lg font-medium leading-relaxed text-fg/80 sm:text-xl">
+              {t("landing.h1b")}
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link
-                href={ctaHref}
-                className="rounded-pill-pack bg-accent px-6 py-3 font-display text-base font-bold text-on-accent transition hover:bg-accent2"
-              >
-                {ctaLabel}
-              </Link>
-              <Link
-                href="/pricing"
-                className="rounded-pill-pack border border-border px-5 py-3 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-fg"
-              >
-                {t("landing.pricingDetails")}
-              </Link>
-              {!user && (
-                <Link
-                  href="/login"
-                  className="rounded-pill-pack border border-border px-5 py-3 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-fg"
-                >
-                  {t("nav.signIn")}
-                </Link>
-              )}
+            <div className="mt-5 flex flex-wrap items-center gap-2" aria-hidden>
+              <span className="verdict-stamp text-sm text-good">{t("verdict.go")}</span>
+              <span className="verdict-stamp text-sm text-warn">{t("verdict.maybe")}</span>
+              <span className="verdict-stamp text-sm text-bad">{t("verdict.noGo")}</span>
             </div>
-            <p className="mt-4 text-sm text-muted">
-              {user ? (
-                <>
-                  {t("landing.paidHintBefore")}{" "}
-                  <span className="font-medium text-fg/80">
-                    {t("landing.paidHintPrice", { price })}
-                  </span>
-                  {t("landing.paidHintAfter")}
-                </>
-              ) : (
-                <>
-                  <span className="font-medium text-fg/80">{t("landing.freeLead")}</span>{" "}
-                  {t("landing.freeRest", { price })}
-                </>
-              )}
+            <HeroIdeaForm signedIn={!!user} price={price} />
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted">
+              {t("convert.honestNo")}
             </p>
-            <p className="mt-2 font-mono text-[11px] text-muted">{t("landing.whoFor")}</p>
+            <p className="mt-3 font-mono text-[11px] text-muted">{t("landing.whoFor")}</p>
           </div>
 
           <div className="w-full max-w-md justify-self-center lg:max-w-none lg:justify-self-end">
@@ -316,7 +283,10 @@ export default async function LandingPage() {
           >
             {ctaLabel}
           </Link>
-          {!user && <p className="mt-3 text-xs text-muted">{t("landing.noSub")}</p>}
+          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted">
+            {t("convert.riskReversal")}
+          </p>
+          {!user && <p className="mt-2 text-xs text-muted">{t("landing.noSub")}</p>}
         </div>
       </section>
     </div>
