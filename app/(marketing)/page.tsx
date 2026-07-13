@@ -81,10 +81,7 @@ export default async function LandingPage() {
               <span className="verdict-stamp text-sm text-bad">{t("verdict.noGo")}</span>
             </div>
             <HeroIdeaForm signedIn={!!user} price={price} />
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted">
-              {t("convert.honestNo")}
-            </p>
-            <p className="mt-3 font-mono text-[11px] text-muted">{t("landing.whoFor")}</p>
+            <p className="mt-4 font-mono text-[11px] text-muted">{t("landing.whoFor")}</p>
           </div>
 
           <div className="w-full max-w-md justify-self-center lg:max-w-none lg:justify-self-end">
