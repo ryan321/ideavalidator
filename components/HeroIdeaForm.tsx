@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useT } from "./LocaleProvider";
@@ -24,6 +24,15 @@ export function HeroIdeaForm({ signedIn, price }: { signedIn: boolean; price: st
   const ready = prompt.trim().length >= MIN_IDEA;
   // Only nag AFTER they've clicked with too little — never gray the button out.
   const showHint = tried && !ready;
+
+  // Autofocus the idea box on load so visitors can start typing immediately — but
+  // only on pointer/hover devices, so we don't pop the on-screen keyboard over the
+  // hero on phones. preventScroll keeps the headline from jumping out of view.
+  useEffect(() => {
+    if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      textareaRef.current?.focus({ preventScroll: true });
+    }
+  }, []);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
