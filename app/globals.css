@@ -310,6 +310,40 @@ html[data-style="signal"] .verdict-stamp {
   box-shadow: 2px 2px 0 color-mix(in srgb, currentColor 14%, transparent);
 }
 
+/* Brand lockup visibility — all of it lives here, not in Tailwind display
+   utilities, so the responsive + pack-scheme rules can't collide across CSS
+   layers). Below the sm breakpoint the header shows the symbol-only mark (the
+   full wordmark is too wide for a phone nav); at sm+ it shows the full logo.
+   The full logo ships a dark-text variant (default, light packs) and a
+   light-text variant for the dark packs (ink/slate) — same no-JS-safe
+   data-style pattern as the pack tokens above, so an unset data-style (SSR
+   before the boot script, = studio/light) shows the light-pack variant and
+   there is no flash. The blue symbol reads on any background, so it needs no
+   scheme variant. */
+.brand-logo--light,
+.brand-logo--dark {
+  display: none;
+}
+.brand-mark {
+  display: block;
+}
+@media (min-width: 40rem) {
+  .brand-mark {
+    display: none;
+  }
+  .brand-logo--light {
+    display: block;
+  }
+  html[data-style="ink"] .brand-logo--light,
+  html[data-style="slate"] .brand-logo--light {
+    display: none;
+  }
+  html[data-style="ink"] .brand-logo--dark,
+  html[data-style="slate"] .brand-logo--dark {
+    display: block;
+  }
+}
+
 html[data-style="studio"] .verdict-stamp {
   box-shadow: 0 1px 3px rgba(20, 24, 31, 0.08);
 }
