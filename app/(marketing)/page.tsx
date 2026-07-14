@@ -300,11 +300,35 @@ export default async function LandingPage() {
               </h3>
               <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.goalHint")}</p>
             </div>
-          </div>
 
-          <p className="mt-6 max-w-3xl text-sm leading-relaxed text-muted">
-            {t("gets.moreLine")}
-          </p>
+            {/* And much more: a wide closer card so the extras read as inventory, not
+                an afterthought paragraph */}
+            <div className="folio flex flex-col gap-4 p-5 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between lg:col-span-3">
+              <div className="shrink-0">
+                <h3 className="font-display text-base font-bold tracking-tight">
+                  {t("gets.moreTitle")}
+                </h3>
+                <p className="mt-1 text-sm text-muted">{t("gets.moreHint")}</p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 sm:justify-end">
+                {[
+                  t("gets.more1"),
+                  t("gets.more2"),
+                  t("gets.more3"),
+                  t("gets.more4"),
+                  t("gets.more5"),
+                  t("gets.more6"),
+                ].map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full border border-border/70 bg-panel2/50 px-2.5 py-1 text-xs text-fg/80"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
 
           {/* The studio loop — what the unlock keeps doing after the verdict */}
           <div className="mt-14">
