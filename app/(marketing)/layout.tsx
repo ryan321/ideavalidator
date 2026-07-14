@@ -13,7 +13,11 @@ export default async function MarketingLayout({ children }: { children: React.Re
   const { t } = await getTranslator();
 
   return (
-    <div className="flex min-h-screen flex-col">
+    // Marketing pages carry an editorial display face (Fraunces) on HEADINGS — the
+    // "decision document" identity — without touching the in-app style packs or the
+    // controls (buttons/prices keep the pack's display sans). See .mk-editorial in
+    // globals.css; scoped to this subtree over whatever pack the visitor has active.
+    <div className="mk-editorial flex min-h-screen flex-col">
       <SkipToContent />
       <header className="no-print sticky top-0 z-40 border-b border-border bg-[var(--color-header)] backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
@@ -42,7 +46,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
                 </Link>
                 <Link
                   href="/studio"
-                  className="rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
+                  className="whitespace-nowrap rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
                 >
                   {t("nav.openStudio")}
                 </Link>
@@ -51,13 +55,13 @@ export default async function MarketingLayout({ children }: { children: React.Re
               <>
                 <Link
                   href="/login"
-                  className="rounded-pill-pack border border-border px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
+                  className="whitespace-nowrap rounded-pill-pack border border-border px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
                 >
                   {t("nav.signIn")}
                 </Link>
                 <Link
                   href="/signup"
-                  className="rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
+                  className="whitespace-nowrap rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
                 >
                   {t("nav.validateCta")}
                 </Link>

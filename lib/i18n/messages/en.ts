@@ -162,6 +162,20 @@ export const en = {
     ideaError: "Make sure you fill in your full idea",
   },
 
+  // Landing hero sample-verdict card (the signature artifact). Own top-level section
+  // so the other catalogs carry it as an English placeholder until translated.
+  sample: {
+    eyebrow: "Sample verdict",
+    timing: "what you get in ~10 minutes",
+    reason:
+      "Real, documented pain, a sharp vertical wedge, and switching costs once workflows move in.",
+    obtainable: "Obtainable / yr",
+    confidence: "Confidence",
+    evidence: "Evidence",
+    evidenceItems: "{n} items",
+    unlock: "{price} runs this on your idea — one-time, no subscription.",
+  },
+
   // Landing "two ways to find out" section (the expensive gamble vs. the $29 way). Own
   // top-level section so the other catalogs carry it as an English placeholder.
   twoWays: {

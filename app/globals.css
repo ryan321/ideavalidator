@@ -310,6 +310,16 @@ html[data-style="signal"] .verdict-stamp {
   box-shadow: 2px 2px 0 color-mix(in srgb, currentColor 14%, transparent);
 }
 
+/* Marketing pages — editorial serif display on headings only (the "decision document"
+   identity). Buttons, prices, and stamps keep the pack's own display/mono faces:
+   the serif is reserved for statements, not controls. */
+.mk-editorial h1,
+.mk-editorial h2,
+.mk-editorial h3 {
+  font-family: var(--font-fraunces), Georgia, serif;
+  letter-spacing: -0.015em;
+}
+
 /* Brand lockup: dark-pack wordmark flip. The responsive + default visibility
    (symbol-only mark below sm, full logo at sm+, dark variant hidden) live on
    the elements as Tailwind utilities in BrandLogo.tsx, so they are always

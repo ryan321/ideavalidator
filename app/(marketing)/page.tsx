@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { CampaignPriceCard } from "@/components/CampaignPriceCard";
 import { HeroIdeaForm } from "@/components/HeroIdeaForm";
+import { HeroVerdictDemo } from "@/components/HeroVerdictDemo";
 import { getSessionUser } from "@/lib/auth";
 import { priceCents } from "@/lib/billing";
 import { checklistItems } from "@/lib/i18n/t";
@@ -82,11 +82,7 @@ export default async function LandingPage() {
           </div>
 
           <div className="w-full max-w-md justify-self-center lg:max-w-none lg:justify-self-end">
-            <CampaignPriceCard
-              ctaHref={ctaHref}
-              ctaLabel={ctaLabel}
-              detailsHref="/pricing"
-            />
+            <HeroVerdictDemo price={price} />
           </div>
         </div>
       </section>

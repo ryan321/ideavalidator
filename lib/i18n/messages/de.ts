@@ -897,4 +897,15 @@ appNav: {
     goodMoney: "{price}",
     goodTime: "~10 min",
   },
+  // TODO(i18n): English placeholder — translate sample.* (landing sample-verdict card).
+  sample: {
+    eyebrow: "Sample verdict",
+    timing: "what you get in ~10 minutes",
+    reason: "Real, documented pain, a sharp vertical wedge, and switching costs once workflows move in.",
+    obtainable: "Obtainable / yr",
+    confidence: "Confidence",
+    evidence: "Evidence",
+    evidenceItems: "{n} items",
+    unlock: "{price} runs this on your idea — one-time, no subscription.",
+  },
 } satisfies MessageTree;
