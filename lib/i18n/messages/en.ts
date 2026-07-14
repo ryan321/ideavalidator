@@ -176,7 +176,8 @@ export const en = {
     includesLabel: "Inside every report",
     scorecardHint: "every factor, scored & weighted",
     howLabel: "How it's built",
-    how: "Real posts — Hacker News, Stack Overflow, GitHub, the App Store, product-review sites — routed to each idea, every quote linked, then scored several times over for a stable read.",
+    how: "Gather real posts — Hacker News, Stack Overflow, GitHub, the App Store, review sites — routed to each idea and linked. Then score it across 10 weighted factors, several times over, with hard rules so one fatal flaw can't hide behind its strengths.",
+    pdf: "Download the full report as a PDF — yours to keep or share.",
     unlock: "{price} runs the full analysis on your idea — one-time, no subscription.",
   },
 

@@ -110,6 +110,9 @@ export async function HeroVerdictDemo({ price }: { price: string }) {
             </li>
           ))}
         </ul>
+        <p className="mt-3 border-t border-border/50 pt-3 text-xs leading-relaxed text-muted">
+          {t("sample.pdf")}
+        </p>
       </div>
 
       {/* how it's built — the methodology, honestly scoped */}
