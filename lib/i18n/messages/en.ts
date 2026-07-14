@@ -165,7 +165,7 @@ export const en = {
   // Landing hero sample-verdict card (the signature artifact). Own top-level section
   // so the other catalogs carry it as an English placeholder until translated.
   sample: {
-    eyebrow: "Sample verdict",
+    eyebrow: "Sample report",
     timing: "what you get in ~10 minutes",
     reason:
       "Real, documented pain, a sharp vertical wedge, and switching costs once workflows move in.",
@@ -173,7 +173,16 @@ export const en = {
     confidence: "Confidence",
     evidence: "Evidence",
     evidenceItems: "{n} items",
-    unlock: "{price} runs this on your idea — one-time, no subscription.",
+    includesLabel: "The full report also includes",
+    inc1: "Scorecard across 10 weighted factors",
+    inc2: "Market size → your obtainable revenue",
+    inc3: "Named rivals, cited pricing & your edge",
+    inc4: "Real demand quotes, every one sourced",
+    inc5: "The cheapest test to run next",
+    inc6: "Chat with it, refine & re-score",
+    howLabel: "How it's built",
+    how: "Real posts — Hacker News, Stack Overflow, GitHub, the App Store, product-review sites — routed to each idea, every quote linked, then scored several times over for a stable read.",
+    unlock: "{price} runs the full analysis on your idea — one-time, no subscription.",
   },
 
   // Landing "two ways to find out" section (the expensive gamble vs. the $29 way). Own

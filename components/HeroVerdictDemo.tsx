@@ -1,16 +1,45 @@
 import { getTranslator } from "@/lib/i18n/server";
 
 // The landing hero's signature artifact: a condensed, honestly-labeled SAMPLE of the
-// product's real output — stamp, score ring, reason line, the numbers. It deliberately
-// uses the PRODUCT's faces (sans + mono), not the marketing serif, so it reads as a
-// report excerpt sitting on an editorial page. Static by design: no data, no fetches.
+// product's real output. It leads with the verdict (the thing people expect), then makes
+// the real point — the $29 buys a full sourced teardown, not a stamp — by listing what
+// the report also contains and how the evidence is gathered. It deliberately uses the
+// PRODUCT's faces (sans + mono), not the marketing serif, so it reads as a report excerpt
+// sitting on an editorial page. Static by design: no data, no fetches.
 
 const SCORE = 78;
 const RING_R = 34;
 const RING_C = 2 * Math.PI * RING_R;
 
+function Check() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M3.2 8.6l3 3 6.4-7.2"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export async function HeroVerdictDemo({ price }: { price: string }) {
   const { t } = await getTranslator();
+  const includes = [
+    t("sample.inc1"),
+    t("sample.inc2"),
+    t("sample.inc3"),
+    t("sample.inc4"),
+    t("sample.inc5"),
+    t("sample.inc6"),
+  ];
   return (
     <div
       className="folio overflow-hidden"
@@ -83,8 +112,34 @@ export async function HeroVerdictDemo({ price }: { price: string }) {
         ))}
       </div>
 
+      {/* the point: the verdict above is page one — here's the rest of the report */}
+      <div className="border-t border-border/70 px-5 py-4 sm:px-6">
+        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+          {t("sample.includesLabel")}
+        </div>
+        <ul className="mt-2.5 space-y-1.5">
+          {includes.map((item) => (
+            <li
+              key={item}
+              className="flex items-start gap-2 text-[13px] leading-snug text-fg/85"
+            >
+              <Check />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* how it's built — the methodology, honestly scoped */}
+      <div className="border-t border-border/70 px-5 py-3.5 sm:px-6">
+        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+          {t("sample.howLabel")}
+        </div>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted">{t("sample.how")}</p>
+      </div>
+
       {/* the offer, quietly */}
-      <div className="border-t border-border/70 px-5 py-3 text-xs leading-relaxed text-muted">
+      <div className="border-t border-border/70 bg-panel2/40 px-5 py-3 text-xs leading-relaxed text-fg/75 sm:px-6">
         {t("sample.unlock", { price })}
       </div>
     </div>
