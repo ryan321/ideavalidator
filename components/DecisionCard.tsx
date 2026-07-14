@@ -104,7 +104,6 @@ export function DecisionCard({
   variantCount?: number;
 }) {
   const t = useT();
-  const [whyOpen, setWhyOpen] = useState(false);
   const [ideaOpen, setIdeaOpen] = useState(false);
   const ideaExpanded = ideaOpen || !!ideaExtras;
 
@@ -142,8 +141,9 @@ export function DecisionCard({
             : "var(--color-muted)";
 
   const PrimaryTag = primary.href ? "a" : "button";
-  // Summary sits compact next to the score; long ones expand.
-  const summaryLong = summary.length > 280 || summary.split(/\n+/).length > 2;
+  // The idea sits compact next to the score; long ones (or ones with extras) expand.
+  const ideaLong =
+    statement.length > 160 || !!rationale || !!goalDetail || !!ideaExtras;
 
   return (
     <section
@@ -196,31 +196,44 @@ export function DecisionCard({
               </span>
             )}
           </div>
-          {scoreReason && (
-            <p className="mt-3 max-w-2xl font-display text-base font-bold leading-snug tracking-tight text-fg sm:text-lg">
-              {scoreReason}
+          {/* The idea under review — height-limited, expandable */}
+          <div className="mt-3 max-w-2xl rounded-lg border border-border/70 bg-bg/40 px-3.5 py-2.5 text-left">
+            <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+              <span>
+                {t("report.exhibit")} · {versionLabel}
+              </span>
+              <span className="normal-case tracking-normal text-fg/50">{goalLabel}</span>
+            </div>
+            <p
+              className={`mt-1 text-sm leading-relaxed text-fg/85 ${
+                ideaExpanded ? "whitespace-pre-wrap" : "line-clamp-2"
+              }`}
+            >
+              {statement}
             </p>
-          )}
-          {summary && (
-            <>
-              <p
-                className={`${scoreReason ? "mt-2 text-sm text-muted" : "mt-3 text-[15px] text-fg/90"} max-w-2xl leading-relaxed ${
-                  whyOpen || !summaryLong ? "whitespace-pre-wrap" : "line-clamp-2"
-                }`}
+            {ideaExpanded && (
+              <>
+                {rationale && <p className="mt-1.5 text-xs text-accent2">{rationale}</p>}
+                {goalDetail && (
+                  <p className="mt-1 text-xs text-muted">
+                    {t("report.goalDetail")} {goalDetail}
+                  </p>
+                )}
+                {ideaExtras}
+              </>
+            )}
+            {ideaLong && !ideaExtras && (
+              <button
+                type="button"
+                onClick={() => setIdeaOpen((o) => !o)}
+                aria-expanded={ideaExpanded}
+                aria-label={ideaExpanded ? t("a11y.hideIdeaDetails") : t("a11y.showIdeaDetails")}
+                className="mt-1.5 font-mono text-[11px] uppercase tracking-wide text-accent2 hover:underline"
               >
-                {summary}
-              </p>
-              {summaryLong && (
-                <button
-                  type="button"
-                  onClick={() => setWhyOpen((o) => !o)}
-                  className="mt-1.5 font-mono text-[11px] uppercase tracking-wide text-accent2 hover:underline"
-                >
-                  {whyOpen ? t("report.less") : t("report.fullRationale")}
-                </button>
-              )}
-            </>
-          )}
+                {ideaExpanded ? t("report.less") : t("report.more")}
+              </button>
+            )}
+          </div>
         </div>
         {revenue && (
           <div className="text-center sm:text-right">
@@ -235,8 +248,8 @@ export function DecisionCard({
       </div>
 
       <div className="space-y-5 px-5 py-5 sm:px-7">
-        {/* 2 · Why this score — drivers + goal fit (prominent block) */}
-        {(drags.length > 0 || vitamin || painkiller || pivotal || (goalNote && goalNote !== summary)) && (
+        {/* 2 · Why this score — the focal explanation: reason line, drivers, rationale */}
+        {(scoreReason || summary || drags.length > 0 || vitamin || painkiller || pivotal || (goalNote && goalNote !== summary)) && (
         <div
           className="rounded-xl border p-4 sm:p-5"
           style={{
@@ -250,6 +263,11 @@ export function DecisionCard({
           >
             {t("decision.whyThisScore")}
           </div>
+          {scoreReason && (
+            <p className="mt-3 max-w-3xl font-display text-base font-bold leading-snug tracking-tight text-fg sm:text-lg">
+              {scoreReason}
+            </p>
+          )}
           {(drags.length > 0 || vitamin || painkiller || pivotal) && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {vitamin && (
@@ -285,8 +303,13 @@ export function DecisionCard({
               )}
             </div>
           )}
+          {summary && (
+            <p className="mt-3 max-w-3xl whitespace-pre-wrap text-[15px] leading-relaxed text-fg/90">
+              {summary}
+            </p>
+          )}
           {goalNote && goalNote !== summary && (
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted">
+            <p className="mt-2.5 max-w-3xl text-sm leading-relaxed text-muted">
               <span className="font-medium text-fg/70">{t("decision.goalFit")} </span>
               {goalNote}
             </p>
@@ -344,48 +367,6 @@ export function DecisionCard({
           )}
         </div>
 
-        {/* Idea — collapsed by default */}
-        <div className="border-t border-border/60 pt-4">
-          <button
-            type="button"
-            onClick={() => setIdeaOpen((o) => !o)}
-            aria-expanded={ideaExpanded}
-            aria-label={
-              ideaExpanded ? t("a11y.hideIdeaDetails") : t("a11y.showIdeaDetails")
-            }
-            className="flex w-full items-start gap-2 text-left"
-          >
-            <span className="mt-0.5 font-mono text-xs text-muted transition" aria-hidden>
-              {ideaExpanded ? "▾" : "▸"}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-                <span>
-                  {t("report.exhibit")} · {versionLabel}
-                </span>
-                <span className="normal-case tracking-normal text-fg/50">{goalLabel}</span>
-              </div>
-              {!ideaExpanded && (
-                <p className="mt-0.5 line-clamp-1 text-sm text-fg/80">{title}</p>
-              )}
-            </div>
-          </button>
-          {ideaExpanded && (
-            <div className="mt-2 pl-5">
-              <h2 className="font-display text-sm font-bold text-fg">{title}</h2>
-              <p className="mt-1 max-w-3xl whitespace-pre-wrap text-sm leading-relaxed text-muted">
-                {statement}
-              </p>
-              {rationale && <p className="mt-1.5 text-xs text-accent2">{rationale}</p>}
-              {goalDetail && (
-                <p className="mt-1 text-xs text-muted">
-                  {t("report.goalDetail")} {goalDetail}
-                </p>
-              )}
-              {ideaExtras}
-            </div>
-          )}
-        </div>
       </div>
     </section>
   );
