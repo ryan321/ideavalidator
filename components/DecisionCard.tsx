@@ -104,7 +104,6 @@ export function DecisionCard({
   variantCount?: number;
 }) {
   const t = useT();
-  const [whyOpen, setWhyOpen] = useState(false);
   const [ideaOpen, setIdeaOpen] = useState(false);
   const ideaExpanded = ideaOpen || !!ideaExtras;
 
@@ -141,8 +140,6 @@ export function DecisionCard({
             : "var(--color-muted)";
 
   const PrimaryTag = primary.href ? "a" : "button";
-  // Show ~2–3 sentences by default; long dumps still expand.
-  const summaryLong = summary.length > 280 || summary.split(/\n+/).length > 2;
 
   return (
     <section
@@ -195,15 +192,6 @@ export function DecisionCard({
               </span>
             )}
           </div>
-          {summary && (
-            <p
-              className={`mt-3 max-w-2xl text-[15px] leading-relaxed text-fg/90 ${
-                whyOpen || !summaryLong ? "whitespace-pre-wrap" : "line-clamp-2"
-              }`}
-            >
-              {summary}
-            </p>
-          )}
         </div>
         {revenue && (
           <div className="text-center sm:text-right">
@@ -218,15 +206,22 @@ export function DecisionCard({
       </div>
 
       <div className="space-y-5 px-5 py-5 sm:px-7">
-        {/* 2 · Drags + rationale */}
-        <div>
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
-              {t("decision.whyThisScore")}
-            </div>
+        {/* 2 · Why this score — the focal, plain-English explanation */}
+        <div
+          className="rounded-xl border p-4 sm:p-5"
+          style={{
+            borderColor: `color-mix(in srgb, ${color} 32%, var(--color-border))`,
+            background: `color-mix(in srgb, ${color} 5%, var(--color-panel))`,
+          }}
+        >
+          <div
+            className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em]"
+            style={{ color }}
+          >
+            {t("decision.whyThisScore")}
           </div>
           {(drags.length > 0 || vitamin || painkiller || pivotal) && (
-            <div className="mb-2.5 flex flex-wrap gap-1.5">
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {vitamin && (
                 <span
                   className="rounded-full border border-warn/40 bg-warn/10 px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-warn"
@@ -260,20 +255,16 @@ export function DecisionCard({
               )}
             </div>
           )}
-          {(whyOpen || !summaryLong) && goalNote && goalNote !== summary && (
-            <p className="max-w-3xl text-sm leading-relaxed text-muted">
+          {summary && (
+            <p className="mt-3 max-w-3xl whitespace-pre-wrap text-[15px] leading-relaxed text-fg/90">
+              {summary}
+            </p>
+          )}
+          {goalNote && goalNote !== summary && (
+            <p className="mt-2.5 max-w-3xl text-sm leading-relaxed text-muted">
               <span className="font-medium text-fg/70">{t("decision.goalFit")} </span>
               {goalNote}
             </p>
-          )}
-          {summaryLong && (
-            <button
-              type="button"
-              onClick={() => setWhyOpen((o) => !o)}
-              className="mt-1.5 font-mono text-[11px] uppercase tracking-wide text-accent2 hover:underline"
-            >
-              {whyOpen ? t("report.less") : t("report.fullRationale")}
-            </button>
           )}
         </div>
 
