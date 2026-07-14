@@ -8,6 +8,15 @@ import { getSessionUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
+/** 1–2 letter monogram for the avatar: initials of the first two name words, else the
+ * email's first letter. Uppercased; falls back to "?" for a blank record. */
+function initialsFor(name: string | null, email: string): string {
+  const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  if (words.length === 1) return words[0][0].toUpperCase();
+  return (email.trim()[0] ?? "?").toUpperCase();
+}
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
@@ -43,14 +52,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             >
               {t("nav.pricing")}
             </Link>
-            <Link
-              href="/account"
-              className="rounded-pill-pack border border-border px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
-            >
-              {t("nav.account")}
-            </Link>
             <LocaleSwitcher />
             <StylePicker />
+            {/* Account — avatar monogram, farthest right (the web convention) */}
+            <Link
+              href="/account"
+              aria-label={t("nav.account")}
+              title={`${t("nav.account")} · ${user.name?.trim() || user.email}`}
+              className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-accent/15 font-display text-sm font-bold leading-none text-accent2 transition hover:border-accent/50 hover:bg-accent/25"
+            >
+              {initialsFor(user.name, user.email)}
+            </Link>
           </nav>
         </div>
       </header>
