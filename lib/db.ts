@@ -804,6 +804,11 @@ export function createVersion(
   return version;
 }
 
+/** Set an idea's display title (e.g. the AI-written name after a validation lands). */
+export function setIdeaTitle(id: string, title: string): void {
+  db.prepare("UPDATE ideas SET title = ? WHERE id = ?").run(title, id);
+}
+
 export function setVersionScore(versionId: string, score: number): void {
   db.prepare("UPDATE versions SET score = ? WHERE id = ?").run(Math.round(score), versionId);
 }

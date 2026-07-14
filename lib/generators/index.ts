@@ -9,6 +9,7 @@ import {
   getVersion,
   logUsage,
   saveArtifact,
+  setIdeaTitle,
   setVersionRevenue,
   setVersionScore,
 } from "../db";
@@ -277,6 +278,15 @@ export async function runGenerator(
   // Cache the headline score + (lint-corrected) obtainable-revenue onto the version.
   setVersionScore(versionId, v.score);
   if (v.demand?.obtainable_revenue) setVersionRevenue(versionId, v.demand.obtainable_revenue);
+
+  // Adopt the AI-written display title so lists/nav show a real name instead of the
+  // statement's first characters. The statement itself is never touched.
+  const displayTitle = (v.display_title ?? "")
+    .replace(/\s+/g, " ")
+    .replace(/^["'“”]+|["'“”.]+$/g, "")
+    .trim()
+    .slice(0, 80);
+  if (displayTitle.length >= 3) setIdeaTitle(version.idea_id, displayTitle);
 
   logUsage({ ideaId: version.idea_id, versionId, kind, model, usage });
   return saveArtifact(versionId, kind, v, sources, model, usage);

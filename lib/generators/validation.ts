@@ -108,6 +108,9 @@ export const ValidationElicitSchema = z.object({
   // ONE blunt sentence a founder reads in 2 seconds — the 2-3 forces that set THIS
   // score. Shown bold right under the verdict. Optional: pre-existing artifacts lack it.
   score_reason: z.string().catch("").optional(),
+  // A neutral 3-7 word name for what the idea IS — becomes the idea's display title in
+  // lists/nav (the full statement stays untouched). Optional: old artifacts lack it.
+  display_title: z.string().catch("").optional(),
   summary: z.string(),
   // Explicit effort/capital/time vs the founder's goal; for goal="unsure", the
   // lifestyle-vs-venture read. The ONLY place (with Goal Fit) a goal mismatch lands.
@@ -571,6 +574,9 @@ band (named plainly), then the obtainable revenue vs the goal, and end on the le
 verdict. Also emit "score_reason": ONE blunt sentence (≤22 words) a founder absorbs in two seconds — the
 causal chain behind the score, e.g. "Real, documented pain — but brutally saturated supply and no moat
 for a solo founder caps this at MAYBE." Plain words; no metric recap, no hedging, no colon-lists.
+Also emit "display_title": a neutral 3–7 word name for what the idea IS (e.g. "AI business-in-a-box
+for small businesses") — it becomes the idea's display name in lists. Name the product/category and
+buyer; no hype adjectives, no verdict words, no quotes, no trailing period.
 
 Band these 10 criteria (rationale first, then band — HIGHER ALWAYS MEANS MORE FAVORABLE, no inverted axes).
 Let the bands TRACK THE EVIDENCE and differ — well-evidenced criteria belong at B+/A-, genuinely unproven
@@ -649,7 +655,7 @@ Also produce:
 
 Return JSON exactly matching (field order matters: pre_mortem before criteria; in each criterion, explanation before band; "tarpit"/"sisp" are OPTIONAL — include only when they apply; "forecast" appears ONLY on Market Timing and Competitive Position):
 {
-  "confidence": number, "score_reason": string, "summary": string, "goal_fit_note": string,
+  "confidence": number, "score_reason": string, "display_title": string, "summary": string, "goal_fit_note": string,
   "tarpit": {"matched": true, "pattern": string, "prior_attempts": string, "differentiated_insight": string},
   "sisp": boolean,
   "pre_mortem": [string],
