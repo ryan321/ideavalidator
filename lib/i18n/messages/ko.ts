@@ -17,6 +17,7 @@ export const ko = {
     validateCta: "아이디어 검증 →",
     openStudio: "스튜디오 열기 →",
     account: "계정",
+    settings: "Settings",
     createAccount: "계정 만들기",
     language: "언어",
     languageSearch: "언어 검색…",

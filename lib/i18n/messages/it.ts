@@ -16,6 +16,7 @@ export const it = {
     validateCta: "Valida la mia idea →",
     openStudio: "Apri studio →",
     account: "Account",
+    settings: "Settings",
     createAccount: "Crea account",
     language: "Lingua",
     languageSearch: "Cerca lingue…",

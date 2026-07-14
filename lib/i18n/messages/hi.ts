@@ -16,6 +16,7 @@ export const hi = {
     validateCta: "मेरा आइडिया वैलिडेट करें →",
     openStudio: "स्टूडियो खोलें →",
     account: "खाता",
+    settings: "Settings",
     createAccount: "खाता बनाएँ",
     language: "भाषा",
     languageSearch: "भाषा खोजें…",

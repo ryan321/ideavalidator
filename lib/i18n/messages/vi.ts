@@ -16,6 +16,7 @@ export const vi = {
     validateCta: "Xác thực ý tưởng của tôi →",
     openStudio: "Mở studio →",
     account: "Tài khoản",
+    settings: "Settings",
     createAccount: "Tạo tài khoản",
     language: "Ngôn ngữ",
     languageSearch: "Tìm ngôn ngữ…",

@@ -16,6 +16,7 @@ export const zht = {
     validateCta: "驗證我的創意 →",
     openStudio: "開啟工作室 →",
     account: "帳戶",
+    settings: "Settings",
     createAccount: "建立帳戶",
     language: "語言",
     languageSearch: "搜尋語言…",

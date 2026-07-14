@@ -16,6 +16,7 @@ export const id = {
     validateCta: "Validasi ide saya →",
     openStudio: "Buka studio →",
     account: "Akun",
+    settings: "Settings",
     createAccount: "Buat akun",
     language: "Bahasa",
     languageSearch: "Cari bahasa…",

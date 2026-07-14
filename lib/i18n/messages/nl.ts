@@ -16,6 +16,7 @@ export const nl = {
     validateCta: "Valideer mijn idee →",
     openStudio: "Studio openen →",
     account: "Account",
+    settings: "Settings",
     createAccount: "Account aanmaken",
     language: "Taal",
     languageSearch: "Talen zoeken…",

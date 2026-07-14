@@ -98,7 +98,8 @@ export function AccountClient({
         </div>
       )}
 
-      <section>
+      {/* "Settings" in the avatar menu lands here — the manage-y half of the page. */}
+      <section id="settings" className="scroll-mt-20">
         <h2 className="font-display text-lg font-semibold">{t("account.apiKeys")}</h2>
         <p className="mt-1 text-sm text-muted">
           {t("account.apiKeysBlurb", {

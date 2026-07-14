@@ -17,6 +17,7 @@ export const uk = {
     validateCta: "Валідувати ідею →",
     openStudio: "Відкрити студію →",
     account: "Акаунт",
+    settings: "Settings",
     createAccount: "Створити акаунт",
     language: "Мова",
     languageSearch: "Пошук мови…",

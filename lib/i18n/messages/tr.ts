@@ -16,6 +16,7 @@ export const tr = {
     validateCta: "Fikrimi doğrula →",
     openStudio: "Stüdyoyu aç →",
     account: "Hesap",
+    settings: "Settings",
     createAccount: "Hesap oluştur",
     language: "Dil",
     languageSearch: "Dil ara…",

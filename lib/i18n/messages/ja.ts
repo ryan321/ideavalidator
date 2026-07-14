@@ -16,6 +16,7 @@ export const ja = {
     validateCta: "アイデアを検証 →",
     openStudio: "スタジオを開く →",
     account: "アカウント",
+    settings: "Settings",
     createAccount: "アカウント作成",
     language: "言語",
     languageSearch: "言語を検索…",

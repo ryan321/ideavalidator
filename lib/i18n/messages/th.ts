@@ -16,6 +16,7 @@ export const th = {
     validateCta: "ตรวจสอบไอเดียของฉัน →",
     openStudio: "เปิดสตูดิโอ →",
     account: "บัญชี",
+    settings: "Settings",
     createAccount: "สร้างบัญชี",
     language: "ภาษา",
     languageSearch: "ค้นหาภาษา…",

@@ -16,6 +16,7 @@ export const ar = {
     validateCta: "تحقق من فكرتي →",
     openStudio: "افتح الاستوديو →",
     account: "الحساب",
+    settings: "Settings",
     createAccount: "إنشاء حساب",
     language: "اللغة",
     languageSearch: "ابحث عن لغة…",

@@ -15,6 +15,7 @@ export const en = {
     validateCta: "Start free →",
     openStudio: "Open studio →",
     account: "Account",
+    settings: "Settings",
     createAccount: "Create account",
     language: "Language",
     languageSearch: "Search languages…",

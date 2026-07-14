@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AppNav from "@/components/AppNav";
+import { AvatarMenu } from "@/components/AvatarMenu";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { SkipToContent } from "@/components/SkipToContent";
@@ -54,15 +55,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
             <LocaleSwitcher />
             <StylePicker />
-            {/* Account — avatar monogram, farthest right (the web convention) */}
-            <Link
-              href="/account"
-              aria-label={t("nav.account")}
-              title={`${t("nav.account")} · ${user.name?.trim() || user.email}`}
-              className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-accent/15 font-display text-sm font-bold leading-none text-accent2 transition hover:border-accent/50 hover:bg-accent/25"
-            >
-              {initialsFor(user.name, user.email)}
-            </Link>
+            {/* Account — avatar monogram dropdown, farthest right (the web convention) */}
+            <AvatarMenu
+              initials={initialsFor(user.name, user.email)}
+              name={user.name}
+              email={user.email}
+            />
           </nav>
         </div>
       </header>

@@ -16,6 +16,7 @@ export const he = {
     validateCta: "תאמתו את הרעיון שלי →",
     openStudio: "פתחו את הסטודיו →",
     account: "חשבון",
+    settings: "Settings",
     createAccount: "יצירת חשבון",
     language: "שפה",
     languageSearch: "חיפוש שפות…",
