@@ -269,15 +269,31 @@ export default async function LandingPage() {
               <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.testHint")}</p>
             </div>
 
-            {/* Goal calibration — the GO bar moves with what you're building */}
+            {/* Goal calibration: the GO bar moves with what you're building. Bar width
+                encodes the threshold, so the higher venture bar reads as the longer bar. */}
             <div className="folio flex flex-col p-5">
-              <div className="flex min-h-[5.25rem] flex-col items-start justify-center gap-2 rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
-                <span className="rounded-md bg-accent/12 px-2.5 py-1 font-mono text-[11px] font-semibold text-accent2">
-                  {t("gets.goalVenture")}
-                </span>
-                <span className="rounded-md bg-fg/[0.07] px-2.5 py-1 font-mono text-[11px] font-semibold text-fg/70">
-                  {t("gets.goalSide")}
-                </span>
+              <div className="flex min-h-[5.25rem] flex-col justify-center gap-2 rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
+                {(
+                  [
+                    [t("gets.goalVentureLabel"), 78],
+                    [t("gets.goalSideLabel"), 66],
+                  ] as const
+                ).map(([label, bar]) => (
+                  <div key={label} className="flex items-center gap-2.5 font-mono text-[10px]">
+                    <span className="w-24 truncate uppercase tracking-wide text-muted">
+                      {label}
+                    </span>
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-fg/10">
+                      <span
+                        className="block h-full rounded-full bg-accent"
+                        style={{ width: `${bar}%` }}
+                      />
+                    </span>
+                    <span className="w-14 shrink-0 text-right font-bold text-fg">
+                      GO ≥ {bar}
+                    </span>
+                  </div>
+                ))}
               </div>
               <h3 className="mt-4 font-display text-base font-bold tracking-tight">
                 {t("gets.goalTitle")}

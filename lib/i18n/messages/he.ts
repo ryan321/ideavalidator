@@ -6,7 +6,7 @@ import type { MessageTree } from "./en";
 
 export const he = {
   meta: {
-    title: "Validorian — סטודיו לאימות עסקי",
+    title: "Validorian · סטודיו לאימות עסקי",
     description:
       "אימות פרימיום לרעיונות עסקיים: ציוני GO / MAYBE / NO-GO מבוססי ראיות, מקורות, וסטודיו איטרטיבי לחידוד עד שהתשובה ברורה.",
   },
@@ -871,10 +871,7 @@ export const he = {
     ideaPlaceholder: "In a sentence or two: what’s the idea, and who is it for?",
     ideaCta: "Start free — score my idea →",
     ideaCtaBusy: "Starting…",
-    ideaHint: "No account needed to start typing. It’s free to describe your idea and set your goal — {price} unlocks the full scored verdict and every tool on that idea.",
-    honestNo: "The rare validator built to tell you no — and even a NO-GO hands you the sharper pivot and the next test to run. You never leave empty-handed.",
     riskReversal: "If a report ever fails to generate, you’re not charged. If a score reads wrong, email me and I’ll make it right.",
-    anchor: "Building the wrong idea costs months of nights and weekends. A hard read costs {price}, once.",
     haveAccount: "Already have an account?",
     ideaError: "Make sure you fill in your full idea",
   },
@@ -932,8 +929,8 @@ export const he = {
     goalTitle: "Graded against your goal",
     goalHint:
       "A venture bet and a weekend side hustle aren't the same bar. The GO threshold moves with what you're building.",
-    goalVenture: "VENTURE · GO ≥ 78",
-    goalSide: "SIDE HUSTLE · GO ≥ 66",
+    goalVentureLabel: "Venture",
+    goalSideLabel: "Side hustle",
     moreLine:
       "Plus the buyer profile & ranked channels, moat grading, market timing & momentum, unit economics, and a build plan when the verdict earns it. 20+ sections in every report.",
     studioTitle: "And the studio keeps working after the verdict",

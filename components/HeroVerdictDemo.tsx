@@ -16,7 +16,7 @@ export async function HeroVerdictDemo({ price }: { price: string }) {
     <div
       className="folio overflow-hidden"
       role="img"
-      aria-label={`${t("sample.eyebrow")} — ${t("verdict.go")} ${SCORE}`}
+      aria-label={`${t("sample.eyebrow")} · ${t("verdict.go")} ${SCORE}`}
     >
       {/* verdict masthead — mirrors the real report's gradient wash */}
       <div
