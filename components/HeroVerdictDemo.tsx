@@ -11,25 +11,6 @@ const SCORE = 78;
 const RING_R = 34;
 const RING_C = 2 * Math.PI * RING_R;
 
-function Check() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent"
-      fill="none"
-      aria-hidden
-    >
-      <path
-        d="M3.2 8.6l3 3 6.4-7.2"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export async function HeroVerdictDemo({ price }: { price: string }) {
   const { t } = await getTranslator();
   // The list mirrors the real report's own section nav (report.* keys), so the sample
@@ -121,14 +102,11 @@ export async function HeroVerdictDemo({ price }: { price: string }) {
         <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
           {t("sample.includesLabel")}
         </div>
-        <ul className="mt-2.5 space-y-1.5">
+        <ul className="mt-2.5 divide-y divide-border/50">
           {sections.map((s) => (
-            <li key={s.name} className="flex items-start gap-2 text-[13px] leading-snug">
-              <Check />
-              <span className="text-fg/85">
-                <span className="font-semibold text-fg">{s.name}</span>
-                <span className="text-muted"> · {s.hint}</span>
-              </span>
+            <li key={s.name} className="py-1.5 text-[13px] leading-snug first:pt-0 last:pb-0">
+              <span className="font-semibold text-fg">{s.name}</span>
+              <span className="text-muted"> · {s.hint}</span>
             </li>
           ))}
         </ul>
