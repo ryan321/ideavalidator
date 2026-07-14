@@ -795,49 +795,8 @@ export function ValidationView({
           </div>
         )}
 
-        {/* Scoring notes — collapsed in workspace (not a peer to the decision) */}
-        {chapters ? (
-          <details
-            className="group overflow-hidden rounded-xl border border-border bg-panel/50 transition hover:border-accent/35 hover:bg-panel2/40"
-            open={print}
-          >
-            <summary
-              className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3 select-none transition hover:bg-panel2/55 sm:px-4"
-              title="Click to expand or collapse scoring notes"
-            >
-              <span
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border bg-panel2 font-mono text-sm text-accent2 transition group-open:border-accent/40 group-open:bg-accent/10"
-                aria-hidden
-              >
-                <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
-              </span>
-              <span className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.14em] text-fg/85">
-                {t("report.scoringNotes")}
-              </span>
-              <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
-                <span className="group-open:hidden">{t("common.expand")}</span>
-                <span className="hidden group-open:inline">{t("common.collapse")}</span>
-              </span>
-            </summary>
-            <div className="space-y-4 border-t border-border/60 px-4 py-4">
-              <TarpitCallout tarpit={d.tarpit} />
-              <SispFlag sisp={d.sisp} />
-              {d.system_adjustments?.length ? (
-                <SystemAdjustments adjustments={d.system_adjustments} goalLabel={GOAL_NOUN[goalKey]} />
-              ) : null}
-              {d.claims_audit?.brief && (
-                <div className="max-w-2xl border-l border-border pl-4">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{d.claims_audit.brief}</p>
-                  {d.claims_audit.claims?.length ? <ClaimsLedger claims={d.claims_audit.claims} /> : null}
-                </div>
-              )}
-              <HowScored goal={goalKey} samples={scoringSamples} print={print} />
-              <DeepMemos bull={d.bull_memo} bear={d.bear_memo} print={print} />
-              <CoveLedger cove={d.cove} print={print} />
-              <AuditPanel audit={d.audit} print={print} />
-            </div>
-          </details>
-        ) : (
+        {/* Scoring notes — in workspace they live at the bottom of the scorecard below */}
+        {!chapters && (
           <>
             <TarpitCallout tarpit={d.tarpit} />
             <SispFlag sisp={d.sisp} />
@@ -902,6 +861,50 @@ export function ValidationView({
           </Section>
           <ValidationSummary go={d.go_signals} stop={d.stop_signals} />
           <ValidationScorecard validations={d.validations} criteria={d.criteria} />
+
+          {/* Scoring notes & guards — the mechanics behind the numbers above */}
+          {chapters && (
+            <details
+              className="group overflow-hidden rounded-xl border border-border bg-panel/50 transition hover:border-accent/35 hover:bg-panel2/40"
+              open={print}
+            >
+              <summary
+                className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3 select-none transition hover:bg-panel2/55 sm:px-4"
+                title="Click to expand or collapse scoring notes"
+              >
+                <span
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border bg-panel2 font-mono text-sm text-accent2 transition group-open:border-accent/40 group-open:bg-accent/10"
+                  aria-hidden
+                >
+                  <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
+                </span>
+                <span className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.14em] text-fg/85">
+                  {t("report.scoringNotes")}
+                </span>
+                <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
+                  <span className="group-open:hidden">{t("common.expand")}</span>
+                  <span className="hidden group-open:inline">{t("common.collapse")}</span>
+                </span>
+              </summary>
+              <div className="space-y-4 border-t border-border/60 px-4 py-4">
+                <TarpitCallout tarpit={d.tarpit} />
+                <SispFlag sisp={d.sisp} />
+                {d.system_adjustments?.length ? (
+                  <SystemAdjustments adjustments={d.system_adjustments} goalLabel={GOAL_NOUN[goalKey]} />
+                ) : null}
+                {d.claims_audit?.brief && (
+                  <div className="max-w-2xl border-l border-border pl-4">
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{d.claims_audit.brief}</p>
+                    {d.claims_audit.claims?.length ? <ClaimsLedger claims={d.claims_audit.claims} /> : null}
+                  </div>
+                )}
+                <HowScored goal={goalKey} samples={scoringSamples} print={print} />
+                <DeepMemos bull={d.bull_memo} bear={d.bear_memo} print={print} />
+                <CoveLedger cove={d.cove} print={print} />
+                <AuditPanel audit={d.audit} print={print} />
+              </div>
+            </details>
+          )}
         </div>
       </details>
 
