@@ -134,7 +134,7 @@ export function AccountClient({
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder={t("account.keyLabelPlaceholder")}
-            className="flex-1 rounded-lg border border-border bg-panel px-3 py-2 text-sm outline-none focus:border-accent"
+            className="iv-field flex-1 rounded-lg border bg-panel px-3 py-2 text-sm outline-none"
           />
           <button
             onClick={mintKey}
@@ -219,7 +219,7 @@ function ChangePassword({ onDone }: { onDone: (m: { tone: "ok" | "err"; text: st
           placeholder={t("account.currentPassword")}
           autoComplete="current-password"
           required
-          className="min-w-40 flex-1 rounded-lg border border-border bg-panel px-3 py-2 text-sm outline-none focus:border-accent"
+          className="iv-field min-w-40 flex-1 rounded-lg border bg-panel px-3 py-2 text-sm outline-none"
         />
         <input
           type="password"
@@ -229,7 +229,7 @@ function ChangePassword({ onDone }: { onDone: (m: { tone: "ok" | "err"; text: st
           autoComplete="new-password"
           required
           minLength={8}
-          className="min-w-40 flex-1 rounded-lg border border-border bg-panel px-3 py-2 text-sm outline-none focus:border-accent"
+          className="iv-field min-w-40 flex-1 rounded-lg border bg-panel px-3 py-2 text-sm outline-none"
         />
         <button
           type="submit"
@@ -282,7 +282,7 @@ function DangerZone({ email }: { email: string }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder={t("account.confirmPassword")}
-            className="min-w-48 flex-1 rounded-lg border border-border bg-panel px-3 py-2 text-sm outline-none focus:border-bad"
+            className="iv-field iv-field--danger min-w-48 flex-1 rounded-lg border bg-panel px-3 py-2 text-sm outline-none"
           />
           <button
             onClick={del}

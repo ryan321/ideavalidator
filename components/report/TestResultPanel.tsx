@@ -89,7 +89,7 @@ export function TestResultPanel({
             onChange={(e) => setDraft(e.target.value)}
             rows={3}
             placeholder='e.g. "DMed 22 platform leads over 6 days. 7 replied, 4 said they&apos;d pay, 2 booked a paid eval. 3 said they built it in-house."'
-            className="w-full rounded-lg border border-border bg-panel px-3 py-2 text-sm outline-none focus:border-accent"
+            className="iv-field w-full rounded-lg border bg-panel px-3 py-2 text-sm outline-none"
           />
           <div className="mt-2 flex items-center gap-2">
             <button

@@ -123,7 +123,7 @@ export function AuthForm({
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t("auth.nameOptional")}
                 autoComplete="name"
-                className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+                className="iv-field w-full rounded-xl border bg-bg/40 px-3.5 py-2.5 text-sm outline-none"
               />
             </div>
           )}
@@ -139,7 +139,7 @@ export function AuthForm({
               placeholder={t("auth.emailPlaceholder")}
               autoComplete="email"
               required
-              className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+              className="iv-field w-full rounded-xl border bg-bg/40 px-3.5 py-2.5 text-sm outline-none"
             />
           </div>
           <div>
@@ -155,7 +155,7 @@ export function AuthForm({
               autoComplete={isSignup ? "new-password" : "current-password"}
               required
               minLength={isSignup ? 8 : undefined}
-              className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+              className="iv-field w-full rounded-xl border bg-bg/40 px-3.5 py-2.5 text-sm outline-none"
             />
           </div>
           {!isSignup && (

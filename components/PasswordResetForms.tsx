@@ -71,7 +71,7 @@ export function ForgotForm() {
                   placeholder={t("auth.emailPlaceholder")}
                   autoComplete="email"
                   required
-                  className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+                  className="iv-field w-full rounded-xl border bg-bg/40 px-3.5 py-2.5 text-sm outline-none"
                 />
               </div>
               {error && (
@@ -159,7 +159,7 @@ export function ResetForm({ token }: { token: string | null }) {
                   autoComplete="new-password"
                   required
                   minLength={8}
-                  className="w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+                  className="iv-field w-full rounded-xl border bg-bg/40 px-3.5 py-2.5 text-sm outline-none"
                 />
               </div>
               {error && (

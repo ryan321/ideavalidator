@@ -168,7 +168,7 @@ function VariantGoalFields({
         value={goalDetailDraft}
         onChange={(e) => setGoalDetailDraft(e.target.value)}
         placeholder="Optional: time, effort & budget — e.g. “nights & weekends, bootstrap only”"
-        className="mt-1.5 w-full rounded-md border border-border bg-panel px-2 py-1.5 text-sm outline-none placeholder:text-muted focus:border-accent"
+        className="iv-field mt-1.5 w-full rounded-md border bg-panel px-2 py-1.5 text-sm outline-none placeholder:text-muted"
       />
     </div>
   );
@@ -1820,7 +1820,7 @@ export default function IdeaWorkspace({
             }
           }}
           placeholder={t("workspaceExtra.messagePlaceholder")}
-          className="max-h-32 min-h-[2.5rem] flex-1 resize-none overflow-y-auto rounded-lg border border-border bg-panel2 px-3 py-2 text-sm outline-none focus:border-accent2"
+          className="iv-field max-h-32 min-h-[2.5rem] flex-1 resize-none overflow-y-auto rounded-lg border bg-panel2 px-3 py-2 text-sm outline-none"
         />
         <button
           onClick={sendQuestion}
@@ -2520,7 +2520,7 @@ export default function IdeaWorkspace({
                   onChange={(e) => setDraft(e.target.value)}
                   rows={4}
                   placeholder="Rewrite the idea statement…"
-                  className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
+                  className="iv-field w-full resize-none rounded-lg border bg-panel2 p-3 text-sm outline-none"
                 />
                 <VariantGoalFields
                   className="mt-3"
@@ -2570,7 +2570,7 @@ export default function IdeaWorkspace({
                       value={proposalDraft}
                       onChange={(e) => setProposalDraft(e.target.value)}
                       rows={4}
-                      className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
+                      className="iv-field w-full resize-none rounded-lg border bg-panel2 p-3 text-sm outline-none"
                     />
                     <p className="mt-2 text-xs text-muted">
                       <b className="text-fg/80">Why:</b> {proposal.rationale}{" "}
@@ -2664,7 +2664,7 @@ export default function IdeaWorkspace({
                   onChange={(e) => setResponseDraft(e.target.value)}
                   rows={4}
                   placeholder={`e.g. "Those competitors are CLI tools — mine is a team workspace. I have warm intros to 20 Shopify agencies."`}
-                  className="w-full resize-none rounded-lg border border-border bg-panel2 p-3 text-sm outline-none focus:border-accent"
+                  className="iv-field w-full resize-none rounded-lg border bg-panel2 p-3 text-sm outline-none"
                 />
                 <VariantGoalFields
                   className="mt-3"
@@ -2744,11 +2744,11 @@ export default function IdeaWorkspace({
               <span className="font-semibold">⟳ Auto-iterate</span>
               <label className="flex items-center gap-1 text-muted">
                 target
-                <input type="number" value={target} onChange={(e) => setTarget(+e.target.value)} disabled={iterating} className="w-16 rounded-md border border-border bg-panel2 px-2 py-0.5 text-right font-mono" />
+                <input type="number" value={target} onChange={(e) => setTarget(+e.target.value)} disabled={iterating} className="iv-field w-16 rounded-md border bg-panel2 px-2 py-0.5 text-right font-mono" />
               </label>
               <label className="flex items-center gap-1 text-muted">
                 max rounds
-                <input type="number" value={maxRounds} onChange={(e) => setMaxRounds(+e.target.value)} disabled={iterating} className="w-14 rounded-md border border-border bg-panel2 px-2 py-0.5 text-right font-mono" />
+                <input type="number" value={maxRounds} onChange={(e) => setMaxRounds(+e.target.value)} disabled={iterating} className="iv-field w-14 rounded-md border bg-panel2 px-2 py-0.5 text-right font-mono" />
               </label>
               {!iterating && (
                 <button onClick={autoIterate} disabled={anyBusy} className="rounded-lg bg-accent px-3 py-1 text-sm font-medium text-on-accent disabled:opacity-50">

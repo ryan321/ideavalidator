@@ -65,8 +65,8 @@ export function HeroIdeaForm({ signedIn }: { signedIn: boolean }) {
         rows={3}
         aria-invalid={showHint}
         aria-describedby={showHint ? "hero-idea-hint" : undefined}
-        className={`w-full resize-none rounded-2xl border bg-bg/50 px-4 py-3.5 text-base leading-relaxed shadow-sm outline-none placeholder:text-muted/70 focus:border-accent ${
-          showHint ? "border-warn/60" : "border-border"
+        className={`iv-field w-full resize-none rounded-2xl border bg-bg/50 px-4 py-3.5 text-base leading-relaxed shadow-sm outline-none placeholder:text-muted/70 ${
+          showHint ? "iv-field--warn" : ""
         }`}
       />
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">

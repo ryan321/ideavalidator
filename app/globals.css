@@ -244,6 +244,44 @@ h3 {
   outline-offset: 2px;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Text-entry fields  (v2)                                                     */
+/* A field should read AS a field before it's focused: the resting border is   */
+/* derived from each pack's border token nudged toward the foreground, so it    */
+/* stays legible in light and dark packs alike. Focus then layers a stronger    */
+/* accent border plus a soft ring — the state people liked, now consistent for  */
+/* mouse and keyboard. One class (+ --warn / --danger modifiers) keeps hero,    */
+/* auth, account, and chat fields identical. Unlayered so it beats Tailwind's   */
+/* border utilities; the transparent focus outline preserves a visible ring in  */
+/* forced-colors mode, where box-shadows are dropped.                          */
+/* -------------------------------------------------------------------------- */
+:root {
+  --color-field-border: color-mix(in srgb, var(--color-border) 74%, var(--color-fg) 26%);
+  --color-field-ring: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.iv-field {
+  border-color: var(--color-field-border);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.iv-field:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-field-ring);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+.iv-field--warn {
+  border-color: color-mix(in srgb, var(--color-warn) 72%, var(--color-fg) 8%);
+}
+.iv-field--warn:focus {
+  border-color: var(--color-warn);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-warn) 24%, transparent);
+}
+.iv-field--danger:focus {
+  border-color: var(--color-bad);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-bad) 24%, transparent);
+}
+
 /* Skip link: off-screen until keyboard focus */
 .skip-to-content {
   position: absolute;

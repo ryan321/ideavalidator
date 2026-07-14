@@ -41,7 +41,7 @@ export function HelpSearch({
         onChange={(e) => setQ(e.target.value)}
         placeholder={placeholder}
         autoComplete="off"
-        className="w-full rounded-xl border border-border bg-panel px-4 py-3 text-sm text-fg shadow-sm outline-none placeholder:text-muted focus:border-accent/50"
+        className="iv-field w-full rounded-xl border bg-panel px-4 py-3 text-sm text-fg shadow-sm outline-none placeholder:text-muted"
       />
       {searching && (
         <ul

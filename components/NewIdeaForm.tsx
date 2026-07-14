@@ -86,7 +86,7 @@ export default function NewIdeaForm() {
           rows={4}
           required
           minLength={8}
-          className="w-full resize-none rounded-xl border border-border bg-bg/40 px-4 py-3.5 text-base leading-relaxed outline-none placeholder:text-muted/70 focus:border-accent"
+          className="iv-field w-full resize-none rounded-xl border bg-bg/40 px-4 py-3.5 text-base leading-relaxed outline-none placeholder:text-muted/70"
         />
       </div>
 
@@ -127,7 +127,7 @@ export default function NewIdeaForm() {
           value={goalDetail}
           onChange={(e) => setGoalDetail(e.target.value)}
           placeholder={t("studio.goalDetailPlaceholder")}
-          className="mt-2.5 w-full rounded-xl border border-border bg-bg/40 px-3.5 py-2.5 text-sm outline-none placeholder:text-muted/70 focus:border-accent"
+          className="iv-field mt-2.5 w-full rounded-xl border bg-bg/40 px-3.5 py-2.5 text-sm outline-none placeholder:text-muted/70"
         />
       </fieldset>
 

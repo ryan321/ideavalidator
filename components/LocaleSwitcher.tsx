@@ -150,7 +150,7 @@ export function LocaleSwitcher({ className = "" }: { className?: string }) {
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            className="w-full rounded-lg border border-border bg-panel2 px-2.5 py-1.5 text-sm text-fg outline-none placeholder:text-muted focus:border-accent/50"
+            className="iv-field w-full rounded-lg border bg-panel2 px-2.5 py-1.5 text-sm text-fg outline-none placeholder:text-muted"
           />
         </div>
         <div className="max-h-[min(50vh,16rem)] overflow-auto py-1">
