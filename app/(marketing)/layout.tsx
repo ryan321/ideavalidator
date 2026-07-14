@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { AvatarMenu } from "@/components/AvatarMenu";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { initialsFor } from "@/lib/avatar";
 import { SkipToContent } from "@/components/SkipToContent";
 import { StylePicker } from "@/components/StylePicker";
 import { getSessionUser } from "@/lib/auth";
@@ -63,6 +65,15 @@ export default async function MarketingLayout({ children }: { children: React.Re
             )}
             <LocaleSwitcher />
             <StylePicker />
+            {/* Signed-in visitors get the same account avatar as the studio header */}
+            {user && (
+              <AvatarMenu
+                initials={initialsFor(user.name, user.email)}
+                name={user.name}
+                email={user.email}
+                avatarUrl={user.avatar_url}
+              />
+            )}
           </nav>
         </div>
       </header>

@@ -2,21 +2,13 @@ import Link from "next/link";
 import AppNav from "@/components/AppNav";
 import { AvatarMenu } from "@/components/AvatarMenu";
 import { BrandLogo } from "@/components/BrandLogo";
+import { initialsFor } from "@/lib/avatar";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { SkipToContent } from "@/components/SkipToContent";
 import { StylePicker } from "@/components/StylePicker";
 import { getSessionUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
-
-/** 1–2 letter monogram for the avatar: initials of the first two name words, else the
- * email's first letter. Uppercased; falls back to "?" for a blank record. */
-function initialsFor(name: string | null, email: string): string {
-  const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
-  if (words.length === 1) return words[0][0].toUpperCase();
-  return (email.trim()[0] ?? "?").toUpperCase();
-}
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
@@ -60,6 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               initials={initialsFor(user.name, user.email)}
               name={user.name}
               email={user.email}
+              avatarUrl={user.avatar_url}
             />
           </nav>
         </div>

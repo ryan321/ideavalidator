@@ -1,6 +1,13 @@
 import crypto from "node:crypto";
 import { hashPassword } from "./password";
-import { createUser, getUserByEmail, getUserByGoogleId, linkGoogleId, type User } from "./db";
+import {
+  createUser,
+  getUserByEmail,
+  getUserByGoogleId,
+  linkGoogleId,
+  setUserAvatar,
+  type User,
+} from "./db";
 
 // Google "Sign in with Google" via raw OAuth 2.0 / OpenID Connect — no SDK, matching the
 // house style (see lib/email.ts). Create an OAuth client at
@@ -41,6 +48,8 @@ export type GoogleProfile = {
   email: string;
   emailVerified: boolean;
   name: string | null;
+  /** Profile picture URL (https only); null when absent. */
+  picture: string | null;
 };
 
 /** Exchange the authorization code for the user's Google profile. Throws on any failure. */
@@ -72,6 +81,7 @@ export async function exchangeCodeForProfile(code: string, origin: string): Prom
     email?: string;
     email_verified?: boolean;
     name?: string;
+    picture?: string;
   };
   if (!u.sub || !u.email) throw new Error("Google userinfo missing sub/email");
   return {
@@ -79,6 +89,7 @@ export async function exchangeCodeForProfile(code: string, origin: string): Prom
     email: u.email.toLowerCase(),
     emailVerified: u.email_verified === true,
     name: u.name?.trim() || null,
+    picture: u.picture?.startsWith("https://") ? u.picture : null,
   };
 }
 
@@ -91,14 +102,24 @@ export async function exchangeCodeForProfile(code: string, origin: string): Prom
  */
 export function findOrCreateGoogleUser(p: GoogleProfile): User {
   const byGoogle = getUserByGoogleId(p.sub);
-  if (byGoogle) return byGoogle;
+  if (byGoogle) {
+    // Keep the photo fresh (Google rotates the URL when the user changes it).
+    if (p.picture && byGoogle.avatar_url !== p.picture) {
+      setUserAvatar(byGoogle.id, p.picture);
+      return { ...byGoogle, avatar_url: p.picture };
+    }
+    return byGoogle;
+  }
 
   const existing = getUserByEmail(p.email);
   if (existing) {
     if (!existing.google_id) linkGoogleId(existing.id, p.sub);
-    return { ...existing, google_id: p.sub };
+    // Fill an empty avatar, never clobber one that's already set.
+    const avatar = existing.avatar_url ?? p.picture;
+    if (!existing.avatar_url && p.picture) setUserAvatar(existing.id, p.picture);
+    return { ...existing, google_id: p.sub, avatar_url: avatar };
   }
 
   const sentinel = hashPassword(crypto.randomBytes(32).toString("hex"));
-  return createUser(p.email, sentinel, p.name, p.sub);
+  return createUser(p.email, sentinel, p.name, p.sub, p.picture);
 }

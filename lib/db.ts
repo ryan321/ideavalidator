@@ -158,6 +158,8 @@ function init(): Database.Database {
   addColumn(db, "api_keys", "user_id", "TEXT"); // NULL = CLI-minted; else the owning user
   // Google OAuth: the stable Google account id (`sub`). NULL for password-only accounts.
   addColumn(db, "users", "google_id", "TEXT");
+  // Profile picture URL (from Google today). NULL → the UI renders a monogram.
+  addColumn(db, "users", "avatar_url", "TEXT");
 
   // usage columns on artifacts (added in upgrades) + a full per-call usage log.
   addColumn(db, "artifacts", "cost", "REAL");
@@ -282,6 +284,8 @@ export type User = {
   created_at: string;
   /** Google account id (`sub`) when this account can sign in with Google; else null. */
   google_id: string | null;
+  /** Profile picture URL (from Google sign-in); null → monogram avatar. */
+  avatar_url: string | null;
 };
 
 export type IdeaSummary = Idea & {
@@ -445,7 +449,8 @@ export function createUser(
   email: string,
   passwordHash: string,
   name: string | null,
-  googleId: string | null = null
+  googleId: string | null = null,
+  avatarUrl: string | null = null
 ): User {
   const user: User = {
     id: crypto.randomUUID(),
@@ -454,11 +459,17 @@ export function createUser(
     name,
     created_at: new Date().toISOString(),
     google_id: googleId,
+    avatar_url: avatarUrl,
   };
   db.prepare(
-    "INSERT INTO users (id, email, password_hash, name, created_at, google_id) VALUES (@id, @email, @password_hash, @name, @created_at, @google_id)"
+    "INSERT INTO users (id, email, password_hash, name, created_at, google_id, avatar_url) VALUES (@id, @email, @password_hash, @name, @created_at, @google_id, @avatar_url)"
   ).run(user);
   return user;
+}
+
+/** Set (or clear) a user's profile-picture URL. */
+export function setUserAvatar(id: string, avatarUrl: string | null): void {
+  db.prepare("UPDATE users SET avatar_url = ? WHERE id = ?").run(avatarUrl, id);
 }
 
 /** Look up an account by its linked Google id (`sub`). */
