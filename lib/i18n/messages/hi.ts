@@ -908,6 +908,7 @@ appNav: {
     inc4: "Real demand quotes, every one sourced",
     inc5: "The cheapest test to run next",
     inc6: "Chat with it, refine & re-score",
+    more: "…and 20+ more: a risk pre-mortem, unit economics, a go-to-market plan, moat grading, buyer & channels, and the full evidence trail behind every call.",
     howLabel: "How it's built",
     how: "Real posts — Hacker News, Stack Overflow, GitHub, the App Store, product-review sites — routed to each idea, every quote linked, then scored several times over for a stable read.",
     unlock: "{price} runs the full analysis on your idea — one-time, no subscription.",
