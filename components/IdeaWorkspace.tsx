@@ -472,6 +472,17 @@ export default function IdeaWorkspace({
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  // ≥lg the Ask chat renders as a sticky side panel (own scroll) beside the report;
+  // below lg it stays an inline block. One instance either way (matchMedia, not CSS
+  // show/hide) so the input/scroll refs always point at the mounted panel.
+  const [deskChat, setDeskChat] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDeskChat(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
   const composerRef = useRef<HTMLDivElement>(null);
 
   // Changing stage via the left nav (URL) should close any transient panels that
@@ -1840,6 +1851,125 @@ export default function IdeaWorkspace({
       }
     : null;
 
+  // Ask panel body — rendered exactly once, either inline (below lg) or inside the
+  // sticky desktop aside. `desktop` only changes how the message list sizes: inline
+  // caps at max-h-80; the aside lets it flex-grow to fill the panel.
+  const chatPanel = (desktop: boolean) => (
+    <>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="font-display text-base font-bold text-accent2">
+            {t("workspace.askTitle")}
+          </div>
+          <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent2">
+            {t("workspaceExtra.askNoRescore")}
+          </span>
+        </div>
+        <button onClick={() => setChatting(false)} className="text-xs text-muted hover:text-fg">
+          {t("common.close")}
+        </button>
+      </div>
+      <p className="mb-2 text-xs text-muted">
+        {t("workspaceExtra.askBlurb", { n: activeVersion.n })}{" "}
+        <button
+          type="button"
+          onClick={() => promoteChatToVersion()}
+          className="font-medium text-accent2 underline-offset-2 hover:underline"
+        >
+          {t("workspaceExtra.turnIntoVersion")}
+        </button>
+        .
+      </p>
+      <div
+        className={`space-y-3 overflow-auto rounded-lg bg-bg/40 p-3 ${
+          desktop ? "min-h-0 flex-1" : "max-h-80"
+        }`}
+      >
+        {chatMessages.length === 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              t("workspaceExtra.chatWhyScore"),
+              t("workspaceExtra.chatMoveToGo"),
+              t("workspaceExtra.chatCompetitiveFair"),
+            ].map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => void sendQuestionText(q)}
+                className="rounded-full border border-border bg-panel2 px-2.5 py-1 text-xs text-muted hover:border-accent2/40 hover:text-fg"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
+        {chatMessages.map((m, i) => (
+          <div key={i} className={m.role === "user" ? "text-right" : ""}>
+            <div
+              className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-left text-sm leading-relaxed ${
+                m.role === "user"
+                  ? "whitespace-pre-wrap bg-accent text-on-accent"
+                  : "bg-panel2 text-fg/90"
+              }`}
+            >
+              {m.role === "assistant" ? (
+                <MarkdownText
+                  text={m.text}
+                  className="space-y-2 text-sm leading-relaxed text-fg/90 [&_strong]:text-fg"
+                />
+              ) : (
+                m.text
+              )}
+            </div>
+            {m.role === "user" && (
+              <div className="mt-1">
+                <button
+                  type="button"
+                  onClick={() => promoteChatToVersion(m.text)}
+                  className="text-[11px] text-muted hover:text-accent2"
+                >
+                  {t("workspaceExtra.useAsVersionContext")}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {chatLoading && (
+          <div className="animate-pulse text-xs text-muted">{t("workspaceExtra.thinking")}</div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+      <div className="mt-2 flex items-end gap-2">
+        <textarea
+          ref={chatInputRef}
+          value={chatInput}
+          rows={2}
+          onChange={(e) => {
+            setChatInput(e.target.value);
+            const el = e.target;
+            el.style.height = "auto";
+            el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              sendQuestion();
+            }
+          }}
+          placeholder={t("workspaceExtra.messagePlaceholder")}
+          className="max-h-32 min-h-[2.5rem] flex-1 resize-none overflow-y-auto rounded-lg border border-border bg-panel2 px-3 py-2 text-sm outline-none focus:border-accent2"
+        />
+        <button
+          onClick={sendQuestion}
+          disabled={chatLoading || !chatInput.trim()}
+          className="shrink-0 rounded-lg bg-accent2 px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-50"
+        >
+          {t("workspaceExtra.send")}
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <div>
       <div className="no-print">
@@ -2022,6 +2152,16 @@ export default function IdeaWorkspace({
           </div>
         )}
 
+        {/* ≥lg with Ask open: two columns — the report flow left, a sticky chat aside right
+            that scrolls independently. Otherwise a plain single-column flow. */}
+        <div
+          className={
+            chatting && deskChat
+              ? "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(20rem,23rem)] lg:items-start lg:gap-6"
+              : ""
+          }
+        >
+          <div className="min-w-0">
         {/* ONE decision surface — score, why, open question, primary CTA. No peer cards. */}
         {hasValidate && activeValidation && decisionScore != null ? (
           <DecisionCard
@@ -2533,117 +2673,9 @@ export default function IdeaWorkspace({
           </div>
         )}
 
-        {/* Ask — Q&A only, never creates a version */}
-        {chatting && (
-          <div className="folio mb-5 border-accent2/30 p-5">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="font-display text-base font-bold text-accent2">
-                  {t("workspace.askTitle")}
-                </div>
-                <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent2">
-                  {t("workspaceExtra.askNoRescore")}
-                </span>
-              </div>
-              <button onClick={() => setChatting(false)} className="text-xs text-muted hover:text-fg">
-                {t("common.close")}
-              </button>
-            </div>
-            <p className="mb-2 text-xs text-muted">
-              {t("workspaceExtra.askBlurb", { n: activeVersion.n })}{" "}
-              <button
-                type="button"
-                onClick={() => promoteChatToVersion()}
-                className="font-medium text-accent2 underline-offset-2 hover:underline"
-              >
-                {t("workspaceExtra.turnIntoVersion")}
-              </button>
-              .
-            </p>
-            <div className="max-h-80 space-y-3 overflow-auto rounded-lg bg-bg/40 p-3">
-              {chatMessages.length === 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    t("workspaceExtra.chatWhyScore"),
-                    t("workspaceExtra.chatMoveToGo"),
-                    t("workspaceExtra.chatCompetitiveFair"),
-                  ].map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => void sendQuestionText(q)}
-                      className="rounded-full border border-border bg-panel2 px-2.5 py-1 text-xs text-muted hover:border-accent2/40 hover:text-fg"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {chatMessages.map((m, i) => (
-                <div key={i} className={m.role === "user" ? "text-right" : ""}>
-                  <div
-                    className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-left text-sm leading-relaxed ${
-                      m.role === "user"
-                        ? "whitespace-pre-wrap bg-accent text-on-accent"
-                        : "bg-panel2 text-fg/90"
-                    }`}
-                  >
-                    {m.role === "assistant" ? (
-                      <MarkdownText
-                        text={m.text}
-                        className="space-y-2 text-sm leading-relaxed text-fg/90 [&_strong]:text-fg"
-                      />
-                    ) : (
-                      m.text
-                    )}
-                  </div>
-                  {m.role === "user" && (
-                    <div className="mt-1">
-                      <button
-                        type="button"
-                        onClick={() => promoteChatToVersion(m.text)}
-                        className="text-[11px] text-muted hover:text-accent2"
-                      >
-                        {t("workspaceExtra.useAsVersionContext")}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {chatLoading && (
-                <div className="animate-pulse text-xs text-muted">{t("workspaceExtra.thinking")}</div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-            <div className="mt-2 flex items-end gap-2">
-              <textarea
-                ref={chatInputRef}
-                value={chatInput}
-                rows={2}
-                onChange={(e) => {
-                  setChatInput(e.target.value);
-                  const el = e.target;
-                  el.style.height = "auto";
-                  el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    sendQuestion();
-                  }
-                }}
-                placeholder={t("workspaceExtra.messagePlaceholder")}
-                className="max-h-32 min-h-[2.5rem] flex-1 resize-none overflow-y-auto rounded-lg border border-border bg-panel2 px-3 py-2 text-sm outline-none focus:border-accent2"
-              />
-              <button
-                onClick={sendQuestion}
-                disabled={chatLoading || !chatInput.trim()}
-                className="shrink-0 rounded-lg bg-accent2 px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-50"
-              >
-                {t("workspaceExtra.send")}
-              </button>
-            </div>
-          </div>
+        {/* Ask — Q&A only, never creates a version (inline below lg; sticky aside ≥lg) */}
+        {chatting && !deskChat && (
+          <div className="folio mb-5 border-accent2/30 p-5">{chatPanel(false)}</div>
         )}
 
         {/* New version composer — one surface for write / suggest / context / advanced */}
@@ -3262,6 +3294,17 @@ export default function IdeaWorkspace({
             )}
           </div>
         )}
+          </div>
+
+          {/* Sticky chat aside (≥lg): fills the viewport height, scrolls its own messages. */}
+          {chatting && deskChat && (
+            <aside className="sticky top-[4.25rem] flex max-h-[calc(100vh-5.25rem)] min-h-[24rem] flex-col self-start">
+              <div className="folio flex min-h-0 flex-1 flex-col border-accent2/30 p-5">
+                {chatPanel(true)}
+              </div>
+            </aside>
+          )}
+        </div>
       </div>
 
       {/* Confirm before using remaining included full analyses */}
