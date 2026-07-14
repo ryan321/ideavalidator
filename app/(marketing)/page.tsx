@@ -14,27 +14,6 @@ export default async function LandingPage() {
   const ctaHref = user ? "/studio" : "/signup";
   const ctaLabel = user ? t("nav.openStudio") : t("nav.validateCta");
 
-  // "What you get" — the two halves of a full validation. The report sections reuse the
-  // analysis' own section-nav keys (report.*) so the landing and the app never drift; the
-  // studio items reuse the comparison-table / checklist keys.
-  const reportSections: { name: string; hint: string }[] = [
-    { name: t("report.fullScorecard"), hint: t("sample.scorecardHint") },
-    { name: t("report.brief"), hint: t("report.briefHint") },
-    { name: t("report.market"), hint: t("report.marketHint") },
-    { name: t("report.competition"), hint: t("report.competitionHint") },
-    { name: t("report.money"), hint: t("report.moneyHint") },
-    { name: t("report.risks"), hint: t("report.risksHint") },
-    { name: t("report.plan"), hint: t("report.planHintGo") },
-    { name: t("report.evidence"), hint: t("report.evidenceHint") },
-  ];
-  const studioTools: string[] = [
-    t("compare.row8"), // chat with your review
-    t("compare.row7"), // refine & re-score as a new version
-    t("compare.row9"), // compare every version in one arena
-    t("checklist.item13"), // multiple full reports as the idea evolves
-    t("sample.pdf"), // download the full report as a PDF
-  ];
-
   // Comparison rows: Validorian checks every one; "other services" get the
   // table-stakes (a verdict, market sizing) but miss the differentiators —
   // goal-relative scoring, an honest NO-GO, real WTP signals, the kill-test,
@@ -106,47 +85,232 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* What you get: the full teardown (moved out of the hero card) */}
+      {/* What you get: sell the teardown by SHOWING it — each card is a miniature,
+          honestly-fake excerpt of the real report artifact it describes. */}
       <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
-            {t("landing.whatYouGetEyebrow")}
+            {t("gets.eyebrow")}
           </p>
           <h2 className="mt-3 max-w-2xl font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            {t("landing.whatYouGetTitle")}
+            {t("gets.title")}
           </h2>
-          <p className="mt-2 max-w-xl text-muted">{t("landing.whatYouGetSub", { price })}</p>
+          <p className="mt-2 max-w-xl text-muted">{t("gets.sub")}</p>
 
-          <div className="mt-10 grid gap-8 md:grid-cols-2 md:gap-14">
-            {/* Inside every report — mirrors the analysis' own section nav */}
-            <div>
-              <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
-                {t("landing.reportLabel")}
-              </h3>
-              <ul className="mt-4 divide-y divide-border/60">
-                {reportSections.map((s) => (
-                  <li key={s.name} className="py-2.5 text-[15px] leading-snug first:pt-0">
-                    <span className="font-semibold text-fg">{s.name}</span>
-                    <span className="text-muted"> · {s.hint}</span>
-                  </li>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* The scorecard — graded factor bars */}
+            <div className="folio flex flex-col p-5">
+              <div className="flex min-h-[5.25rem] flex-col justify-center gap-2 rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
+                {(
+                  [
+                    [t("gets.fac1"), "A-", 86, "var(--color-good)"],
+                    [t("gets.fac2"), "B+", 72, "var(--color-accent)"],
+                    [t("gets.fac3"), "C+", 54, "var(--color-warn)"],
+                  ] as const
+                ).map(([label, band, w, color]) => (
+                  <div key={band} className="flex items-center gap-2.5 font-mono text-[10px]">
+                    <span className="w-24 truncate uppercase tracking-wide text-muted">
+                      {label}
+                    </span>
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-fg/10">
+                      <span
+                        className="block h-full rounded-full"
+                        style={{ width: `${w}%`, background: color }}
+                      />
+                    </span>
+                    <span className="w-6 shrink-0 text-right font-bold text-fg">{band}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
+              <h3 className="mt-4 font-display text-base font-bold tracking-tight">
+                {t("gets.scoreTitle")}
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.scoreHint")}</p>
             </div>
-            {/* In the studio — the loop that keeps sharpening the idea */}
-            <div>
-              <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
-                {t("landing.studioLabel")}
+
+            {/* The why — the verdict-colored rationale bar */}
+            <div className="folio flex flex-col p-5">
+              <div className="flex min-h-[5.25rem] items-center rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
+                <p
+                  className="border-l-4 pl-3 text-[13px] font-semibold leading-snug text-fg/90"
+                  style={{ borderColor: "var(--color-good)" }}
+                >
+                  {t("gets.whySample")}
+                </p>
+              </div>
+              <h3 className="mt-4 font-display text-base font-bold tracking-tight">
+                {t("gets.whyTitle")}
               </h3>
-              <ul className="mt-4 divide-y divide-border/60">
-                {studioTools.map((item) => (
-                  <li
-                    key={item}
-                    className="py-2.5 text-[15px] font-medium leading-snug text-fg/90 first:pt-0"
-                  >
-                    {item}
-                  </li>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.whyHint")}</p>
+            </div>
+
+            {/* The money — obtainable revenue with the math shown */}
+            <div className="folio flex flex-col p-5">
+              <div className="flex min-h-[5.25rem] flex-col justify-center rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
+                <div className="font-display text-2xl font-extrabold tracking-tight text-fg">
+                  $240K<span className="text-sm font-bold text-muted"> / yr</span>
+                </div>
+                <div className="mt-1 truncate font-mono text-[10px] text-muted">
+                  {t("gets.moneyMath")}
+                </div>
+              </div>
+              <h3 className="mt-4 font-display text-base font-bold tracking-tight">
+                {t("gets.moneyTitle")}
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.moneyHint")}</p>
+            </div>
+
+            {/* The competition — named rivals with cited pricing + the wedge */}
+            <div className="folio flex flex-col p-5">
+              <div className="flex min-h-[5.25rem] flex-col justify-center gap-1.5 rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
+                {(
+                  [
+                    ["Acme Suite", "$79/mo"],
+                    ["SheetPilot", "$49/mo"],
+                  ] as const
+                ).map(([name, priceTag]) => (
+                  <div key={name} className="flex items-baseline justify-between gap-3">
+                    <span className="text-[13px] font-semibold text-fg/90">{name}</span>
+                    <span className="font-mono text-[11px] text-muted">{priceTag}</span>
+                  </div>
                 ))}
-              </ul>
+                <div className="mt-0.5 self-start rounded-full bg-accent/12 px-2 py-0.5 text-[11px] font-medium text-accent2">
+                  {t("gets.compEdge")}
+                </div>
+              </div>
+              <h3 className="mt-4 font-display text-base font-bold tracking-tight">
+                {t("gets.compTitle")}
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.compHint")}</p>
+            </div>
+
+            {/* The evidence — a sourced quote */}
+            <div className="folio flex flex-col p-5">
+              <div className="flex min-h-[5.25rem] flex-col justify-center rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
+                <p className="text-[13px] font-medium leading-snug text-fg/90">
+                  {t("gets.quoteSample")}
+                </p>
+                <div className="mt-1.5 font-mono text-[10px] text-accent2">
+                  {t("gets.quoteSource")} ↗
+                </div>
+              </div>
+              <h3 className="mt-4 font-display text-base font-bold tracking-tight">
+                {t("gets.quoteTitle")}
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.quoteHint")}</p>
+            </div>
+
+            {/* The risk map — pre-mortem heat grid */}
+            <div className="folio flex flex-col p-5">
+              <div className="flex min-h-[5.25rem] items-center gap-4 rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
+                <div className="grid shrink-0 grid-cols-3 gap-1" aria-hidden>
+                  {(
+                    [
+                      "bg-fg/10",
+                      "bg-warn/40",
+                      "bg-bad/70",
+                      "bg-fg/10",
+                      "bg-warn/40",
+                      "bg-warn/40",
+                      "bg-fg/10",
+                      "bg-fg/10",
+                      "bg-warn/40",
+                    ] as const
+                  ).map((tone, i) => (
+                    <span key={i} className={`h-4 w-4 rounded-[3px] ${tone}`} />
+                  ))}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-mono text-[10px] uppercase tracking-wide text-muted">
+                    {t("gets.riskAxis")}
+                  </div>
+                  <div className="mt-1 text-[13px] font-semibold text-fg/90">
+                    {t("gets.riskCount")}
+                  </div>
+                </div>
+              </div>
+              <h3 className="mt-4 font-display text-base font-bold tracking-tight">
+                {t("gets.riskTitle")}
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.riskHint")}</p>
+            </div>
+
+            {/* The levers — the concrete moves that raise the score */}
+            <div className="folio flex flex-col p-5">
+              <div className="flex min-h-[5.25rem] flex-col justify-center gap-1.5 rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
+                {[t("gets.lever1"), t("gets.lever2")].map((lever) => (
+                  <div key={lever} className="flex items-start gap-2 text-[13px] leading-snug">
+                    <span className="shrink-0 font-mono font-bold text-accent2" aria-hidden>
+                      →
+                    </span>
+                    <span className="font-medium text-fg/90">{lever}</span>
+                  </div>
+                ))}
+              </div>
+              <h3 className="mt-4 font-display text-base font-bold tracking-tight">
+                {t("gets.leverTitle")}
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.leverHint")}</p>
+            </div>
+
+            {/* The kill-test — pre-registered pass / kill bars */}
+            <div className="folio flex flex-col p-5">
+              <div className="flex min-h-[5.25rem] flex-wrap content-center items-center gap-2 rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
+                <span className="rounded-md bg-good/12 px-2.5 py-1 font-mono text-[11px] font-semibold text-good">
+                  {t("gets.testPass")}
+                </span>
+                <span className="rounded-md bg-bad/10 px-2.5 py-1 font-mono text-[11px] font-semibold text-bad">
+                  {t("gets.testKill")}
+                </span>
+              </div>
+              <h3 className="mt-4 font-display text-base font-bold tracking-tight">
+                {t("gets.testTitle")}
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.testHint")}</p>
+            </div>
+
+            {/* Goal calibration — the GO bar moves with what you're building */}
+            <div className="folio flex flex-col p-5">
+              <div className="flex min-h-[5.25rem] flex-col items-start justify-center gap-2 rounded-lg border border-border/60 bg-panel2/50 px-3.5 py-3">
+                <span className="rounded-md bg-accent/12 px-2.5 py-1 font-mono text-[11px] font-semibold text-accent2">
+                  {t("gets.goalVenture")}
+                </span>
+                <span className="rounded-md bg-fg/[0.07] px-2.5 py-1 font-mono text-[11px] font-semibold text-fg/70">
+                  {t("gets.goalSide")}
+                </span>
+              </div>
+              <h3 className="mt-4 font-display text-base font-bold tracking-tight">
+                {t("gets.goalTitle")}
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("gets.goalHint")}</p>
+            </div>
+          </div>
+
+          <p className="mt-6 max-w-3xl text-sm leading-relaxed text-muted">
+            {t("gets.moreLine")}
+          </p>
+
+          {/* The studio loop — what the unlock keeps doing after the verdict */}
+          <div className="mt-14">
+            <h3 className="font-display text-lg font-bold tracking-tight">
+              {t("gets.studioTitle")}
+            </h3>
+            <div className="mt-4 grid gap-px overflow-hidden rounded-[var(--radius-card)] border border-border bg-border/60 sm:grid-cols-2 lg:grid-cols-4">
+              {(
+                [
+                  ["gets.chat", "gets.chatHint"],
+                  ["gets.iterate", "gets.iterateHint"],
+                  ["gets.arena", "gets.arenaHint"],
+                  ["gets.pdf", "gets.pdfHint"],
+                ] as const
+              ).map(([nameKey, hintKey]) => (
+                <div key={nameKey} className="bg-panel p-4 sm:p-5">
+                  <div className="font-display text-sm font-bold tracking-tight text-fg">
+                    {t(nameKey)}
+                  </div>
+                  <p className="mt-1 text-[13px] leading-relaxed text-muted">{t(hintKey)}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>

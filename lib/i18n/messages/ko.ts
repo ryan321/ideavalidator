@@ -91,12 +91,6 @@ export const ko = {
     paidHintAfter: "입니다.",
     whoFor:
       "솔로 창업자, 사이드 프로젝트, 처음 만드는 사람 · 기본 비공개",
-    whatYouGetEyebrow: "무엇을 얻나요",
-    whatYouGetTitle: "전체 검증에 포함된 모든 것",
-    whatYouGetSub:
-      "모호한 단일 점수가 아닙니다. 아이디어당 {price}부터의 완전한 의사결정 패키지.",
-    reportLabel: "Inside every report",
-    studioLabel: "In the studio, once you have it",
     howTitle: "작동 방식",
     howSub:
       "첫 설명에서 실행 가능한 결정까지. 처음부터 올인할 필요 없습니다.",
@@ -876,6 +870,66 @@ appNav: {
     errorUnavailable: "Google sign-in isn’t set up right now. Use your email and password.",
   },
   // TODO(i18n): English placeholder — translate twoWays.* (landing two-ways section).
+  gets: {
+    eyebrow: "What you get",
+    title: "Ten minutes later, you're holding all of this",
+    sub: "Not a score and a shrug — a decision document. Here's a taste of the real thing.",
+    scoreTitle: "Every factor scored — nothing averaged away",
+    scoreHint:
+      "Ten weighted factors — demand, pricing power, moat, timing — with hard rules so one fatal flaw can't hide behind the rest.",
+    fac1: "Demand",
+    fac2: "Pricing power",
+    fac3: "Moat",
+    whyTitle: "The blunt why",
+    whyHint:
+      "Which factors drag the score, which one is pivotal, and what evidence would flip the verdict.",
+    whySample: "Real pull from ops teams — but acquisition cost is the drag holding it at 78.",
+    moneyTitle: "Revenue you could actually reach",
+    moneyHint:
+      "Not a vanity market size. TAM narrowed to the slice you could win, with the math in the open — flagged as the estimate it is.",
+    moneyMath: "1,200 reachable buyers × 8% capture × $2,500 / yr",
+    compTitle: "Named rivals — and your wedge",
+    compHint:
+      "Who you're really up against, what they charge (cited from their own pages), and where they're weak.",
+    compEdge: "Your wedge: the small teams they ignore",
+    quoteTitle: "Receipts, not vibes",
+    quoteHint:
+      "~30 real posts, reviews, and issues behind the demand read — every quote links to its source.",
+    quoteSample: "“We cobbled this together in a spreadsheet and it breaks every week.”",
+    quoteSource: "linked review",
+    riskTitle: "What kills it, ranked",
+    riskHint:
+      "The pre-mortem: every way this dies, mapped probability × impact — so you stare at the red cells before you build.",
+    riskAxis: "probability × impact",
+    riskCount: "9 risks mapped",
+    leverTitle: "The moves that raise the score",
+    leverHint:
+      "Every weak factor comes with a concrete lever — re-scope, re-price, pick a sharper channel — not just a grade.",
+    lever1: "Pre-sell 5 paid pilots before building",
+    lever2: "Own one vertical's channel first",
+    testTitle: "Your next seven days",
+    testHint:
+      "The single riskiest assumption, and the cheapest real-world test to attack it — pass / kill bars set before you start.",
+    testPass: "PASS ≥ 4 paid replies",
+    testKill: "KILL < 2 — walk away",
+    goalTitle: "Graded against your goal",
+    goalHint:
+      "A venture bet and a weekend side hustle aren't the same bar — the GO threshold moves with what you're building.",
+    goalVenture: "VENTURE · GO ≥ 78",
+    goalSide: "SIDE HUSTLE · GO ≥ 66",
+    moreLine:
+      "Plus the buyer profile & ranked channels, moat grading, market timing & momentum, unit economics, and a build plan when the verdict earns it — 20+ sections in every report.",
+    studioTitle: "And the studio keeps working after the verdict",
+    chat: "Chat with the review",
+    chatHint: "Interrogate any score, risk, or claim — it answers from your report.",
+    iterate: "Refine & re-score",
+    iterateHint: "Sharpen the idea, run it again, and watch the score move honestly.",
+    arena: "The arena",
+    arenaHint: "Every version ranked on one score line, so progress is provable.",
+    pdf: "The PDF",
+    pdfHint: "Export the full report — yours to keep, send, or pitch with.",
+  },
+
   twoWays: {
     eyebrow: "Before you build",
     title: "Two ways to find out if your idea works",
@@ -911,9 +965,6 @@ appNav: {
     confidence: "Confidence",
     evidence: "Evidence",
     evidenceItems: "{n} items",
-    includesLabel: "Inside every report",
-    scorecardHint: "every factor, scored & weighted",
-    pdf: "Download the full report as a PDF — yours to keep or share.",
     unlock: "{price} runs the full analysis on your idea — one-time, no subscription.",
   },
 } satisfies MessageTree;
