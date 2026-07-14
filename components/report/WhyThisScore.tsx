@@ -74,6 +74,11 @@ export function WhyThisScore({
   const pivotal = d.next_test?.pivotal_criterion?.trim() || null;
   const summary = typeof d.summary === "string" ? d.summary.trim() : "";
   const goalNote = typeof d.goal_fit_note === "string" ? d.goal_fit_note.trim() : "";
+  // Bold lead: score_reason when present, else the summary's first sentence — the block
+  // always opens with the why (matches DecisionCard's treatment).
+  const scoreReason = (d.score_reason ?? "").trim();
+  const whyLead = scoreReason || (summary.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? "");
+  const whyRest = scoreReason ? summary : summary.slice(whyLead.length).trim();
 
   if (!summary && !distance && drags.length === 0 && !pivotal && !vitamin) {
     return null;
@@ -83,8 +88,12 @@ export function WhyThisScore({
 
   return (
     <section
-      className="rounded-xl border bg-gradient-to-b from-panel2 to-panel p-4 sm:p-5"
-      style={{ borderColor: `color-mix(in srgb, ${color} 28%, var(--color-border))` }}
+      className="rounded-xl border border-l-4 p-4 sm:p-5"
+      style={{
+        borderColor: `color-mix(in srgb, ${color} 38%, var(--color-border))`,
+        borderLeftColor: color,
+        background: `color-mix(in srgb, ${color} 9%, var(--color-panel))`,
+      }}
       aria-label={t("decision.whyThisScore")}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -137,18 +146,18 @@ export function WhyThisScore({
         </div>
       )}
 
-      {(d.score_reason ?? "").trim() && (
-        <p className="mt-3 max-w-3xl font-display text-base font-bold leading-snug tracking-tight text-fg">
-          {(d.score_reason ?? "").trim()}
+      {whyLead && (
+        <p className="mt-3 max-w-3xl font-display text-lg font-bold leading-snug tracking-tight text-fg">
+          {whyLead}
         </p>
       )}
-      {summary && (
+      {whyRest && (
         <p
-          className={`${(d.score_reason ?? "").trim() ? "mt-2 text-sm text-muted" : "mt-3 text-[15px] text-fg/90"} max-w-3xl leading-relaxed whitespace-pre-wrap ${
+          className={`mt-2 max-w-3xl text-[15px] leading-relaxed text-fg/90 whitespace-pre-wrap ${
             showFull ? "" : "line-clamp-2"
           }`}
         >
-          {summary}
+          {whyRest}
         </p>
       )}
 

@@ -117,6 +117,10 @@ export function DecisionCard({
   const pivotal = d.next_test?.pivotal_criterion?.trim() || null;
   const scoreReason = (d.score_reason ?? "").trim();
   const summary = (d.summary ?? "").trim();
+  // The bold lead of the Why block: score_reason when present (new artifacts), else the
+  // summary's first sentence — so the block always opens with the why, never a text wall.
+  const whyLead = scoreReason || (summary.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? "");
+  const whyRest = scoreReason ? summary : summary.slice(whyLead.length).trim();
   const goalNote = (d.goal_fit_note ?? "").trim();
   const openQ = d.next_test?.riskiest_assumption?.trim() || null;
   const revenue = d.demand?.obtainable_revenue ?? null;
@@ -249,23 +253,24 @@ export function DecisionCard({
 
       <div className="space-y-5 px-5 py-5 sm:px-7">
         {/* 2 · Why this score — the focal explanation: reason line, drivers, rationale */}
-        {(scoreReason || summary || drags.length > 0 || vitamin || painkiller || pivotal || (goalNote && goalNote !== summary)) && (
+        {(whyLead || summary || drags.length > 0 || vitamin || painkiller || pivotal || (goalNote && goalNote !== summary)) && (
         <div
-          className="rounded-xl border p-4 sm:p-5"
+          className="rounded-xl border border-l-4 p-4 sm:p-6"
           style={{
-            borderColor: `color-mix(in srgb, ${color} 32%, var(--color-border))`,
-            background: `color-mix(in srgb, ${color} 5%, var(--color-panel))`,
+            borderColor: `color-mix(in srgb, ${color} 38%, var(--color-border))`,
+            borderLeftColor: color,
+            background: `color-mix(in srgb, ${color} 9%, var(--color-panel))`,
           }}
         >
           <div
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em]"
+            className="font-mono text-xs font-bold uppercase tracking-[0.22em]"
             style={{ color }}
           >
             {t("decision.whyThisScore")}
           </div>
-          {scoreReason && (
-            <p className="mt-3 max-w-3xl font-display text-base font-bold leading-snug tracking-tight text-fg sm:text-lg">
-              {scoreReason}
+          {whyLead && (
+            <p className="mt-3 max-w-3xl font-display text-lg font-bold leading-snug tracking-tight text-fg sm:text-xl">
+              {whyLead}
             </p>
           )}
           {(drags.length > 0 || vitamin || painkiller || pivotal) && (
@@ -303,9 +308,9 @@ export function DecisionCard({
               )}
             </div>
           )}
-          {summary && (
+          {whyRest && (
             <p className="mt-3 max-w-3xl whitespace-pre-wrap text-[15px] leading-relaxed text-fg/90">
-              {summary}
+              {whyRest}
             </p>
           )}
           {goalNote && goalNote !== summary && (
