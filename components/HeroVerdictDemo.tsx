@@ -32,13 +32,17 @@ function Check() {
 
 export async function HeroVerdictDemo({ price }: { price: string }) {
   const { t } = await getTranslator();
-  const includes = [
-    t("sample.inc1"),
-    t("sample.inc2"),
-    t("sample.inc3"),
-    t("sample.inc4"),
-    t("sample.inc5"),
-    t("sample.inc6"),
+  // The list mirrors the real report's own section nav (report.* keys), so the sample
+  // card and the analysis can never drift — and it inherits the report's translations.
+  const sections = [
+    { name: t("report.fullScorecard"), hint: t("sample.scorecardHint") },
+    { name: t("report.brief"), hint: t("report.briefHint") },
+    { name: t("report.market"), hint: t("report.marketHint") },
+    { name: t("report.competition"), hint: t("report.competitionHint") },
+    { name: t("report.money"), hint: t("report.moneyHint") },
+    { name: t("report.risks"), hint: t("report.risksHint") },
+    { name: t("report.plan"), hint: t("report.planHintGo") },
+    { name: t("report.evidence"), hint: t("report.evidenceHint") },
   ];
   return (
     <div
@@ -118,19 +122,16 @@ export async function HeroVerdictDemo({ price }: { price: string }) {
           {t("sample.includesLabel")}
         </div>
         <ul className="mt-2.5 space-y-1.5">
-          {includes.map((item) => (
-            <li
-              key={item}
-              className="flex items-start gap-2 text-[13px] leading-snug text-fg/85"
-            >
+          {sections.map((s) => (
+            <li key={s.name} className="flex items-start gap-2 text-[13px] leading-snug">
               <Check />
-              <span>{item}</span>
+              <span className="text-fg/85">
+                <span className="font-semibold text-fg">{s.name}</span>
+                <span className="text-muted"> · {s.hint}</span>
+              </span>
             </li>
           ))}
         </ul>
-        <p className="mt-2.5 pl-[1.375rem] text-xs leading-relaxed text-muted">
-          {t("sample.more")}
-        </p>
       </div>
 
       {/* how it's built — the methodology, honestly scoped */}
