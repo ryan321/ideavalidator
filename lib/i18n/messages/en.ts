@@ -234,6 +234,7 @@ export const en = {
     item12: "Variations: try different angles side by side",
     item13: "Multiple full reports as the idea evolves",
     item14: "Chat with the review: dig into scores, risks, and next steps",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Pricing",

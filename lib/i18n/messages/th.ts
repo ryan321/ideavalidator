@@ -140,6 +140,7 @@ export const th = {
     item12: "รูปแบบอื่น: ลองมุมต่างกันเคียงข้างกัน",
     item13: "รายงานเต็มหลายฉบับเมื่อไอเดียพัฒนา",
     item14: "คุยกับรีวิว: เจาะคะแนน ความเสี่ยง และขั้นต่อไป",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "ราคา",

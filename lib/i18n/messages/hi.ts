@@ -140,6 +140,7 @@ export const hi = {
     item12: "वेरिएशन: अलग-अलग एंगल साथ-साथ आज़माएँ",
     item13: "आइडिया विकसित होते हुए कई पूर्ण रिपोर्टें",
     item14: "रिव्यू से चैट: स्कोर, जोखिम और अगले कदम गहराई से देखें",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "मूल्य",

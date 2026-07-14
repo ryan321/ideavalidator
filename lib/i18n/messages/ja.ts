@@ -140,6 +140,7 @@ export const ja = {
     item12: "バリエーション：角度を並べて比較",
     item13: "アイデアの進化に合わせた複数のフルレポート",
     item14: "レビューと対話：スコア、リスク、次の一手を掘る",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "料金",

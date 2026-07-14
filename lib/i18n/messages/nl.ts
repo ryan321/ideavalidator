@@ -140,6 +140,7 @@ export const nl = {
     item12: "Variaties: verschillende hoeken naast elkaar",
     item13: "Meerdere volledige rapporten naarmate het idee evolueert",
     item14: "Chat met de review: dig in scores, risico's en next steps",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Prijzen",

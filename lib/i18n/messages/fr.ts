@@ -140,6 +140,7 @@ export const fr = {
     item12: "Variantes : tester différents angles côte à côte",
     item13: "Plusieurs rapports complets au fil de l'évolution de l'idée",
     item14: "Discuter avec l'analyse : scores, risques et prochaines étapes",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Tarifs",

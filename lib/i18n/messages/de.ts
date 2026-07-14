@@ -140,6 +140,7 @@ export const de = {
     item12: "Varianten: verschiedene Winkel nebeneinander testen",
     item13: "Mehrere volle Reports, während die Idee reift",
     item14: "Mit der Analyse chatten: Scores, Risiken und nächste Schritte",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Preise",

@@ -140,6 +140,7 @@ export const tr = {
     item12: "Varyasyonlar: farklı açıları yan yana deneyin",
     item13: "Fikir evrildikçe birden fazla tam rapor",
     item14: "İncelemeyle sohbet: puanlar, riskler ve sonraki adımlara inin",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Fiyatlandırma",

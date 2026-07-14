@@ -140,6 +140,7 @@ export const ar = {
     item12: "تنويعات: جرّب زوايا مختلفة جنبًا إلى جنب",
     item13: "تقارير كاملة متعددة مع تطور الفكرة",
     item14: "تحدث مع المراجعة: تعمّق في الدرجات والمخاطر والخطوات التالية",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "الأسعار",

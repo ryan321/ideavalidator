@@ -59,6 +59,7 @@ export function checklistItems(t: TranslateFn): string[] {
     t("checklist.item12"),
     t("checklist.item13"),
     t("checklist.item14"),
+    t("checklist.item15"),
   ];
 }
 

@@ -141,6 +141,7 @@ export const ko = {
     item12: "변형: 서로 다른 각도를 나란히 비교",
     item13: "아이디어가 진화할 때 여러 전체 리포트",
     item14: "리뷰와 대화: 점수, 리스크, 다음 단계 파고들기",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "요금",

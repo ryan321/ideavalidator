@@ -139,6 +139,7 @@ export const vi = {
     item12: "Biến thể: thử các góc cạnh nhau",
     item13: "Nhiều báo cáo đầy đủ khi ý tưởng tiến hóa",
     item14: "Chat với báo cáo: đào sâu điểm, rủi ro, và bước tiếp",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Bảng giá",

@@ -126,7 +126,8 @@ export const es = {
     item11: "Iterar: reescribe el pitch y vuelve a puntuar",
     item12: "Variaciones: prueba ángulos distintos lado a lado",
     item13: "Varios informes completos a medida que evoluciona la idea",
-    item14: "Chatea con el informe: scores, riesgos y siguientes pasos"
+    item14: "Chatea con el informe: scores, riesgos y siguientes pasos",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Precios",

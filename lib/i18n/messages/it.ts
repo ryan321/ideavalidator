@@ -140,6 +140,7 @@ export const it = {
     item12: "Variazioni: prova angoli diversi affiancati",
     item13: "Più report completi man mano che l'idea evolve",
     item14: "Chatta con il report: punteggi, rischi e prossimi passi",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Prezzi",

@@ -191,9 +191,9 @@ export const helpEn: HelpCatalog = {
       section: "scoring",
       title: "Reading your report",
       summary:
-        "How to scan the decision surface, brief, market, money, risks, plan, and evidence.",
+        "How to scan the decision surface, brief, market, competition, money, risks, plan, and evidence.",
       eyebrow: "The report",
-      tags: ["ui", "sections", "brief", "market", "money", "risks", "plan", "evidence"],
+      tags: ["ui", "sections", "brief", "market", "competition", "money", "risks", "plan", "evidence"],
       blocks: [
         {
           type: "p",
@@ -204,7 +204,8 @@ export const helpEn: HelpCatalog = {
           items: [
             "Stamp and score: goal fit and why this score (drags and levers).",
             "Brief: painkiller vs vitamin, strengths, open questions.",
-            "Market: sizing, competitors, channels, defensibility.",
+            "Market: sizing (TAM/SAM/SOM), timing, and where buyers are.",
+            "Competition: who you're up against, their pricing, and your edge.",
             "Money: unit economics and projections (estimates, not promises).",
             "Risks: matrix and pre-mortem before you ignore the red cells.",
             "Plan: gated until GO or a kill-test pass justifies a build path.",
@@ -214,6 +215,10 @@ export const helpEn: HelpCatalog = {
         {
           type: "callout",
           text: "In the studio, chapters stay collapsed so the decision leads. Expand only what you need.",
+        },
+        {
+          type: "p",
+          text: "Need to share it? Use Download PDF to export the full report — every section expanded and sources included — to keep or send on.",
         },
       ],
     },

@@ -140,6 +140,7 @@ export const id = {
     item12: "Variasi: coba sudut berbeda berdampingan",
     item13: "Beberapa laporan lengkap seiring ide berkembang",
     item14: "Chat dengan review: gali skor, risiko, dan langkah berikutnya",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Harga",

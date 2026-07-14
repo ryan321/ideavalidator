@@ -133,6 +133,7 @@ export const zht = {
     item12: "變體：並排嘗試不同角度",
     item13: "創意演進過程中的多份完整報告",
     item14: "與評審對話：深挖分數、風險與下一步",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "定價",

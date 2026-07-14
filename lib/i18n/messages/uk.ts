@@ -141,6 +141,7 @@ export const uk = {
     item12: "Варіації: різні кути пліч-о-пліч",
     item13: "Кілька повних звітів, поки ідея еволюціонує",
     item14: "Чат із рев’ю: оцінки, ризики й наступні кроки",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Ціни",

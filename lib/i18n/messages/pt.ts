@@ -126,7 +126,8 @@ export const pt = {
     item11: "Iterar: reescreva o pitch e pontue de novo",
     item12: "Variações: teste ângulos lado a lado",
     item13: "Vários relatórios completos conforme a ideia evolui",
-    item14: "Converse com o relatório: scores, riscos e próximos passos"
+    item14: "Converse com o relatório: scores, riscos e próximos passos",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Preços",

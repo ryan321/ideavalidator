@@ -140,6 +140,7 @@ export const pl = {
     item12: "Warianty: porównuj różne kąty obok siebie",
     item13: "Wiele pełnych raportów w miarę ewolucji pomysłu",
     item14: "Czat z raportem: wyniki, ryzyka i kolejne kroki",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "Cennik",

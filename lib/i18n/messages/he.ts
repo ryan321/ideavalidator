@@ -134,6 +134,7 @@ export const he = {
     item12: "וריאציות: ניסוי זוויות שונות זו לצד זו",
     item13: "מספר דוחות מלאים ככל שהרעיון מתפתח",
     item14: "צ'אט עם הסקירה: העמקה בציונים, סיכונים וצעדים הבאים",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "תמחור",

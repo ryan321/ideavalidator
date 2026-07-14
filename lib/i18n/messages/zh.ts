@@ -135,6 +135,7 @@ export const zh = {
     item12: "变体：并排尝试不同角度",
     item13: "创意演进过程中的多份完整报告",
     item14: "与评审对话：深挖分数、风险与下一步",
+    item15: "Download your full report as a PDF to keep or share",
   },
   pricing: {
     eyebrow: "定价",
