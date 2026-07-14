@@ -1195,7 +1195,21 @@ export function ValidationView({
                     );
                     return (
                       <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-4">
-                        <div className="text-sm font-semibold">{c.name}</div>
+                        <div className="text-sm font-semibold">
+                          {info?.website ? (
+                            <a
+                              href={info.website}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:text-accent2 hover:underline"
+                              title={info.website}
+                            >
+                              {c.name} <span className="font-normal text-muted">↗</span>
+                            </a>
+                          ) : (
+                            c.name
+                          )}
+                        </div>
                         {c.note && <p className="mt-1 text-sm text-muted">{c.note}</p>}
                         {c.complaint_theme && (
                           <p className="mt-1.5 text-xs">
@@ -1209,7 +1223,7 @@ export function ValidationView({
                             <span className="text-fg/85">{c.your_edge}</span>
                           </p>
                         )}
-                        {(info?.pricing || info?.funding || info?.positioning) && (
+                        {(info?.pricing || info?.funding || info?.positioning || info?.revenue || info?.revenue_estimate) && (
                           <div className="mt-2 space-y-1 border-t border-border/60 pt-2 text-xs">
                             {info.positioning && (
                               <p>
@@ -1239,6 +1253,26 @@ export function ValidationView({
                                 )}
                               </p>
                             )}
+                            {/* revenue — a cited fact when found; else the ONE flagged estimate */}
+                            {info.revenue ? (
+                              <p>
+                                <span className="font-semibold text-fg/70">{t("report.revenueLabel")} </span>
+                                <span className="text-fg/85">{info.revenue}</span>{" "}
+                                {info.revenue_url && (
+                                  <a href={info.revenue_url} target="_blank" rel="noopener noreferrer" className="text-accent2 hover:underline">
+                                    {t("report.sourceArrow")}
+                                  </a>
+                                )}
+                              </p>
+                            ) : info.revenue_estimate ? (
+                              <p>
+                                <span className="font-semibold text-fg/70">{t("report.revenueLabel")} </span>
+                                <span className="text-fg/85">{info.revenue_estimate}</span>{" "}
+                                <span className="rounded-full border border-warn/40 bg-warn/10 px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-warn">
+                                  {t("report.estimateTag")}
+                                </span>
+                              </p>
+                            ) : null}
                           </div>
                         )}
                       </div>

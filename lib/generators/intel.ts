@@ -18,10 +18,18 @@ export const IntelSchema = z.object({
     .array(
       z.object({
         name: z.string().catch(""),
+        website: z.string().catch(""), // official site origin, ONLY when an excerpt URL is clearly theirs
         pricing: z.string().catch(""), // "" = not found (never guessed)
         pricing_url: z.string().catch(""),
         funding: z.string().catch(""), // "" = not found
         funding_url: z.string().catch(""),
+        // CITED revenue/ARR — only when an excerpt states it; carries its URL.
+        revenue: z.string().catch(""),
+        revenue_url: z.string().catch(""),
+        // Clearly-flagged rough estimate, ONLY when a defensible basis exists among the
+        // FOUND facts (e.g. funding × typical multiple); must name that basis. "" otherwise.
+        // The UI renders it with an "estimate" tag — never as a cited fact.
+        revenue_estimate: z.string().catch(""),
         positioning: z.string().catch(""), // how they present themselves, from their own pages
       })
     )
@@ -67,11 +75,12 @@ export async function generateIntel(versionId: string): Promise<Artifact> {
     throw new Error("Run a validation first — enrichment works on its named competitors.");
   }
 
-  // 2 targeted searches per competitor, all in parallel. A failed search just means
+  // 3 targeted searches per competitor, all in parallel. A failed search just means
   // fewer excerpts — the extractor answers "not found" rather than the pack failing.
   const queries = competitors.flatMap((name) => [
     { name, kind: "pricing", q: `${name} pricing plans cost per month` },
     { name, kind: "funding", q: `${name} funding raised series round` },
+    { name, kind: "revenue", q: `${name} annual revenue ARR customers` },
   ]);
   const settled = await Promise.allSettled(queries.map((s) => exaSearch(s.q, 3)));
   const excerpts: string[] = [];
@@ -90,7 +99,7 @@ export async function generateIntel(versionId: string): Promise<Artifact> {
   const { data, usage, model } = await generateStructured(IntelSchema, {
     role: "writing",
     grounded: false,
-    maxTokens: 2500,
+    maxTokens: 3200,
     system:
       "You extract competitor facts from provided web excerpts and write one positioning line. " +
       "HARD RULES:\n" +
@@ -101,7 +110,16 @@ export async function generateIntel(versionId: string): Promise<Artifact> {
       "If an excerpt describes a company that merely shares a similar NAME but is clearly in a " +
       "different business (different product category, different customers), DISCARD it — return " +
       "\"\" instead. A wrong-company fact is worse than no fact.\n" +
-      "- NEVER estimate market share, user counts, or revenue — not even hedged. Banned entirely.\n" +
+      "- NEVER estimate market share or user counts — not even hedged. Banned entirely.\n" +
+      "- \"revenue\" is a CITED fact only: fill it (with revenue_url) when an excerpt states " +
+      "revenue/ARR; otherwise \"\".\n" +
+      "- \"revenue_estimate\" is the ONE permitted estimate, and only when the FOUND facts give a " +
+      "defensible basis (e.g. disclosed funding × typical revenue multiples, or found pricing × a " +
+      "disclosed customer count). It must lead with '~', give a RANGE, and NAME its basis, e.g. " +
+      "\"~$10–30M/yr (rough est. from $60M raised)\". No basis among the found facts → \"\". Never " +
+      "present an estimate as fact — the UI renders this field with an 'estimate' flag.\n" +
+      "- \"website\": the competitor's official site origin (e.g. \"https://acme.com\") ONLY when an " +
+      "excerpt URL is clearly their own domain (their pricing/product page); otherwise \"\".\n" +
       "- pricing_anchor summarizes ONLY the pricing you actually found (e.g. \"competitors charge " +
       "$29–99/mo\"); \"\" if none found.\n" +
       "- one_liner: one crisp sentence a founder could paste anywhere — the developer-first X that " +
@@ -122,7 +140,7 @@ Return JSON exactly:
 {
   "one_liner": string,
   "pricing_anchor": string,
-  "competitors": [{"name": string, "pricing": string, "pricing_url": string, "funding": string, "funding_url": string, "positioning": string}]
+  "competitors": [{"name": string, "website": string, "pricing": string, "pricing_url": string, "funding": string, "funding_url": string, "revenue": string, "revenue_url": string, "revenue_estimate": string, "positioning": string}]
 }`,
   });
 

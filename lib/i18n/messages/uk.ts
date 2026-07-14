@@ -618,6 +618,8 @@ export const uk = {
     theySay: "Вони кажуть:",
     pricingLabel: "Ціни:",
     fundingLabel: "Фандинг:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "джерело ↗",
     pricingAnchor: "Ціновий якір ·",
     enrichIntel:

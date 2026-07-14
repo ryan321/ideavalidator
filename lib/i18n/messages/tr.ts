@@ -617,6 +617,8 @@ export const tr = {
     theySay: "Onlar diyor ki:",
     pricingLabel: "Fiyatlandırma:",
     fundingLabel: "Fonlama:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "kaynak ↗",
     pricingAnchor: "Fiyat çapası ·",
     enrichIntel:

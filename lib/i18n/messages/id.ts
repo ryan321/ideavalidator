@@ -620,6 +620,8 @@ export const id = {
     theySay: "Mereka bilang:",
     pricingLabel: "Harga:",
     fundingLabel: "Pendanaan:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "sumber ↗",
     pricingAnchor: "Jangkar harga ·",
     enrichIntel:

@@ -688,6 +688,8 @@ export const en = {
     theySay: "They say:",
     pricingLabel: "Pricing:",
     fundingLabel: "Funding:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "source ↗",
     pricingAnchor: "Pricing anchor ·",
     enrichIntel:

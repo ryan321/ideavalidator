@@ -612,6 +612,8 @@ export const th = {
     theySay: "พวกเขาพูดว่า:",
     pricingLabel: "ราคา:",
     fundingLabel: "เงินทุน:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "แหล่ง ↗",
     pricingAnchor: "สมอราคา ·",
     enrichIntel:

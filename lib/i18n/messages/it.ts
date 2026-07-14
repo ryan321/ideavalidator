@@ -619,6 +619,8 @@ export const it = {
     theySay: "Dicono:",
     pricingLabel: "Prezzi:",
     fundingLabel: "Funding:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "fonte ↗",
     pricingAnchor: "Ancora di prezzo ·",
     enrichIntel:

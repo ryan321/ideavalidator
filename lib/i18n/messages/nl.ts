@@ -620,6 +620,8 @@ export const nl = {
     theySay: "Zij zeggen:",
     pricingLabel: "Prijs:",
     fundingLabel: "Funding:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "bron ↗",
     pricingAnchor: "Prijsanker ·",
     enrichIntel:

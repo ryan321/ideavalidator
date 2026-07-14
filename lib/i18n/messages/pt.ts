@@ -573,6 +573,8 @@ appNav: {
     theySay: "They say:",
     pricingLabel: "Pricing:",
     fundingLabel: "Funding:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "source ↗",
     pricingAnchor: "Pricing anchor ·",
     enrichIntel: "Pull each competitor's real pricing & funding from the web — cited, linked, and never estimated (no invented \"market share\").",

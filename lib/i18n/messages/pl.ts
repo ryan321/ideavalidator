@@ -616,6 +616,8 @@ export const pl = {
     theySay: "Mówią:",
     pricingLabel: "Cennik:",
     fundingLabel: "Funding:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "źródło ↗",
     pricingAnchor: "Kotwica cenowa ·",
     enrichIntel:

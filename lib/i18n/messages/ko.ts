@@ -613,6 +613,8 @@ appNav: {
     theySay: "그들이 말하는 것:",
     pricingLabel: "가격:",
     fundingLabel: "펀딩:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "출처 ↗",
     pricingAnchor: "가격 앵커 ·",
     enrichIntel: "각 경쟁사의 실제 가격·펀딩을 웹에서 가져와 인용·링크합니다 — 추정 \"시장 점유율\" 없음.",

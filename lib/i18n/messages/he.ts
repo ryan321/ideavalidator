@@ -607,6 +607,8 @@ export const he = {
     theySay: "הם אומרים:",
     pricingLabel: "תמחור:",
     fundingLabel: "מימון:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "מקור ↗",
     pricingAnchor: "עוגן תמחור ·",
     enrichIntel:

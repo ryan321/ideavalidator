@@ -591,6 +591,8 @@ export const zht = {
     theySay: "他們說：",
     pricingLabel: "定價：",
     fundingLabel: "融資：",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "來源 ↗",
     pricingAnchor: "定價錨點 ·",
     enrichIntel: "從網路拉取各競品真實定價與融資 — 有引用、有連結，從不估計（不虛構「市占」）。",

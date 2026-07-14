@@ -614,6 +614,8 @@ export const vi = {
     theySay: "Họ nói:",
     pricingLabel: "Giá:",
     fundingLabel: "Funding:",
+    revenueLabel: "Revenue:",
+    estimateTag: "estimate",
     sourceArrow: "nguồn ↗",
     pricingAnchor: "Neo giá ·",
     enrichIntel:
