@@ -32,7 +32,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
           <nav className="ml-auto flex items-center gap-2" aria-label={t("a11y.mainNav")}>
             <Link
               href="/pricing"
-              className="rounded-pill-pack border border-transparent px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
+              className="hidden shrink-0 items-center rounded-pill-pack border border-transparent px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)] sm:inline-flex"
             >
               {t("nav.pricing")}
             </Link>
@@ -40,13 +40,13 @@ export default async function MarketingLayout({ children }: { children: React.Re
               <>
                 <Link
                   href="/help"
-                  className="rounded-pill-pack border border-transparent px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
+                  className="hidden shrink-0 items-center rounded-pill-pack border border-transparent px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)] sm:inline-flex"
                 >
                   {t("help.nav")}
                 </Link>
                 <Link
                   href="/studio"
-                  className="whitespace-nowrap rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
+                  className="shrink-0 whitespace-nowrap rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
                 >
                   {t("nav.openStudio")}
                 </Link>
@@ -55,13 +55,13 @@ export default async function MarketingLayout({ children }: { children: React.Re
               <>
                 <Link
                   href="/login"
-                  className="whitespace-nowrap rounded-pill-pack border border-border px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)]"
+                  className="hidden shrink-0 items-center whitespace-nowrap rounded-pill-pack border border-border px-3 py-1.5 font-mono text-[11px] uppercase text-muted transition hover:border-accent/40 hover:text-fg [letter-spacing:var(--tracking-eyebrow)] sm:inline-flex"
                 >
                   {t("nav.signIn")}
                 </Link>
                 <Link
                   href="/signup"
-                  className="whitespace-nowrap rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
+                  className="shrink-0 whitespace-nowrap rounded-pill-pack bg-accent px-4 py-1.5 font-display text-sm font-bold text-on-accent transition hover:bg-accent2"
                 >
                   {t("nav.validateCta")}
                 </Link>

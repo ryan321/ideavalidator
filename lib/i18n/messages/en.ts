@@ -12,7 +12,7 @@ export const en = {
   nav: {
     pricing: "Pricing",
     signIn: "Sign in",
-    validateCta: "Start free →",
+    validateCta: "Get started →",
     openStudio: "Open studio →",
     account: "Account",
     settings: "Settings",
@@ -148,7 +148,7 @@ export const en = {
   // other catalogs carry it as an English placeholder until translated.
   convert: {
     ideaPlaceholder: "In a sentence or two: what's the idea, and who is it for?",
-    ideaCta: "Start free — score my idea →",
+    ideaCta: "Score my idea →",
     ideaCtaBusy: "Starting…",
     ideaHint:
       "No account needed to start typing. It's free to describe your idea and set your goal — {price} unlocks the full scored verdict and every tool on that idea.",
