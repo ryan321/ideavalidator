@@ -105,6 +105,9 @@ const DemandBlock = z.object({
  */
 export const ValidationElicitSchema = z.object({
   confidence: z.number().min(0).max(100), // self-report only nudges the computed number
+  // ONE blunt sentence a founder reads in 2 seconds — the 2-3 forces that set THIS
+  // score. Shown bold right under the verdict. Optional: pre-existing artifacts lack it.
+  score_reason: z.string().catch("").optional(),
   summary: z.string(),
   // Explicit effort/capital/time vs the founder's goal; for goal="unsure", the
   // lifestyle-vs-venture read. The ONLY place (with Goal Fit) a goal mismatch lands.
@@ -563,8 +566,11 @@ whole market), capture (the share/conversion of those they'd actually win, e.g. 
 revenue per customer) } — the three numbers must multiply to roughly the obtainable_revenue (the system
 CHECKS this arithmetic and rewrites a headline that doesn't multiply) }. What matters is the absolute
 obtainable dollars judged against the GOAL: a small slice of a huge market can beat a large slice of a tiny
-one. Make the "summary" answer WHY the score lands where it does: lead with obtainable revenue vs the
-goal, name the 1–2 criteria that set the band, and end on the lever that would move the verdict.
+one. Make the "summary" answer WHY the score lands where it does: LEAD with the 1–2 forces that set the
+band (named plainly), then the obtainable revenue vs the goal, and end on the lever that would move the
+verdict. Also emit "score_reason": ONE blunt sentence (≤22 words) a founder absorbs in two seconds — the
+causal chain behind the score, e.g. "Real, documented pain — but brutally saturated supply and no moat
+for a solo founder caps this at MAYBE." Plain words; no metric recap, no hedging, no colon-lists.
 
 Band these 10 criteria (rationale first, then band — HIGHER ALWAYS MEANS MORE FAVORABLE, no inverted axes).
 Let the bands TRACK THE EVIDENCE and differ — well-evidenced criteria belong at B+/A-, genuinely unproven
@@ -615,7 +621,7 @@ Difficulty/schlep NEVER lowers demand-side criteria — route it to Moat and Goa
 ${COMPETITION_GUIDANCE}
 
 Also produce:
-- "confidence" (0-100) = how much corroborating evidence you actually found (lower it when you relied on assumption). The system RECOMPUTES confidence from the fetched corpus + citation counts (your self-report only nudges it), and COMPUTES the overall score and verdict from your 10 bands via published weights and non-compensatory gates — so put your effort into banding the 10 criteria honestly and distinctly, NOT into tuning headline numbers. Add an evidence-based "summary" that answers WHY this idea lands where it does — 2 short paragraphs, ~80–120 words total: (1) what the founder can realistically expect (obtainable revenue vs their goal) and where the score sits for that goal, (2) the 1–2 criteria / forces that set the band (name them) and the single lever that would move the verdict. No throat-clearing; lead with the expectation.
+- "confidence" (0-100) = how much corroborating evidence you actually found (lower it when you relied on assumption). The system RECOMPUTES confidence from the fetched corpus + citation counts (your self-report only nudges it), and COMPUTES the overall score and verdict from your 10 bands via published weights and non-compensatory gates — so put your effort into banding the 10 criteria honestly and distinctly, NOT into tuning headline numbers. Add an evidence-based "summary" that answers WHY this idea lands where it does — 2 short paragraphs, ~80–120 words total: (1) the 1–2 criteria / forces that actually set the band (name them plainly — this is the first thing the founder reads), (2) what they can realistically expect (obtainable revenue vs their goal) and the single lever that would move the verdict. No throat-clearing; the first sentence must state the why, not restate numbers.
 - "pre_mortem": the 3-5 failure-cause bullets described above (each ONE sentence, specific to THIS idea, naming the criterion it maps to).
 - "next_test": the KILL-TEST — the deliverable is a decision plus the cheapest way to change it, and this block is that way (it renders above the score). { riskiest_assumption (the ONE load-bearing belief the EVIDENCE CORPUS does NOT already prove — never something the corpus settles — naming the criteria it underpins, e.g. "brokers will pay for this, not just complain — underpins Willingness to Pay and Demand Strength"), cheapest_test (a concrete test runnable in ≤1 WEEK for ≤$100 that MUST name its channel from the corpus's own communities${
       ctx.corpusCommunities?.filter(Boolean).length
@@ -643,7 +649,7 @@ Also produce:
 
 Return JSON exactly matching (field order matters: pre_mortem before criteria; in each criterion, explanation before band; "tarpit"/"sisp" are OPTIONAL — include only when they apply; "forecast" appears ONLY on Market Timing and Competitive Position):
 {
-  "confidence": number, "summary": string, "goal_fit_note": string,
+  "confidence": number, "score_reason": string, "summary": string, "goal_fit_note": string,
   "tarpit": {"matched": true, "pattern": string, "prior_attempts": string, "differentiated_insight": string},
   "sisp": boolean,
   "pre_mortem": [string],

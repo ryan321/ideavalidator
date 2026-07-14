@@ -137,9 +137,14 @@ export function WhyThisScore({
         </div>
       )}
 
+      {(d.score_reason ?? "").trim() && (
+        <p className="mt-3 max-w-3xl font-display text-base font-bold leading-snug tracking-tight text-fg">
+          {(d.score_reason ?? "").trim()}
+        </p>
+      )}
       {summary && (
         <p
-          className={`mt-3 max-w-3xl text-[15px] leading-relaxed text-fg/90 whitespace-pre-wrap ${
+          className={`${(d.score_reason ?? "").trim() ? "mt-2 text-sm text-muted" : "mt-3 text-[15px] text-fg/90"} max-w-3xl leading-relaxed whitespace-pre-wrap ${
             showFull ? "" : "line-clamp-2"
           }`}
         >

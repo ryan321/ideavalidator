@@ -116,6 +116,7 @@ export function DecisionCard({
   const vitamin = d.narrative?.verdict === "Vitamin";
   const painkiller = d.narrative?.verdict === "Painkiller";
   const pivotal = d.next_test?.pivotal_criterion?.trim() || null;
+  const scoreReason = (d.score_reason ?? "").trim();
   const summary = (d.summary ?? "").trim();
   const goalNote = (d.goal_fit_note ?? "").trim();
   const openQ = d.next_test?.riskiest_assumption?.trim() || null;
@@ -195,10 +196,15 @@ export function DecisionCard({
               </span>
             )}
           </div>
+          {scoreReason && (
+            <p className="mt-3 max-w-2xl font-display text-base font-bold leading-snug tracking-tight text-fg sm:text-lg">
+              {scoreReason}
+            </p>
+          )}
           {summary && (
             <>
               <p
-                className={`mt-3 max-w-2xl text-[15px] leading-relaxed text-fg/90 ${
+                className={`${scoreReason ? "mt-2 text-sm text-muted" : "mt-3 text-[15px] text-fg/90"} max-w-2xl leading-relaxed ${
                   whyOpen || !summaryLong ? "whitespace-pre-wrap" : "line-clamp-2"
                 }`}
               >
