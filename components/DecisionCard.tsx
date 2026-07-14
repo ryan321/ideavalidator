@@ -93,7 +93,8 @@ export function DecisionCard({
   goalLabel: string;
   goalDetail?: string | null;
   testStatus: string;
-  primary: { label: string; href?: string; onClick?: () => void };
+  /** Optional primary CTA — omitted when the next-move actions live below the report. */
+  primary?: { label: string; href?: string; onClick?: () => void } | null;
   primaryBusy?: boolean;
   primaryDisabled?: boolean;
   /** One line under the CTA row — what the primary button actually does. */
@@ -144,7 +145,7 @@ export function DecisionCard({
             ? "var(--color-accent2)"
             : "var(--color-muted)";
 
-  const PrimaryTag = primary.href ? "a" : "button";
+  const PrimaryTag = primary?.href ? "a" : "button";
   // The idea sits compact next to the score; long ones (or ones with extras) expand.
   const ideaLong =
     statement.length > 160 || !!rationale || !!goalDetail || !!ideaExtras;
@@ -344,30 +345,32 @@ export function DecisionCard({
 
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <PrimaryTag
-              {...(primary.href
-                ? { href: primary.href }
-                : {
-                    type: "button" as const,
-                    onClick: primary.onClick,
-                    disabled: primaryDisabled,
-                    "aria-busy": primaryBusy || undefined,
-                  })}
-              className="inline-flex items-center gap-2 rounded-pill-pack bg-accent px-4 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-50"
-              title={primaryHint ?? undefined}
-            >
-              {primaryBusy && (
-                <span
-                  className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent"
-                  aria-hidden
-                />
-              )}
-              {primaryBusy ? t("a11y.working") : primary.label}
-              {!primaryBusy && <span aria-hidden>→</span>}
-            </PrimaryTag>
+            {primary && (
+              <PrimaryTag
+                {...(primary.href
+                  ? { href: primary.href }
+                  : {
+                      type: "button" as const,
+                      onClick: primary.onClick,
+                      disabled: primaryDisabled,
+                      "aria-busy": primaryBusy || undefined,
+                    })}
+                className="inline-flex items-center gap-2 rounded-pill-pack bg-accent px-4 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-50"
+                title={primaryHint ?? undefined}
+              >
+                {primaryBusy && (
+                  <span
+                    className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent"
+                    aria-hidden
+                  />
+                )}
+                {primaryBusy ? t("a11y.working") : primary.label}
+                {!primaryBusy && <span aria-hidden>→</span>}
+              </PrimaryTag>
+            )}
             {secondary}
           </div>
-          {primaryHint && (
+          {primary && primaryHint && (
             <p className="mt-2 max-w-2xl text-xs leading-relaxed text-muted">{primaryHint}</p>
           )}
         </div>

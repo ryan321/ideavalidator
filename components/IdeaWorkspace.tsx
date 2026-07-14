@@ -1851,6 +1851,18 @@ export default function IdeaWorkspace({
       }
     : null;
 
+  // Next-move CTA — rendered in the bar below the report (was the DecisionCard
+  // primary; moved down so variants aren't pushed before the analysis is read).
+  const nextMoveBusy = !!campaignNextMove.busy || busy.has(bk(activeVersionId, "validation"));
+  const nextMoveDisabled =
+    anyBusy || locked || !!campaignNextMove.busy || (exhausted && scoringPrimary);
+  const nextMoveLabel =
+    exhausted && scoringPrimary ? t("workspace.noScoringPrimary") : campaignNextMove.label;
+  const nextMoveHref = exhausted && scoringPrimary ? undefined : campaignNextMove.href;
+  const nextMoveClick = exhausted && scoringPrimary ? undefined : campaignNextMove.onClick;
+  const nextMoveHint =
+    exhausted && scoringPrimary ? t("workspace.scoringHintExhausted") : campaignNextMove.hint;
+
   // Ask panel body — rendered exactly once, either inline (below lg) or inside the
   // sticky desktop aside. `desktop` only changes how the message list sizes: inline
   // caps at max-h-80; the aside lets it flex-grow to fill the panel.
@@ -2192,89 +2204,30 @@ export default function IdeaWorkspace({
             }
             goalDetail={goalDetail || null}
             testStatus={testStatus}
-            primary={{
-              label:
-                exhausted && scoringPrimary
-                  ? t("workspace.noScoringPrimary")
-                  : campaignNextMove.label,
-              href: exhausted && scoringPrimary ? undefined : campaignNextMove.href,
-              onClick:
-                exhausted && scoringPrimary ? undefined : campaignNextMove.onClick,
-            }}
-            primaryBusy={!!campaignNextMove.busy || busy.has(bk(activeVersionId, "validation"))}
-            primaryDisabled={
-              anyBusy ||
-              locked ||
-              !!campaignNextMove.busy ||
-              (exhausted && scoringPrimary)
-            }
-            primaryHint={
-              exhausted && scoringPrimary
-                ? t("workspace.scoringHintExhausted")
-                : campaignNextMove.hint
-            }
             secondary={
               <>
+                {/* Chat is THE up-front action — variant/iteration moves live in the
+                    next-moves bar below the report, once the analysis has been read. */}
                 <button
                   type="button"
                   disabled={anyBusy}
                   onClick={() => (chatting ? setChatting(false) : openChat())}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition disabled:opacity-50 ${
+                  className={`inline-flex items-center gap-2 rounded-pill-pack px-4 py-2.5 font-display text-sm font-bold tracking-tight transition disabled:opacity-50 ${
                     chatting
-                      ? "border-accent2/50 bg-accent2/15 text-accent2"
-                      : "border-border text-muted hover:border-accent/30 hover:text-fg"
+                      ? "border border-accent2/50 bg-accent2/15 text-accent2"
+                      : "bg-accent text-on-accent hover:bg-accent2"
                   }`}
                   title="Conversational Q&A about this report — does not create a version or re-score"
                 >
                   {t("workspaceExtra.ask")}
-                  <span className="hidden font-mono text-[10px] uppercase tracking-wide text-muted sm:inline">
+                  <span
+                    className={`hidden font-mono text-[10px] uppercase tracking-wide sm:inline ${
+                      chatting ? "text-accent2/80" : "text-on-accent/75"
+                    }`}
+                  >
                     {t("workspaceExtra.noRescoreHint")}
                   </span>
                 </button>
-                <button
-                  type="button"
-                  disabled={anyBusy || locked /* new versions ok when exhausted; validate gated later */}
-                  onClick={() =>
-                    composerMode ? closeComposer() : openComposer("write")
-                  }
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition disabled:opacity-50 ${
-                    composerMode
-                      ? "border-accent/50 bg-accent/15 text-accent2"
-                      : "border-border text-muted hover:border-accent/30 hover:text-fg"
-                  }`}
-                  title="Create a new version — edit, sharpen, add context, or run advanced modes"
-                >
-                  {(wedgeFetching || wedgeRunning || iterating || suggesting) && (
-                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
-                  )}
-                  {wedgeFetching
-                    ? t("workspaceExtra.draftingAngles")
-                    : wedgeRunning
-                      ? t("workspaceExtra.tournamentShort")
-                      : iterating
-                        ? t("workspaceExtra.climbing")
-                        : suggesting
-                          ? t("workspaceExtra.draftingShort")
-                          : t("workspace.newVersion")}
-                  {!wedgeFetching && !wedgeRunning && !iterating && !suggesting && (
-                    <span className="hidden font-mono text-[10px] uppercase tracking-wide text-muted sm:inline">
-                      {t("workspaceExtra.runOnce")}
-                    </span>
-                  )}
-                </button>
-                {showBestOther && bestOther && (
-                  <button
-                    type="button"
-                    onClick={() => switchVersion(bestOther.id)}
-                    className="text-xs text-muted hover:text-fg"
-                    title={bestOther.label ?? bestOther.statement}
-                  >
-                    {t("workspaceExtra.bestVersion", {
-                      n: bestOther.n,
-                      score: bestOther.score ?? "—",
-                    })}
-                  </button>
-                )}
                 <div className="ml-auto">
                   <DropMenu
                     trigger={<span aria-hidden className="px-0.5 text-base leading-none">⋯</span>}
@@ -3291,6 +3244,86 @@ export default function IdeaWorkspace({
                   ))}
                 </div>
               </div>
+            )}
+          </div>
+        )}
+        {/* Next moves — variant/iteration actions, AFTER the analysis has been read. */}
+        {hasValidate && activeValidation && decisionScore != null && (
+          <div className="folio mt-8 p-5 sm:p-6">
+            <div className="flex flex-wrap items-center gap-2">
+              {nextMoveHref ? (
+                <a
+                  href={nextMoveHref}
+                  className="inline-flex items-center gap-2 rounded-pill-pack bg-accent px-4 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2"
+                  title={nextMoveHint ?? undefined}
+                >
+                  {nextMoveLabel}
+                  <span aria-hidden>→</span>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={nextMoveClick}
+                  disabled={nextMoveDisabled}
+                  aria-busy={nextMoveBusy || undefined}
+                  className="inline-flex items-center gap-2 rounded-pill-pack bg-accent px-4 py-2.5 font-display text-sm font-bold tracking-tight text-on-accent transition hover:bg-accent2 disabled:opacity-50"
+                  title={nextMoveHint ?? undefined}
+                >
+                  {nextMoveBusy && (
+                    <span
+                      className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-on-accent/30 border-t-on-accent"
+                      aria-hidden
+                    />
+                  )}
+                  {nextMoveBusy ? t("a11y.working") : nextMoveLabel}
+                  {!nextMoveBusy && <span aria-hidden>→</span>}
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={anyBusy || locked /* new versions ok when exhausted; validate gated later */}
+                onClick={() => (composerMode ? closeComposer() : openComposer("write"))}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition disabled:opacity-50 ${
+                  composerMode
+                    ? "border-accent/50 bg-accent/15 text-accent2"
+                    : "border-border text-muted hover:border-accent/30 hover:text-fg"
+                }`}
+                title="Create a new version — edit, sharpen, add context, or run advanced modes"
+              >
+                {(wedgeFetching || wedgeRunning || iterating || suggesting) && (
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+                )}
+                {wedgeFetching
+                  ? t("workspaceExtra.draftingAngles")
+                  : wedgeRunning
+                    ? t("workspaceExtra.tournamentShort")
+                    : iterating
+                      ? t("workspaceExtra.climbing")
+                      : suggesting
+                        ? t("workspaceExtra.draftingShort")
+                        : t("workspace.newVersion")}
+                {!wedgeFetching && !wedgeRunning && !iterating && !suggesting && (
+                  <span className="hidden font-mono text-[10px] uppercase tracking-wide text-muted sm:inline">
+                    {t("workspaceExtra.runOnce")}
+                  </span>
+                )}
+              </button>
+              {showBestOther && bestOther && (
+                <button
+                  type="button"
+                  onClick={() => switchVersion(bestOther.id)}
+                  className="text-xs text-muted hover:text-fg"
+                  title={bestOther.label ?? bestOther.statement}
+                >
+                  {t("workspaceExtra.bestVersion", {
+                    n: bestOther.n,
+                    score: bestOther.score ?? "—",
+                  })}
+                </button>
+              )}
+            </div>
+            {nextMoveHint && (
+              <p className="mt-2 max-w-2xl text-xs leading-relaxed text-muted">{nextMoveHint}</p>
             )}
           </div>
         )}
