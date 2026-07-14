@@ -867,7 +867,7 @@ export const en = {
     clearIntermediate: "Clear the intermediate tries?",
     also: "Also",
     noRescoreHint: "· no rescore",
-    ask: "Ask",
+    ask: "Ask the AI about this score",
     openInterviewKit: "Open the interview kit",
     prepInterviews: "Prep this week's interviews",
     rescoreWithTest: "Rescore with the test result",

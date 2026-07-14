@@ -2220,13 +2220,6 @@ export default function IdeaWorkspace({
                   title="Conversational Q&A about this report — does not create a version or re-score"
                 >
                   {t("workspaceExtra.ask")}
-                  <span
-                    className={`hidden font-mono text-[10px] uppercase tracking-wide sm:inline ${
-                      chatting ? "text-accent2/80" : "text-on-accent/75"
-                    }`}
-                  >
-                    {t("workspaceExtra.noRescoreHint")}
-                  </span>
                 </button>
                 <div className="ml-auto">
                   <DropMenu
