@@ -115,14 +115,6 @@ export async function HeroVerdictDemo({ price }: { price: string }) {
         </p>
       </div>
 
-      {/* how it's built — the methodology, honestly scoped */}
-      <div className="border-t border-border/70 px-5 py-3.5 sm:px-6">
-        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
-          {t("sample.howLabel")}
-        </div>
-        <p className="mt-1.5 text-xs leading-relaxed text-muted">{t("sample.how")}</p>
-      </div>
-
       {/* the offer, quietly */}
       <div className="border-t border-border/70 bg-panel2/40 px-5 py-3 text-xs leading-relaxed text-fg/75 sm:px-6">
         {t("sample.unlock", { price })}
