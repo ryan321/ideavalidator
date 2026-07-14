@@ -771,10 +771,9 @@ export function ValidationView({
           <WhyThisScore d={d} bands={bands} color={color} goal={goal} />
         ) : null}
 
-        {/* Kill-test detail — deferred in workspace until kit/result exists so it
-            doesn't restate the DecisionCard open question. CTA generates the kit. */}
-        {d.next_test &&
-          (!chapters || print || kitData != null || testResultData != null || generatingKit) && (
+        {/* Kill-test detail — print/standalone keeps it in the verdict flow; the
+            workspace renders it at the END of the report, beside the next moves. */}
+        {d.next_test && !chapters && (
           <div id="next-test" className="scroll-mt-20 space-y-3">
             <NextTest next={d.next_test} verdict={d.verdict} print={print} />
             <KillTestKit
@@ -842,7 +841,7 @@ export function ValidationView({
           >
             <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
           </span>
-          <span className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.12em] text-fg/85">
+          <span className="min-w-0 flex-1 font-mono text-xs font-bold uppercase tracking-[0.12em] text-fg">
             {t("report.fullScorecard")}
           </span>
           <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
@@ -1444,6 +1443,29 @@ export function ValidationView({
         </div>
       )}
 
+      {/* Kill-test kit + recorded result — ACTION artifacts, so the workspace shows
+          them at the very end of the report, beside the next-moves bar. Appears once
+          a kit/result exists (the next-move CTA generates it and jumps here). */}
+      {chapters && d.next_test && (kitData != null || testResultData != null || generatingKit) && (
+        <div id="next-test" className="scroll-mt-20 space-y-3 pt-2">
+          <NextTest next={d.next_test} verdict={d.verdict} print={print} />
+          <KillTestKit
+            kit={asKit(kitData)}
+            hasKit={kitData != null}
+            onGenerate={onGenerateKit}
+            generating={generatingKit}
+            print={print}
+          />
+          <TestResultPanel
+            result={asTestResult(testResultData)}
+            onRecord={onRecordResult}
+            recording={recordingResult}
+            onRevalidate={onRevalidateWithResult}
+            disabled={recordingResult}
+            print={print}
+          />
+        </div>
+      )}
     </div>
   );
 }
