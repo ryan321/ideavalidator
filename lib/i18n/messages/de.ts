@@ -460,6 +460,8 @@ appNav: {
     theBrief: "Das Briefing",
     briefHint: "was Sie wissen müssen",
     marketCompetition: "Markt & Wettbewerb",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "Beweis, dass der Schmerz real ist",
     moneyHint: "die Unit Economics",
     risksHint: "Pre-mortem + Wahrscheinlichkeit × Impact",

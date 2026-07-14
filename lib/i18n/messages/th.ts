@@ -457,6 +457,8 @@ export const th = {
     theBrief: "สรุปสั้น",
     briefHint: "สิ่งที่ต้องรู้",
     marketCompetition: "ตลาดและการแข่งขัน",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "หลักฐานว่าความเจ็บจริง",
     moneyHint: "หน่วยเศรษฐศาสตร์",
     risksHint: "pre-mortem + ความน่าจะเป็น × ผลกระทบ",

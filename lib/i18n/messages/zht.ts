@@ -439,6 +439,8 @@ export const zht = {
     theBrief: "簡報",
     briefHint: "需要知道的要點",
     marketCompetition: "市場與競爭",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "證明痛點真實存在",
     moneyHint: "單位經濟",
     risksHint: "事前驗屍 + 機率 × 影響",

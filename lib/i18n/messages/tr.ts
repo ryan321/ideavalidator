@@ -462,6 +462,8 @@ export const tr = {
     theBrief: "Özet",
     briefHint: "bilmeniz gerekenler",
     marketCompetition: "Pazar ve rekabet",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "ağrının gerçek olduğunun kanıtı",
     moneyHint: "birim ekonomisi",
     risksHint: "pre-mortem + olasılık × etki",

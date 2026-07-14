@@ -460,6 +460,8 @@ export const pl = {
     theBrief: "Brief",
     briefHint: "to, co musisz wiedzieć",
     marketCompetition: "Rynek i konkurencja",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "dowód, że ból jest realny",
     moneyHint: "unit economics",
     risksHint: "pre-mortem + prawdopodobieństwo × wpływ",

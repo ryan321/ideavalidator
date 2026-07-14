@@ -452,6 +452,8 @@ export const he = {
     theBrief: "התמצית",
     briefHint: "מה שצריך לדעת",
     marketCompetition: "שוק ותחרות",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "הוכחה שהכאב אמיתי",
     moneyHint: "הכלכלה ליחידה",
     risksHint: "pre-mortem + הסתברות × השפעה",

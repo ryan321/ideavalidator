@@ -465,6 +465,8 @@ export const nl = {
     theBrief: "De brief",
     briefHint: "wat je moet weten",
     marketCompetition: "Markt & concurrentie",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "bewijs dat de pijn echt is",
     moneyHint: "de unit economics",
     risksHint: "pre-mortem + kans × impact",

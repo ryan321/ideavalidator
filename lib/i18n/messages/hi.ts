@@ -455,6 +455,8 @@ appNav: {
     theBrief: "ब्रीफ",
     briefHint: "जो जानना ज़रूरी है",
     marketCompetition: "बाज़ार और प्रतिस्पर्धा",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "दर्द असली है, इसका प्रमाण",
     moneyHint: "यूनिट इकोनॉमिक्स",
     risksHint: "प्री-मॉर्टम + संभावना × प्रभाव",

@@ -455,6 +455,8 @@ appNav: {
     theBrief: "الموجز",
     briefHint: "ما تحتاج معرفته",
     marketCompetition: "السوق والمنافسة",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "دليل أن الألم حقيقي",
     moneyHint: "اقتصاديات الوحدة",
     risksHint: "تشريح مسبق + احتمال × أثر",

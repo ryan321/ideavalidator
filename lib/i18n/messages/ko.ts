@@ -459,6 +459,8 @@ appNav: {
     theBrief: "브리프",
     briefHint: "꼭 알아야 할 것",
     marketCompetition: "시장 및 경쟁",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "통증이 실제라는 증거",
     moneyHint: "단위 경제",
     risksHint: "프리모템 + 확률 × 영향",

@@ -459,6 +459,8 @@ export const vi = {
     theBrief: "Tóm tắt",
     briefHint: "điều bạn cần biết",
     marketCompetition: "Thị trường & cạnh tranh",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "bằng chứng nỗi đau là thật",
     moneyHint: "unit economics",
     risksHint: "pre-mortem + xác suất × tác động",

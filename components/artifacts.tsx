@@ -555,8 +555,11 @@ export function ValidationView({
   const m = d.market;
   const showMarket = !!m && !!(
     m.sizing?.tam?.value || m.sizing?.sam?.value || m.sizing?.som?.value ||
-    m.search_trend?.note || m.momentum || m.competitors?.length || m.demand_signals?.length
+    m.search_trend?.note || m.momentum || m.demand_signals?.length || d.icp
   );
+  // Competitors + moat get their own chapter — "who am I up against" is a different
+  // question from "is there a market", and it's usually the one that set the score.
+  const showCompetition = !!(m?.competitors?.length || d.moat);
   const f = d.financials;
   const showMoney = !!f && !!(
     f.startup_cost || f.revenue_model || f.unit_economics?.cac || f.unit_economics?.ltv ||
@@ -582,7 +585,7 @@ export function ValidationView({
         ? `${best.grade[0].toUpperCase()}${best.grade.slice(1)} · ${best.type.replace(/_/g, " ")}`
         : t("report.noneYet"),
       color: best?.grade === "strong" ? "var(--color-good)" : hasAny ? "var(--color-warn)" : "var(--color-bad)",
-      hint: "Strongest defensibility path graded today — details in Market.",
+      hint: "Strongest defensibility path graded today — details in Competition.",
     });
   }
 
@@ -614,9 +617,13 @@ export function ValidationView({
     (strengths[0]?.text ? strengths[0].text : null) ||
     (risks[0]?.text ? risks[0].text : null);
   const marketPreview =
+    d.market?.momentum ||
+    d.market?.search_trend?.note ||
+    (d.market?.sizing?.som?.value ? `SOM ${d.market.sizing.som.value}` : null);
+  const competitionPreview =
     d.market?.competitors?.[0]
       ? `vs ${d.market.competitors[0].name}${d.market.competitors.length > 1 ? ` +${d.market.competitors.length - 1}` : ""}`
-      : d.market?.momentum || d.market?.search_trend?.note || null;
+      : null;
   const moneyPreview = d.financials?.revenue_model || d.demand?.obtainable_revenue || null;
   const risksPreview = d.pre_mortem?.[0] || d.risk_matrix?.[0]?.title || null;
   const planPreview =
@@ -646,6 +653,7 @@ export function ValidationView({
           <a href="#verdict" className={navLink}>{t("report.verdict")}</a>
           <a href="#brief" className={navLink}>{t("report.brief")}</a>
           {showMarket && <a href="#market" className={navLink}>{t("report.market")}</a>}
+          {showCompetition && <a href="#competition" className={navLink}>{t("report.competition")}</a>}
           {showMoney && <a href="#money" className={navLink}>{t("report.money")}</a>}
           {d.risk_matrix?.length || d.pre_mortem?.length ? <a href="#risks" className={navLink}>{t("report.risks")}</a> : null}
           {showPlan && <a href="#plan" className={navLink}>{t("report.plan")}</a>}
@@ -860,6 +868,43 @@ export function ValidationView({
         )}
       </section>
 
+      {/* ===================== full scorecard — first read after the Why ===================== */}
+      <details
+        className="group overflow-hidden rounded-xl border border-border bg-panel/50 transition hover:border-accent/35 hover:bg-panel2/40"
+        open
+      >
+        <summary
+          className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3.5 select-none transition hover:bg-panel2/55 sm:px-4"
+          title={t("report.fullScorecard")}
+        >
+          <span
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border bg-panel2 font-mono text-sm text-accent2 transition group-open:border-accent/40 group-open:bg-accent/10"
+            aria-hidden
+          >
+            <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
+          </span>
+          <span className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.12em] text-fg/85">
+            {t("report.fullScorecard")}
+          </span>
+          <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
+            <span className="group-open:hidden">{t("common.expand")}</span>
+            <span className="hidden group-open:inline">{t("common.collapse")}</span>
+          </span>
+        </summary>
+        <div className="space-y-6 border-t border-border p-5">
+          <Section title={t("report.visualOverview")}>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <Card>
+                <CriteriaRadar criteria={d.criteria} />
+              </Card>
+              <FactorBars criteria={d.criteria} />
+            </div>
+          </Section>
+          <ValidationSummary go={d.go_signals} stop={d.stop_signals} />
+          <ValidationScorecard validations={d.validations} criteria={d.criteria} />
+        </div>
+      </details>
+
       {chapters && (
         <div className="pt-2">
           <p className="text-sm font-medium text-fg/85">{t("report.digDeeper")}</p>
@@ -868,6 +913,7 @@ export function ValidationView({
               sections: [
                 t("report.brief"),
                 t("report.market"),
+                t("report.competition"),
                 t("report.money"),
                 t("report.risks"),
                 t("report.plan"),
@@ -1021,7 +1067,7 @@ export function ValidationView({
         <ReportChapter
           id="market"
           n="02"
-          title={t("report.marketCompetition")}
+          title={t("report.market")}
           hint={t("report.marketHint")}
           preview={marketPreview}
           print={print}
@@ -1067,7 +1113,66 @@ export function ValidationView({
             {/* who buys & how — channels grounded in the corpus's proven communities */}
             {d.icp && <IcpCard icp={d.icp} communities={evidence?.stats.communities ?? []} />}
 
-            {(d.market.competitors ?? []).length > 0 && (
+            {(d.market.demand_signals ?? []).length > 0 && (
+              <div>
+                <div className="mb-1 font-mono text-sm uppercase tracking-[0.1em] text-muted">
+                  {t("report.peopleSaying")}
+                </div>
+                <p className="mb-2.5 text-xs text-muted">{t("report.peopleSayingBlurb")}</p>
+                <div className="space-y-2">
+                  {d.market.demand_signals!.map((s, i) => (
+                    <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {s.tag && (
+                          <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent2">
+                            {signalTagLabel(s.tag, t)}
+                          </span>
+                        )}
+                        {s.wtp_signal && <WtpTag />}
+                        <span className="ml-auto flex items-center gap-2">
+                          {s.url && s.source ? (
+                            <a href={s.url} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent2 hover:underline">
+                              {sourceLabel({ source: s.source, community: s.community }, t)} ↗
+                            </a>
+                          ) : null}
+                          {s.source && <FetchedBadge source={s.source} />}
+                        </span>
+                      </div>
+                      {s.quote && <p className="mt-1.5 text-sm leading-relaxed text-fg/90">“{s.quote}”</p>}
+                      {(s.score != null || s.num_comments != null || !!s.created_utc) && (
+                        <div className="mt-1.5 font-mono text-[11px] text-muted">
+                          {s.score != null ? `▲${s.score}` : ""}
+                          {s.num_comments != null
+                            ? ` · ${
+                                s.num_comments === 1
+                                  ? t("report.commentsOne")
+                                  : t("report.comments", { n: s.num_comments })
+                              }`
+                            : ""}
+                          {s.created_utc ? ` · ${relDate(s.created_utc, t)}` : ""}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </ReportChapter>
+      )}
+
+      {/* ============================ COMPETITION ============================ */}
+      {showCompetition && (
+        <ReportChapter
+          id="competition"
+          n="03"
+          title={t("report.competition")}
+          hint={t("report.competitionHint")}
+          preview={competitionPreview}
+          print={print}
+        >
+          <div className="space-y-6">
+            {d.market && (d.market.competitors ?? []).length > 0 && (
               <div>
                 <div className="mb-2.5 flex items-baseline justify-between gap-2 font-mono text-sm uppercase tracking-[0.1em] text-muted">
                   {t("report.competitors")}
@@ -1158,51 +1263,6 @@ export function ValidationView({
 
             {/* defensibility — honest-to-zero moat grades + what would earn one */}
             {d.moat && <MoatPanel moat={d.moat} />}
-
-            {(d.market.demand_signals ?? []).length > 0 && (
-              <div>
-                <div className="mb-1 font-mono text-sm uppercase tracking-[0.1em] text-muted">
-                  {t("report.peopleSaying")}
-                </div>
-                <p className="mb-2.5 text-xs text-muted">{t("report.peopleSayingBlurb")}</p>
-                <div className="space-y-2">
-                  {d.market.demand_signals!.map((s, i) => (
-                    <div key={i} className="rounded-lg border border-border/70 bg-panel/40 p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {s.tag && (
-                          <span className="rounded-full border border-accent2/30 bg-accent2/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent2">
-                            {signalTagLabel(s.tag, t)}
-                          </span>
-                        )}
-                        {s.wtp_signal && <WtpTag />}
-                        <span className="ml-auto flex items-center gap-2">
-                          {s.url && s.source ? (
-                            <a href={s.url} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent2 hover:underline">
-                              {sourceLabel({ source: s.source, community: s.community }, t)} ↗
-                            </a>
-                          ) : null}
-                          {s.source && <FetchedBadge source={s.source} />}
-                        </span>
-                      </div>
-                      {s.quote && <p className="mt-1.5 text-sm leading-relaxed text-fg/90">“{s.quote}”</p>}
-                      {(s.score != null || s.num_comments != null || !!s.created_utc) && (
-                        <div className="mt-1.5 font-mono text-[11px] text-muted">
-                          {s.score != null ? `▲${s.score}` : ""}
-                          {s.num_comments != null
-                            ? ` · ${
-                                s.num_comments === 1
-                                  ? t("report.commentsOne")
-                                  : t("report.comments", { n: s.num_comments })
-                              }`
-                            : ""}
-                          {s.created_utc ? ` · ${relDate(s.created_utc, t)}` : ""}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </ReportChapter>
       )}
@@ -1211,7 +1271,7 @@ export function ValidationView({
       {showMoney && d.financials && (
         <ReportChapter
           id="money"
-          n="03"
+          n="04"
           title={t("report.money")}
           hint={t("report.moneyHint")}
           preview={moneyPreview}
@@ -1266,7 +1326,7 @@ export function ValidationView({
       {d.risk_matrix?.length || d.pre_mortem?.length ? (
         <ReportChapter
           id="risks"
-          n="04"
+          n="05"
           title={t("report.risks")}
           hint={t("report.risksHint")}
           preview={risksPreview}
@@ -1303,7 +1363,7 @@ export function ValidationView({
       {showPlan && d.plan && (
         <ReportChapter
           id="plan"
-          n="05"
+          n="06"
           title={t("report.plan")}
           hint={d.verdict === "GO" ? t("report.planHintGo") : t("report.planHintTest")}
           preview={planPreview}
@@ -1336,7 +1396,7 @@ export function ValidationView({
         <div className="no-print">
           <ReportChapter
             id="evidence"
-            n="06"
+            n="07"
             title={t("report.evidence")}
             hint={t("report.evidenceHint")}
             preview={evidencePreview}
@@ -1347,42 +1407,6 @@ export function ValidationView({
         </div>
       )}
 
-      {/* ===================== full scorecard (the deep dive) ===================== */}
-      <details
-        className="group overflow-hidden rounded-xl border border-border bg-panel/50 transition hover:border-accent/35 hover:bg-panel2/40"
-        open={print}
-      >
-        <summary
-          className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3.5 select-none transition hover:bg-panel2/55 sm:px-4"
-          title={t("report.fullScorecard")}
-        >
-          <span
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border bg-panel2 font-mono text-sm text-accent2 transition group-open:border-accent/40 group-open:bg-accent/10"
-            aria-hidden
-          >
-            <span className="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
-          </span>
-          <span className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.12em] text-fg/85">
-            {t("report.fullScorecard")}
-          </span>
-          <span className="shrink-0 rounded-md border border-border/80 bg-panel2/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wide text-muted transition group-open:border-accent/30 group-open:text-accent2">
-            <span className="group-open:hidden">{t("common.expand")}</span>
-            <span className="hidden group-open:inline">{t("common.collapse")}</span>
-          </span>
-        </summary>
-        <div className="space-y-6 border-t border-border p-5">
-          <Section title={t("report.visualOverview")}>
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <Card>
-                <CriteriaRadar criteria={d.criteria} />
-              </Card>
-              <FactorBars criteria={d.criteria} />
-            </div>
-          </Section>
-          <ValidationSummary go={d.go_signals} stop={d.stop_signals} />
-          <ValidationScorecard validations={d.validations} criteria={d.criteria} />
-        </div>
-      </details>
     </div>
   );
 }

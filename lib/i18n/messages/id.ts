@@ -465,6 +465,8 @@ export const id = {
     theBrief: "Ringkasan",
     briefHint: "yang perlu kamu tahu",
     marketCompetition: "Pasar & kompetisi",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "bukti bahwa rasa sakitnya nyata",
     moneyHint: "unit economics",
     risksHint: "pre-mortem + probabilitas × dampak",

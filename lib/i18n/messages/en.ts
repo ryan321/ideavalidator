@@ -533,6 +533,8 @@ export const en = {
     theBrief: "The brief",
     briefHint: "what you need to know",
     marketCompetition: "Market & competition",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "proof the pain is real",
     moneyHint: "the unit economics",
     risksHint: "pre-mortem + probability × impact",

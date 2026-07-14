@@ -463,6 +463,8 @@ export const uk = {
     theBrief: "Бриф",
     briefHint: "що потрібно знати",
     marketCompetition: "Ринок і конкуренція",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "доказ, що біль реальний",
     moneyHint: "юніт-економіка",
     risksHint: "pre-mortem + ймовірність × вплив",

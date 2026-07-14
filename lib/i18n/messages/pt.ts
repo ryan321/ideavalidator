@@ -421,6 +421,8 @@ appNav: {
     theBrief: "O brief",
     briefHint: "o essencial",
     marketCompetition: "Mercado e concorrência",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "prova de que a dor é real",
     moneyHint: "a economia unitária",
     risksHint: "pré-mortem + probabilidade × impacto",

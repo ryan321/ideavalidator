@@ -441,6 +441,8 @@ appNav: {
     theBrief: "简报",
     briefHint: "需要知道的要点",
     marketCompetition: "市场与竞争",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "证明痛点真实存在",
     moneyHint: "单位经济",
     risksHint: "事前验尸 + 概率 × 影响",

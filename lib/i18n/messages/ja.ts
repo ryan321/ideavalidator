@@ -458,6 +458,8 @@ appNav: {
     theBrief: "ブリーフ",
     briefHint: "押さえるべき要点",
     marketCompetition: "市場と競合",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "痛みが本物である証拠",
     moneyHint: "ユニットエコノミクス",
     risksHint: "プレモーテム + 確率 × 影響",

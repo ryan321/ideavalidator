@@ -458,6 +458,8 @@ appNav: {
     theBrief: "Le brief",
     briefHint: "l’essentiel",
     marketCompetition: "Marché et concurrence",
+    competition: "Competition",
+    competitionHint: "who you’re up against — and your edge",
     marketHint: "preuve que la douleur est réelle",
     moneyHint: "l’économie unitaire",
     risksHint: "pré-mortem + probabilité × impact",
