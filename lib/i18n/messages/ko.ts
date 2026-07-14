@@ -95,6 +95,8 @@ export const ko = {
     whatYouGetTitle: "전체 검증에 포함된 모든 것",
     whatYouGetSub:
       "모호한 단일 점수가 아닙니다. 아이디어당 {price}부터의 완전한 의사결정 패키지.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "작동 방식",
     howSub:
       "첫 설명에서 실행 가능한 결정까지. 처음부터 올인할 필요 없습니다.",

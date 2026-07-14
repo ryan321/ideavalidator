@@ -94,6 +94,8 @@ export const ja = {
     whatYouGetTitle: "フル検証に含まれるすべて",
     whatYouGetSub:
       "あいまいな単一スコアではありません。アイデアあたり {price} からの完全な意思決定パッケージ。",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "使い方",
     howSub:
       "最初の説明から行動できる判断まで。最初から全力投入する必要はありません。",

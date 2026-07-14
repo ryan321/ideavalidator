@@ -1,11 +1,10 @@
 import { getTranslator } from "@/lib/i18n/server";
 
 // The landing hero's signature artifact: a condensed, honestly-labeled SAMPLE of the
-// product's real output. It leads with the verdict (the thing people expect), then makes
-// the real point — the $29 buys a full sourced teardown, not a stamp — by listing what
-// the report also contains and how the evidence is gathered. It deliberately uses the
-// PRODUCT's faces (sans + mono), not the marketing serif, so it reads as a report excerpt
-// sitting on an editorial page. Static by design: no data, no fetches.
+// product's real output — the verdict, the score ring, and the headline numbers. The
+// full "what you get" breakdown lives in its own section below the hero. It deliberately
+// uses the PRODUCT's faces (sans + mono), not the marketing serif, so it reads as a
+// report excerpt sitting on an editorial page. Static by design: no data, no fetches.
 
 const SCORE = 78;
 const RING_R = 34;
@@ -13,18 +12,6 @@ const RING_C = 2 * Math.PI * RING_R;
 
 export async function HeroVerdictDemo({ price }: { price: string }) {
   const { t } = await getTranslator();
-  // The list mirrors the real report's own section nav (report.* keys), so the sample
-  // card and the analysis can never drift — and it inherits the report's translations.
-  const sections = [
-    { name: t("report.fullScorecard"), hint: t("sample.scorecardHint") },
-    { name: t("report.brief"), hint: t("report.briefHint") },
-    { name: t("report.market"), hint: t("report.marketHint") },
-    { name: t("report.competition"), hint: t("report.competitionHint") },
-    { name: t("report.money"), hint: t("report.moneyHint") },
-    { name: t("report.risks"), hint: t("report.risksHint") },
-    { name: t("report.plan"), hint: t("report.planHintGo") },
-    { name: t("report.evidence"), hint: t("report.evidenceHint") },
-  ];
   return (
     <div
       className="folio overflow-hidden"
@@ -95,24 +82,6 @@ export async function HeroVerdictDemo({ price }: { price: string }) {
             <div className="mt-0.5 truncate font-display text-sm font-bold text-fg">{value}</div>
           </div>
         ))}
-      </div>
-
-      {/* the point: the verdict above is page one — here's the rest of the report */}
-      <div className="border-t border-border/70 px-5 py-4 sm:px-6">
-        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
-          {t("sample.includesLabel")}
-        </div>
-        <ul className="mt-2.5 divide-y divide-border/50">
-          {sections.map((s) => (
-            <li key={s.name} className="py-1.5 text-[13px] leading-snug first:pt-0 last:pb-0">
-              <span className="font-semibold text-fg">{s.name}</span>
-              <span className="text-muted"> · {s.hint}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 border-t border-border/50 pt-3 text-xs leading-relaxed text-muted">
-          {t("sample.pdf")}
-        </p>
       </div>
 
       {/* the offer, quietly */}

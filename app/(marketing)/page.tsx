@@ -3,7 +3,6 @@ import { HeroIdeaForm } from "@/components/HeroIdeaForm";
 import { HeroVerdictDemo } from "@/components/HeroVerdictDemo";
 import { getSessionUser } from "@/lib/auth";
 import { priceCents } from "@/lib/billing";
-import { checklistItems } from "@/lib/i18n/t";
 import { getTranslator } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +13,27 @@ export default async function LandingPage() {
   const price = `$${(priceCents() / 100).toFixed(0)}`;
   const ctaHref = user ? "/studio" : "/signup";
   const ctaLabel = user ? t("nav.openStudio") : t("nav.validateCta");
-  const checklist = checklistItems(t);
+
+  // "What you get" — the two halves of a full validation. The report sections reuse the
+  // analysis' own section-nav keys (report.*) so the landing and the app never drift; the
+  // studio items reuse the comparison-table / checklist keys.
+  const reportSections: { name: string; hint: string }[] = [
+    { name: t("report.fullScorecard"), hint: t("sample.scorecardHint") },
+    { name: t("report.brief"), hint: t("report.briefHint") },
+    { name: t("report.market"), hint: t("report.marketHint") },
+    { name: t("report.competition"), hint: t("report.competitionHint") },
+    { name: t("report.money"), hint: t("report.moneyHint") },
+    { name: t("report.risks"), hint: t("report.risksHint") },
+    { name: t("report.plan"), hint: t("report.planHintGo") },
+    { name: t("report.evidence"), hint: t("report.evidenceHint") },
+  ];
+  const studioTools: string[] = [
+    t("compare.row8"), // chat with your review
+    t("compare.row7"), // refine & re-score as a new version
+    t("compare.row9"), // compare every version in one arena
+    t("checklist.item13"), // multiple full reports as the idea evolves
+    t("sample.pdf"), // download the full report as a PDF
+  ];
 
   // Comparison rows: Validorian checks every one; "other services" get the
   // table-stakes (a verdict, market sizing) but miss the differentiators —
@@ -83,6 +102,52 @@ export default async function LandingPage() {
 
           <div className="w-full max-w-md justify-self-center lg:max-w-none lg:justify-self-end">
             <HeroVerdictDemo price={price} />
+          </div>
+        </div>
+      </section>
+
+      {/* What you get: the full teardown (moved out of the hero card) */}
+      <section className="py-16 sm:py-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
+            {t("landing.whatYouGetEyebrow")}
+          </p>
+          <h2 className="mt-3 max-w-2xl font-display text-2xl font-bold tracking-tight sm:text-3xl">
+            {t("landing.whatYouGetTitle")}
+          </h2>
+          <p className="mt-2 max-w-xl text-muted">{t("landing.whatYouGetSub", { price })}</p>
+
+          <div className="mt-10 grid gap-8 md:grid-cols-2 md:gap-14">
+            {/* Inside every report — mirrors the analysis' own section nav */}
+            <div>
+              <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
+                {t("landing.reportLabel")}
+              </h3>
+              <ul className="mt-4 divide-y divide-border/60">
+                {reportSections.map((s) => (
+                  <li key={s.name} className="py-2.5 text-[15px] leading-snug first:pt-0">
+                    <span className="font-semibold text-fg">{s.name}</span>
+                    <span className="text-muted"> · {s.hint}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* In the studio — the loop that keeps sharpening the idea */}
+            <div>
+              <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
+                {t("landing.studioLabel")}
+              </h3>
+              <ul className="mt-4 divide-y divide-border/60">
+                {studioTools.map((item) => (
+                  <li
+                    key={item}
+                    className="py-2.5 text-[15px] font-medium leading-snug text-fg/90 first:pt-0"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </section>
@@ -208,36 +273,6 @@ export default async function LandingPage() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-accent">
-            {t("landing.whatYouGetEyebrow")}
-          </p>
-          <h2 className="mt-3 max-w-2xl font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            {t("landing.whatYouGetTitle")}
-          </h2>
-          <p className="mt-2 max-w-xl text-muted">
-            {t("landing.whatYouGetSub", { price })}
-          </p>
-          <ul className="mt-10 grid gap-x-10 gap-y-3 sm:grid-cols-2">
-            {checklist.map((item) => (
-              <li
-                key={item}
-                className="flex items-start gap-3 text-sm leading-snug text-fg/90 sm:text-[15px]"
-              >
-                <span
-                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 font-semibold text-accent"
-                  aria-hidden
-                >
-                  ✓
-                </span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       </section>
 

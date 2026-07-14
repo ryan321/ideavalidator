@@ -94,6 +94,8 @@ export const tr = {
     whatYouGetTitle: "Tam doğrulamada her şey",
     whatYouGetSub:
       "Belirsiz tek bir puan değil. Fikir başına {price}'dan tam bir karar paketi.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "Nasıl çalışır",
     howSub:
       "İlk tanımdan harekete geçebileceğiniz bir karara, her şeyi riske atmadan.",

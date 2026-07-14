@@ -94,6 +94,8 @@ export const ar = {
     whatYouGetTitle: "كل شيء في تحقق كامل",
     whatYouGetSub:
       "ليست درجة غامضة واحدة. حزمة قرار كاملة من {price} لكل فكرة.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "كيف يعمل",
     howSub:
       "من أول وصف إلى قرار يمكنك العمل به، دون أن تراهن بكل شيء مسبقًا.",

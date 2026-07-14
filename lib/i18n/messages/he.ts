@@ -90,6 +90,8 @@ export const he = {
     whatYouGetEyebrow: "מה מקבלים",
     whatYouGetTitle: "הכול באימות מלא",
     whatYouGetSub: "לא ציון עמום אחד. חבילת החלטה מלאה מ־{price} לרעיון.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "איך זה עובד",
     howSub: "מהתיאור הראשון להחלטה שאפשר לפעול לפיה, בלי ללכת אול־אין מראש.",
     how1Title: "תארו את הרעיון",

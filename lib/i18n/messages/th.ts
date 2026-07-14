@@ -94,6 +94,8 @@ export const th = {
     whatYouGetTitle: "ทุกอย่างในการตรวจสอบเต็มรูปแบบ",
     whatYouGetSub:
       "ไม่ใช่คะแนนคลุมเครือเพียงตัวเดียว แพ็กเกจตัดสินใจครบชุดตั้งแต่ {price} ต่อไอเดีย",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "วิธีทำงาน",
     howSub:
       "จากคำอธิบายแรกสู่การตัดสินใจที่ลงมือทำได้ โดยไม่ต้องทุ่มทั้งหมดตั้งแต่แรก",

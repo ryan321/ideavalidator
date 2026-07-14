@@ -90,6 +90,8 @@ export const en = {
     whatYouGetEyebrow: "What you get",
     whatYouGetTitle: "Everything in a full validation",
     whatYouGetSub: "Not a single vague score. A full decision package from {price} per idea.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "How it works",
     howSub: "From first description to a decision you can act on, without going all-in first.",
     how1Title: "Describe the idea",

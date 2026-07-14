@@ -89,6 +89,8 @@ export const es = {
     whatYouGetEyebrow: "Qué obtienes",
     whatYouGetTitle: "Todo en una validación completa",
     whatYouGetSub: "No es una puntuación vaga. Un paquete de decisión completo desde {price} por idea.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "Cómo funciona",
     howSub: "De la primera descripción a una decisión accionable, sin apostarlo todo al principio.",
     how1Title: "Describe la idea",

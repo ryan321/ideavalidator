@@ -91,6 +91,8 @@ export const zh = {
     whatYouGetEyebrow: "你将获得",
     whatYouGetTitle: "完整验证包含的全部内容",
     whatYouGetSub: "不是含糊的单一分数。从每个创意 {price} 起的完整决策包。",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "如何运作",
     howSub: "从第一次描述到可执行决策，无需一开始就全力押注。",
     how1Title: "描述创意",

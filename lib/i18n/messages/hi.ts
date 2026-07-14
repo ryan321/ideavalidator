@@ -94,6 +94,8 @@ export const hi = {
     whatYouGetTitle: "पूरी वैलिडेशन में सब कुछ",
     whatYouGetSub:
       "कोई एक अस्पष्ट स्कोर नहीं। {price} प्रति आइडिया से एक पूरा निर्णय पैकेज।",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "यह कैसे काम करता है",
     howSub:
       "पहले विवरण से लेकर ऐसे निर्णय तक जिस पर आप काम कर सकें — बिना पहले से सब कुछ दांव पर लगाए।",

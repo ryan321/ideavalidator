@@ -95,6 +95,8 @@ export const uk = {
     whatYouGetTitle: "Усе в повній валідації",
     whatYouGetSub:
       "Не одна розмита оцінка. Повний пакет рішення від {price} за ідею.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "Як це працює",
     howSub:
       "Від першого опису до рішення, на яке можна спертися — без повного all-in одразу.",

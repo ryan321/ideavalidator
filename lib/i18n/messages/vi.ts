@@ -93,6 +93,8 @@ export const vi = {
     whatYouGetTitle: "Mọi thứ trong một lần xác thực đầy đủ",
     whatYouGetSub:
       "Không phải một điểm mơ hồ. Một gói quyết định đầy đủ từ {price} mỗi ý tưởng.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "Cách hoạt động",
     howSub:
       "Từ mô tả đầu tiên đến quyết định có thể hành động, mà không cần all-in ngay.",

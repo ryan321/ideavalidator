@@ -94,6 +94,8 @@ export const id = {
     whatYouGetTitle: "Semua dalam validasi lengkap",
     whatYouGetSub:
       "Bukan skor samar. Paket keputusan lengkap mulai {price} per ide.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "Cara kerjanya",
     howSub:
       "Dari deskripsi pertama sampai keputusan yang bisa ditindaklanjuti, tanpa all-in di awal.",

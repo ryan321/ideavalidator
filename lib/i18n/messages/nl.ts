@@ -94,6 +94,8 @@ export const nl = {
     whatYouGetTitle: "Alles in een volledige validatie",
     whatYouGetSub:
       "Geen vage score. Een volledig beslissingspakket vanaf {price} per idee.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "Hoe het werkt",
     howSub:
       "Van eerste omschrijving tot een beslissing waarop je kunt handelen, zonder meteen all-in te gaan.",

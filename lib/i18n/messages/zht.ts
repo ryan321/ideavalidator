@@ -89,6 +89,8 @@ export const zht = {
     whatYouGetEyebrow: "你將獲得",
     whatYouGetTitle: "完整驗證包含的全部內容",
     whatYouGetSub: "不是含糊的單一分數。從每個創意 {price} 起的完整決策包。",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "如何運作",
     howSub: "從第一次描述到可執行決策，無需一開始就全力押注。",
     how1Title: "描述創意",

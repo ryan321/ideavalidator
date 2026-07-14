@@ -94,6 +94,8 @@ export const it = {
     whatYouGetTitle: "Tutto in una validazione completa",
     whatYouGetSub:
       "Non un punteggio vago. Un pacchetto decisionale completo da {price} per idea.",
+    reportLabel: "Inside every report",
+    studioLabel: "In the studio, once you have it",
     howTitle: "Come funziona",
     howSub:
       "Dalla prima descrizione a una decisione su cui agire, senza andare all-in subito.",
