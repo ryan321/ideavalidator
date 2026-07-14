@@ -2602,23 +2602,6 @@ export default function IdeaWorkspace({
         )}
 
         {/* Alternate path — the non-primary fork (iterate vs field-test) */}
-        {hasValidate && iterateHint && !composerMode && !chatting && (
-          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border/80 bg-panel/40 px-3.5 py-2.5 text-sm">
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-              {t("workspaceExtra.also")}
-            </span>
-            <button
-              type="button"
-              onClick={iterateHint.onClick}
-              disabled={anyBusy || locked}
-              className="font-medium text-accent hover:underline disabled:opacity-50"
-            >
-              {iterateHint.label} →
-            </button>
-            <span className="text-xs text-muted">{iterateHint.detail}</span>
-          </div>
-        )}
-
         {/* Ask — Q&A only, never creates a version (inline below lg; sticky aside ≥lg) */}
         {chatting && !deskChat && (
           <div className="folio mb-5 border-accent2/30 p-5">{chatPanel(false)}</div>
@@ -3317,6 +3300,23 @@ export default function IdeaWorkspace({
             </div>
             {nextMoveHint && (
               <p className="mt-2 max-w-2xl text-xs leading-relaxed text-muted">{nextMoveHint}</p>
+            )}
+            {/* Alternate path — pairs with the primary CTA ("or, instead…"). */}
+            {iterateHint && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/60 pt-3 text-sm">
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+                  {t("workspaceExtra.also")}
+                </span>
+                <button
+                  type="button"
+                  onClick={iterateHint.onClick}
+                  disabled={anyBusy || locked}
+                  className="font-medium text-accent hover:underline disabled:opacity-50"
+                >
+                  {iterateHint.label} →
+                </button>
+                <span className="text-xs text-muted">{iterateHint.detail}</span>
+              </div>
             )}
           </div>
         )}
